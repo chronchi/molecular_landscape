@@ -28,6 +28,9 @@ format:
     theme: cosmo
     code-summary: "Show the code"
     code-tools: true
-    self-contained: true
   pdf:
     documentclass: scrreprt
+  docx:
+    toc: true
+    number-sections: true
+    highlight-style: github
