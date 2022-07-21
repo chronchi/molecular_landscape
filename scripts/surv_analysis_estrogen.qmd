@@ -1,1 +1,33 @@
-# Estrogen status is not dichotomous, rather continuous
+# Estrogen receptor status is continuous, not dichotomous
+
+Currently in the clinics estrogen receptor (ER) status is treated 
+as dichotomous condition. Either a breast cancer (BC) is ER positive (ER+) or
+ER negative (ER-). The threshold for ER+ cells usually is 1% or 10% of the 
+cells positive in a IHC staining. The idea is that ER+ BC patients
+will receive endocrine therapy, usually tamoxifen or some aromatase inhibitor,
+for treatment. The problem is not all patients respond the same to these
+drugs and they also have different proportions of ER+ cells. 
+
+In this document we show how leveraging molecular information distinguishes
+ER+ BC patients and how one should look more carefully on ER status. In order
+to do this, estrogen related signatures: estrogen response early and late from
+MSigDB[@Subramanian2005] and $SET_{ER/PR}$[@Sinn2019], 
+are used to calculate scores for each
+BC patient. These scores then are used to calculate associations with survival
+analysis. When performing cox regression, we try to adjust for sensible 
+covariates in order to reduce bias. Even though we are adjusting, it is 
+very difficult to know if a covariate is missing in the regression. Thus,
+care should be always taken when interpreting these results.
+
+This chapter is structure in the following way. First section corresponds
+to loading the datasets and then filtering them. Estrogen signatures scores
+are calculated using GSVA [@Hnzelmann2013]. Given the scores, cox regression
+can be performed adjusting for clinical variables. After this the Hazard
+ratios can be computed and interpreted along with their confidence
+intervals.
+
+## Loading and filtering the datasets
+
+## Calculating scores
+
+## Survival analysis

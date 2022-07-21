@@ -22,7 +22,6 @@ execute:
   error: false
   freeze: true  # never re-render during project render
 
-
 format:
   html:
     theme: cosmo
