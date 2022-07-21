@@ -1,0 +1,4 @@
+# Preface {.unnumbered}
+
+These are the scripts and prose used to generate the analysis and images
+for the manuscript.

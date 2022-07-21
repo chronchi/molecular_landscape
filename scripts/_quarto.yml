@@ -1,0 +1,32 @@
+project:
+  type: book
+  output-dir: "../results/book"
+
+book:
+  title: > 
+    Molecular landscape: a new framework for 
+    personalized medicine.
+  author: "Carlos Ronchi"
+  date: "2022.07.21"
+  chapters:
+    - index.qmd
+    - surv_analysis_estrogen.qmd
+    - references.qmd
+
+bibliography: references.bib
+
+execute: 
+  eval: true
+  warning: false
+  echo: false
+  error: false
+  freeze: true  # never re-render during project render
+
+
+format:
+  html:
+    theme: cosmo
+    code-summary: "Show the code"
+    code-tools: true
+  pdf:
+    documentclass: scrreprt
