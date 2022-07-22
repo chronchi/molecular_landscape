@@ -704,7 +704,7 @@ formulas_survival <- c(
 type_survival <- c("os", "rfs")
 
 survival_results <- sapply(
-    type_survival,
+    c("os", "rfs"),
     function(type_analysis, datasets, name_scores, formulas){
         mapply(
             function(
@@ -728,7 +728,7 @@ survival_results <- sapply(
                                 x = FALSE
                             )
                         },
-                        dataset = dataset,
+                        col_data = colData(dataset) %>% data.frame,
                         formula = formulas[
                             grepl(
                                 paste(type_analysis, name_dataset, sep = "_"),
@@ -774,12 +774,6 @@ survival_results$rfs <- survival_results$rfs[
 # the solution is to basically clear the environment from the terms 
 # object
 
-job::job({
-    saveRDS(
-        survival_results,
-        "../results/rds_files/surv_analysis_estrogen/survival_results.rds"
-    )
-})
 
 # we now proceed to prepare the plots. since the survival result is 
 # actually a large file, it is best to do all the plottings, save
