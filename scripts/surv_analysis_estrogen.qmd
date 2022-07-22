@@ -28,6 +28,805 @@ intervals.
 
 ## Loading and filtering the datasets
 
+The preprocessing of the datasets is described in the website below:
+> https://chronchi.github.io/transcriptomics
+
+To check the code used here either click in the code button on the top right
+part of the page or check the github page 
+(github.com/chronchi/molecular_landscape).
+
+The TCGA, METABRIC and SCANB cohorts are used in this section here. They
+are the biggest cohort of Breast cancer patients in the world. Each datasets
+has an overall equal distribution of ER+ and ER- patients and similar age
+distribution. 
+
+```{r}
+# first load the packages
+library(tidyverse)
+
+library(ggplot2)
+library(forestplot)
+
+library(SummarizedExperiment)
+library(survival)
+library(msigdbr)
+library(GSVA)
+library(uwot)
+
+source("utils.R")
+```
+
+```{r}
+#| eval: false
+# load the different datasets. we will do the analysis 
+# and save the intermediate results so loading all the dataset again
+# is not necessary
+tcga <- readRDS("../data/tcga_brca_tumor_filtered.rds")
+metabric <- readRDS("../data/metabric_filtered.rds")
+scanb <- readRDS("../data/scanb.rds")
+
+# we want to have common variables across datasets. so for tcga
+# we convert the ensembl ids to gene symbol in the rownames,
+# for scanb and metabric we perform a heavier filtering as well.
+# also for the clinical data we want to have common column names,
+# such as for pam50, events, time to event, tumor stage,
+# tumor grade and others.
+
+# first convert ensembl to symbol. this information is readily available
+# from the tcga filtered data. we just need to remove duplicated symbols
+# first.
+symbol_names <- mcols(rowRanges(tcga)) %>% 
+    data.frame %>% 
+    dplyr::filter(!duplicated(external_gene_name))
+
+tcga <- tcga[symbol_names$ensembl_gene_id, ]
+rownames(tcga) <- symbol_names$external_gene_name
+
+# we now filter down the list of genes from metabric and scanb.
+
+# remove first genes with na in the table
+keep_genes <- rowMeans(assay(metabric, "median_intensity") > 5.5)
+keep_genes <- keep_genes > 0.5 %>% unname %>% unlist
+keep_genes <- which(is.na(keep_genes))
+metabric <- metabric[-keep_genes, ]
+# now remove genes with low expression across samples
+keep_genes <- rowMeans(assay(metabric, "median_intensity") > 5.5)
+keep_genes <- keep_genes > 0.3
+metabric <- metabric[keep_genes, ]
+
+# convert back to non log values and then filter.
+fpkm_scanb <- 2^assay(scanb, "logFPKM")
+prop_expressed <- rowMeans(fpkm_scanb > 1)
+genes_to_keep <- prop_expressed > 0.3
+scanb <- scanb[genes_to_keep, ]
+
+# we now convert the clinical data to some common names and values
+tcga <- tcga[, tcga$er_status %in% c("Positive", "Negative")]
+tcga$er_status <- c("Positive" = "pos", "Negative" = "neg")[tcga$er_status]
+tcga$pam50 <- tolower(tcga$molecular_subtype)
+tcga$os_days <- tcga$time
+tcga$os_months <- tcga$os_days/30
+tcga$os_status <- tcga$status
+tcga$tumor_stage <- tolower(tcga$paper_pathologic_stage)
+tcga$age <- tcga$age_at_index
+tcga$sample_name <- colnames(tcga)
+node_stage <- tcga$ajcc_pathologic_n
+tcga$node_stage <- ifelse(
+    grepl("^N0", node_stage),
+    "N0",
+    ifelse(
+        grepl("^N1", node_stage),
+        "N1",
+        ifelse(
+            grepl("^N2", node_stage),
+            "N2",
+            ifelse(
+                grepl("^N3", node_stage),
+                "N3",
+                "NX"
+            ) 
+        )
+    )
+)
+
+metabric <- metabric[, metabric$ER_IHC %in% c("Positve", "Negative")]
+metabric$er_status <- c("Positve" = "pos", "Negative" = "neg")[metabric$ER_IHC]
+metabric$pam50 <- tolower(metabric$CLAUDIN_SUBTYPE)
+metabric$os_months <- metabric$OS_MONTHS
+metabric$rfs_months <- metabric$RFS_MONTHS
+metabric$os_status <- substr(metabric$OS_STATUS, 1, 1) %>% as.numeric
+metabric$os_status <- metabric$os_status + 1
+metabric$rfs_status <- substr(metabric$RFS_STATUS, 1, 1) %>% as.numeric
+metabric$rfs_status <- metabric$rfs_status + 1
+metabric$age <- metabric$AGE_AT_DIAGNOSIS
+metabric$npi <- metabric$NPI 
+metabric$NPI <- NULL
+metabric$sample_name <- colnames(metabric)
+
+scanb <- scanb[, scanb$ER_1perc %in% c("NEG", "POS")]
+scanb$er_status <- tolower(scanb$ER_1perc)
+scanb$pam50 <- tolower(scanb$PAM50)
+scanb$PAM50 <- NULL
+scanb$nhg <- scanb$NHG
+scanb$NHG <- NULL
+scanb$age <- scanb$Age
+scanb$os_months <- scanb$OS_months
+scanb$os_status <- scanb$OS_event + 1
+scanb$tumor_size <- scanb$TumorSize
+scanb$tumor_stage <- scanb$TStage
+scanb$node_group <- scanb$Node_group
+scanb$Node_group <- NULL
+scanb$sample_name <- colnames(scanb)
+node_stage <- scanb$node_group
+scanb$node_stage <- ifelse(
+    grepl("1to3", node_stage),
+    "N1",
+    ifelse(
+        grepl("4toX", node_stage),
+        "N2and3",
+        ifelse(
+            grepl("NodeNegative", node_stage),
+            "N0",
+            "NX"
+        )
+    )
+)
+    
+saveRDS(
+    list(tcga = tcga, scanb = scanb, metabric = metabric),
+    "../results/rds_files/surv_analysis_estrogen/datasets.rds"
+)
+```
+
+```{r}
+datasets <- readRDS("../results/rds_files/surv_analysis_estrogen/datasets.rds")
+
+# these are some global parameters for each dataset. important for
+# when calculating scores and embeddings.
+which_exp <- list(
+    tcga = "logFPKM_TMM",
+    scanb = "logFPKM",
+    metabric = "median_intensity"
+)
+```
+
+## UMAP projection of the datasets
+
+The plots below show how each patient is different in a molecular sense, 
+and even inside each molecular subtype there are some differences. This
+indicates how different patients, at least molecularly. We only do the umap
+of samples that have a PAM50 molecular subtype assigned.
+
+```{r}
+#| eval: false
+
+# first one uses the library uwot to calculate the umap projection.
+# using uwot is better than umap as it allows you to make parallel computations
+# in a reproducible way.
+umap_projections <- mapply(
+    function(dataset, name_assay){
+        
+        cat("Assay being used:", name_assay, "\n")
+        
+        samples_to_use <- colData(dataset) %>% data.frame %>%
+            dplyr::filter(pam50 %in% 
+                c("basal", "her2", "luma", "lumb", "normal")
+            ) %>% 
+            dplyr::pull(sample_name)
+        
+        # select most variable genes first
+        df <- assay(dataset[, samples_to_use], name_assay) %>% as.matrix
+        df <- df[order(rowVars(df), decreasing = TRUE)[1:1000], ]
+        df <- t(df)
+        
+        uwot::umap(
+            df,
+            n_threads = 20,
+            n_sgd_threads = "auto", 
+            batch = TRUE
+        )
+    },
+    datasets,
+    which_exp,
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+
+saveRDS(
+    umap_projections, 
+    "../results/rds_files/surv_analysis_estrogen/umap_projections.rds"
+)
+```
+
+```{r}
+umap_projections <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/umap_projections.rds"
+)
+```
+
+
+```{r, fig.width=10, fig.height=20}
+plots_umap <- mapply(
+    plot_umap,
+    dataset = datasets,
+    umap_projection = umap_projections,
+    name_dataset = names(datasets),
+    MoreArgs = list(color_by = "pam50", point_size = 2, base_size = 20),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+
+cowplot::plot_grid(plotlist = plots_umap, ncol = 1)
+```
+
+From the plots above we see a distinction of the different molecular subtypes.
+
 ## Calculating scores
 
+In order to calculate the scores, the package `msigdb` is used to load
+the hallmark data into R. The $SET_{ER/PR}$ is made of the following genes:
+
+```{r}
+# data is available in the supplementary material of the paper 
+seterpr <- read.table("../data/seterpr.tsv", header = TRUE)
+seterpr$is_target <- c(rep("yes", 18), rep("no", 10))
+seterpr %>% kableExtra::kbl() %>%
+    kableExtra::kable_classic(full_width = FALSE)
+```
+
+The first 18 genes are considered to be the target genes, the last 10 genes
+are the genes used for reference. According to their paper, the score is 
+calculated in the following way:
+
+$$
+SET_{ER/PR} = \sum_{i = 1}^{18} \frac{T_i}{18} - \sum_{j=1}^{10}\frac{R_j}{10} + 2
+$$
+
+Where $T_i$ are the expression levels of target genes and $R_j$ are the
+expression levels of the reference genes. Here we use GSVA to calculate
+the scores, even when using their genes. 
+
+```{r}
+#| eval: false
+all_genes <- sapply(datasets, rownames) %>% unlist %>% unique
+# now load the msigdbr and concatenate with set erpr
+gene_sets <- msigdbr::msigdbr(species = "Homo sapiens", category = "H") %>%
+    dplyr::filter(gs_name %in% 
+        c("HALLMARK_ESTROGEN_RESPONSE_EARLY", "HALLMARK_ESTROGEN_RESPONSE_LATE")
+    ) %>% 
+    dplyr::select(gs_name, gene_symbol) %>%
+    dplyr::bind_rows(
+        .,
+        seterpr %>% dplyr::filter(is_target == "yes") %>%
+            dplyr::select(ID) %>%
+            dplyr::rename(gene_symbol = ID) %>%
+            dplyr::mutate(gs_name = "SET_ERPR")
+    ) %>%
+    dplyr::bind_rows(
+        .,
+        data.frame(gene_symbol = sample(all_genes, 200), gs_name = "random_200")
+    ) %>%
+    dplyr::bind_rows(
+        .,
+        data.frame(gene_symbol = sample(all_genes, 18), gs_name = "random_18")
+    )
+
+saveRDS(gene_sets, "../results/rds_files/surv_analysis_estrogen/gene_sets.rds")
+```
+
+Before we calculate any score, let us check the number of genes available
+for each pathway in each dataset. This is important, in other to have
+robust scores, most of the genes should be available in the datasets. We also
+add signatures of 18 and 200 random genes for control. 
+
+```{r}
+gene_sets <- readRDS("../results/rds_files/surv_analysis_estrogen/gene_sets.rds")
+```
+
+```{r}
+genes_each_dataset <- lapply(datasets, rownames)
+genes_intersection <- sapply(
+    gene_sets$gs_name %>% unique,
+    function(set_name, gene_sets, genes_each_dataset){
+        lapply(
+            genes_each_dataset,
+            intersect,
+            y = gene_sets %>% 
+                dplyr::filter(gs_name == set_name) %>%
+                dplyr::pull(gene_symbol)
+        )
+    },
+    gene_sets = gene_sets,
+    genes_each_dataset = genes_each_dataset,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+sapply(genes_intersection, function(x) sapply(x, length)) %>% t %>%
+    data.frame %>%
+    kableExtra::kbl() %>%
+    kableExtra::kable_classic(full_width = FALSE)
+```
+
+Most of the genes are available in all datasets. Especially the SET
+gene set is available in all of them, which is very good. Out of the
+random 18 subset, only half of genes in average are available.
+
+```{r}
+#| eval: false
+which_exp <- list(
+    tcga = "logFPKM_TMM",
+    scanb = "logFPKM",
+    metabric = "median_intensity"
+)
+
+gene_sets <- sapply(
+    gene_sets$gs_name %>% unique,
+    function(x, gene_sets) gene_sets %>% dplyr::filter(gs_name == x) %>% 
+        dplyr::pull(gene_symbol),
+    gene_sets = gene_sets,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+gsva_scores <- mapply(
+    function(sum_exp, which_assay, gene_sets){
+        GSVA::gsva(
+            expr = as.matrix(assay(sum_exp, which_assay)),
+            gset.idx.list = gene_sets, 
+            parallel.sz = 20
+        )
+    },
+    sum_exp = datasets,
+    which_assay = which_exp,
+    MoreArgs = list(gene_sets = gene_sets),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+)
+
+saveRDS(gsva_scores, "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds")
+```
+
+```{r}
+gsva_scores <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds"
+)
+
+datasets <- mapply(
+    function(gsva_score, dataset){
+        colData(dataset)[, rownames(gsva_score)] <- t(gsva_score)
+        dataset
+    },
+    gsva_scores,
+    datasets,
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+```
+
+For each dataset one can plot the differences in scores for ER+ and ER- BC
+patients. This should be already an indication that the scores are meaningful.
+The next sections shows the results for each dataset individually.
+
+```{r}
+plot_scores <- list()
+```
+
+::: {.panel-tabset}
+
+### TCGA
+
+```{r}
+which_dataset <- "tcga"
+plot_scores[[which_dataset]] <- mapply(
+    plot_scores_vs_clinics,
+    which_score = rownames(gsva_scores[[which_dataset]]),
+    title = rownames(gsva_scores[[which_dataset]]),
+    MoreArgs = list(
+        sum_exp = datasets[[which_dataset]],
+        clinical_variable = "er_status", 
+        color_by = "pam50",
+        base_size = 10,
+        point_size = 0.5
+    ),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+```
+
+```{r, fig.width=10, fig.height=8}
+cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
+```
+
+### METABRIC
+
+```{r}
+which_dataset <- "metabric"
+plot_scores[[which_dataset]] <- mapply(
+    plot_scores_vs_clinics,
+    which_score = rownames(gsva_scores[[which_dataset]]),
+    title = rownames(gsva_scores[[which_dataset]]),
+    MoreArgs = list(
+        sum_exp = datasets[[which_dataset]],
+        clinical_variable = "er_status", 
+        color_by = "pam50",
+        base_size = 10,
+        point_size = 0.5
+    ),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+```
+
+```{r, fig.width=10, fig.height=8}
+cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
+```
+
+### SCANB
+
+```{r}
+which_dataset <- "scanb"
+plot_scores[[which_dataset]] <- mapply(
+    plot_scores_vs_clinics,
+    which_score = rownames(gsva_scores[[which_dataset]]),
+    title = rownames(gsva_scores[[which_dataset]]),
+    MoreArgs = list(
+        sum_exp = datasets[[which_dataset]],
+        clinical_variable = "er_status", 
+        color_by = "pam50",
+        base_size = 10,
+        point_size = 0.5
+    ),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+```
+
+```{r, fig.width=10, fig.height=8}
+cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
+```
+
+:::
+
+From the plots above one can conclude that three different estrogen pathways
+capture the differences between ER status and also molecular subtypes.
+There are two plots with random genes for control and we can see that
+there is no difference between the ER status when using those gene sets.
+
+Another way to look at the data is to plot by molecular subtype instead
+of ER status.
+
+::: {.panel-tabset}
+
+### TCGA
+
+```{r}
+clinical_variable <- "pam50"
+color_by <- "er_status"
+```
+
+
+```{r}
+which_dataset <- "tcga"
+plot_scores[[which_dataset]] <- mapply(
+    plot_scores_vs_clinics,
+    which_score = rownames(gsva_scores[[which_dataset]]),
+    title = rownames(gsva_scores[[which_dataset]]),
+    MoreArgs = list(
+        sum_exp = datasets[[which_dataset]],
+        clinical_variable = clinical_variable, 
+        color_by = color_by,
+        base_size = 10,
+        point_size = 0.5
+    ),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+```
+
+```{r, fig.width=10, fig.height=8}
+cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
+```
+
+### METABRIC
+
+```{r}
+which_dataset <- "metabric"
+plot_scores[[which_dataset]] <- mapply(
+    plot_scores_vs_clinics,
+    which_score = rownames(gsva_scores[[which_dataset]]),
+    title = rownames(gsva_scores[[which_dataset]]),
+    MoreArgs = list(
+        sum_exp = datasets[[which_dataset]],
+        clinical_variable = clinical_variable, 
+        color_by = color_by,
+        base_size = 10,
+        point_size = 0.5
+    ),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+```
+
+```{r, fig.width=10, fig.height=8}
+cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
+```
+
+### SCANB
+
+```{r}
+which_dataset <- "scanb"
+plot_scores[[which_dataset]] <- mapply(
+    plot_scores_vs_clinics,
+    which_score = rownames(gsva_scores[[which_dataset]]),
+    title = rownames(gsva_scores[[which_dataset]]),
+    MoreArgs = list(
+        sum_exp = datasets[[which_dataset]],
+        clinical_variable = clinical_variable, 
+        color_by = color_by,
+        base_size = 10,
+        point_size = 0.5
+    ),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+```
+
+```{r, fig.width=10, fig.height=8}
+cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
+```
+
+:::
+
+In all cohorts the luminal A and B patients have a similar score. Also
+the distinction is very clear between the basal and HER2-like patients
+versus luminal A and B.
+
+One question that usually arises when calculating scores from gene sets is
+if proliferation associated genes (PAG) are driving the distinctions. 
+These signatures are highly curated and they have close or no PAGs. 
+Therefore, the scores are not affected by PAGs and they really reflect the
+biology.
+
+In the next section we will show how these scores are also prognostic for
+ER+ BC patients.
+
 ## Survival analysis
+
+Since the scores are continuous variables and they are already scaled due
+to the output of GSVA, cox regression [@Cox1972] can be used. The advantages 
+of using cox regression is that one can control for other variables. You might
+ask, why should one control for clinical variables? One of the reasons is 
+because the data being dealt here is observational data. There are several
+confounders, for example, a score might be up because patients with a higher
+tumor grade have higher expression of some genes. Thus the score is confounded
+by the tumor grade and the interpretation changes. 
+
+There are limitations still when dealing with observational data. A strong 
+hypothesis for performing survival analysis with observational data is that
+we have measured all the confounder variables. This is pretty strong and in
+practice we never know if a confounder is missing or not. For a more
+thorough overview of the causal framework for observational data, check
+the books [@Gelman2020-uh; @McElreath2020-jn].
+
+All the cohorts have a different set of clinical variables available. Therefore,
+the regression will be done by adjusting a different set of variables. Below
+is the description of the variables used for each cohort.^[This [webpage](https://web.archive.org/web/20220630083539/https://www.cancer.net/cancer-types/breast-cancer/stages) explains with more details the different tumor stages and how
+BC are classified.]
+
+- **Age**: age is one of the most important factors to adjust, specially in
+breast cancer. This covariate is used for all cohorts.
+- **NPI**: the Nottingham prognostic index scores each tumor
+based on tumor grade, tumor size and number of lymph nodes. Only METABRIC
+has this information. 
+- **Tumor Size**: as name describes. Only SCANB has this information. 
+- **Tumor Stage**: tumors are usually described in terms of stage, it reflects
+the tumor size and location. SCANB and TCGA have this information.
+- **Node Stage**: similar to tumor stage, but encodes the number of lymph nodes
+where breast cancer cells can be found. SCANB and TCGA have this information.
+
+Thus the models we are going to use for the survival analysis of each dataset
+is shown below.
+
+- TCGA: `~ score + age + node_stage + tumor_stage`,
+- SCANB: `~ score + age + node_stage + tumor_stage`,
+- METABRIC: `~ score + age + NPI`,
+
+where score is one of the scores calculated earlier with GSVA. Note here
+that since each node stage and tumor stage have sub classifications they 
+will be grouped together, otherwise there will be too many variables with
+few points. We will also subselect specific tumor stages for TCGA and SCANB,
+since there are very few patients with tumor stage 4.
+
+To be very specific in the survival analysis, only endocrine treated patients
+should be used in the analysis, as that is what are interested in. METABRIC
+and SCANB has this kind of annotation, but TCGA not. So the survival analysis
+on SCANB and METABRIC will be performed on endocrine only treated, ER+ BC
+patients. On TCGA, to mitigate this effect, we subselect only luminal A and 
+B patients, and we keep in mind that they might have been treated with
+chemotherapy as well. Moreover, in Sweden the guidelines for BC treatment is to
+use 10% as the threshold for ER status.
+
+The table below shows the number of patients for each cohort.
+
+```{r}
+tcga_samples <- colData(datasets$tcga) %>% data.frame %>%
+    dplyr::filter(
+        pam50 %in% c("luma", "lumb") &
+        node_stage != "NX" &
+        !(tumor_stage %in% c("stage_iv", "na")) & 
+        er_status == "pos"
+    ) %>% 
+    dplyr::pull(sample_name)
+
+scanb_samples <- colData(datasets$scanb) %>% data.frame %>%
+    dplyr::filter(
+        node_stage != "NX" &
+        !(tumor_stage %in% c("T4", "Tis", "TX")) & 
+        ER_10perc == "POS" & 
+        Adjuvant_Endo_only == 1
+    ) %>% 
+    dplyr::pull(sample_name)
+
+metabric_samples <- colData(datasets$metabric) %>% data.frame %>%
+    dplyr::filter(
+        CHEMOTHERAPY == "NO" &
+        er_status == "pos" & 
+        HORMONE_THERAPY == "YES"
+    ) %>% 
+    dplyr::pull(sample_name)
+
+data.frame(
+    cohort = c("TCGA", "SCANB", "METABRIC"),
+    number_patients = c(
+        length(tcga_samples),
+        length(scanb_samples),
+        length(metabric_samples)
+    )
+) %>% kableExtra::kbl() %>%
+    kableExtra::kable_classic(full_width = FALSE)
+```
+
+```{r}
+#| eval: false
+
+# run the survival analysis for each dataset with its own formula.
+# we start by defining the base formulas, because later we sapply and 
+# add the scores. this way if we need to change the formulas, we only
+# need to change once and all together.
+formulas_survival <- c(
+    "os_tcga" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
+    "rfs_metabric" = "Surv(rfs_months, os_status) ~ age + npi"
+)
+
+type_survival <- c("os", "rfs")
+
+survival_results <- sapply(
+    type_survival,
+    function(type_analysis, datasets, name_scores, formulas){
+        mapply(
+            function(
+                dataset, name_dataset, name_scores, formulas, type_analysis
+            ){
+                
+                if (type_analysis == "rfs" & name_dataset != "metabric"){
+                    return()
+                } else { 
+                
+                    sapply(
+                        name_scores,
+                        function(name_score, col_data, formula){
+                            
+                            survival::coxph(
+                                as.formula(
+                                    paste(formula, name_score, sep = "+")
+                                ),
+                                data = col_data, 
+                                y = FALSE,
+                                x = FALSE
+                            )
+                        },
+                        dataset = dataset,
+                        formula = formulas[
+                            grepl(
+                                paste(type_analysis, name_dataset, sep = "_"),
+                                names(formulas)
+                            )
+                        ],
+                        USE.NAMES = TRUE,
+                        simplify = FALSE
+                    )
+                }
+            },
+            dataset = datasets,
+            name_dataset = names(datasets),
+            MoreArgs = list(
+                formulas = formulas, name_scores = name_scores,
+                type_analysis = type_analysis
+            ),
+            USE.NAMES = TRUE,
+            SIMPLIFY = FALSE
+        )
+    },
+    datasets = mapply(
+        function(dataset, patients) dataset[, patients],
+        dataset = datasets,
+        patients = list(tcga_samples, scanb_samples, metabric_samples),
+        USE.NAMES = TRUE,
+        SIMPLIFY = FALSE
+    ),
+    name_scores = rownames(gsva_scores[[1]]),
+    formulas = formulas_survival,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+survival_results$rfs <- survival_results$rfs[
+    !sapply(survival_results$rfs, is.null)
+]
+
+# we cannot simply save the models as each model has some 
+# environment variables, which adds up to over 20GB. 
+# check this stack exchange thread to read more on it:
+# https://stackoverflow.com/questions/42230920/saverds-inflating-size-of-object/52372480
+# the solution is to basically clear the environment from the terms 
+# object
+
+job::job({
+    saveRDS(
+        survival_results,
+        "../results/rds_files/surv_analysis_estrogen/survival_results.rds"
+    )
+})
+
+# we now proceed to prepare the plots. since the survival result is 
+# actually a large file, it is best to do all the plottings, save
+# them in other rds/pdf files and then use on the quarto markdown.
+# otherwise it is too slow to render the book. 
+# the same is true for the statistics and coefficients available.
+names_signatures <- c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early",
+    "HALLMARK_ESTROGEN_RESPONSE_LATE" = "Estrogen Late",
+    "SET_ERPR" = "SET ER/PR",
+    "random_200" = "random 200 genes",
+    "random_18" = "random 18 genes"
+)
+
+names_coefficients <- list(
+    metabric = c(
+        "age" = "Age", 
+        "npi" = "NPI", 
+        names_signatures
+    ),
+    scanb = c(
+        "age" = "age",
+        "tumor_stage" = "Tumor Stage",
+        "node_stage" = "Node Stage",
+        names_signatures
+    ),
+    tcga = c(
+        "age" = "age",
+        "tumor_stage" = "Tumor Stage",
+        "node_stage" = "Node Stage",
+        names_signatures
+    )
+)
+
+forest_plot_fits(
+    fit = survival_results$os$metabric, 
+    cohort = "metabric", 
+    names_coefficients = names_coefficients,
+    patients = "ET only, ER+ BC",
+    type_survival = "OS",
+    clip = c(0.1, 2)
+)
+```
+
+```{r}
+survival_results <- saveRDS(
+    "../results/rds_files/surv_analysis_estrogen/survival_results.rds"
+)
+```
+

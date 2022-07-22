@@ -27,6 +27,7 @@ format:
     theme: cosmo
     code-summary: "Show the code"
     code-tools: true
+    reference-location: margin
   pdf:
     documentclass: scrreprt
   docx:
