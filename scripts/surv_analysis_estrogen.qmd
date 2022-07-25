@@ -388,6 +388,8 @@ saveRDS(gsva_scores, "../results/rds_files/surv_analysis_estrogen/gsva_scores.rd
 ```
 
 ```{r}
+#| eval: false
+
 gsva_scores <- readRDS(
     "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds"
 )
@@ -402,7 +404,23 @@ datasets <- mapply(
     USE.NAMES = TRUE,
     SIMPLIFY = FALSE
 )
+
+saveRDS(
+    datasets,
+    "../results/rds_files/surv_analysis_estrogen/datasets_with_scores.rds"
+)
 ```
+
+```{r}
+gsva_scores <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds"
+)
+
+datasets <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/datasets_with_scores.rds"
+)
+```
+
 
 For each dataset one can plot the differences in scores for ER+ and ER- BC
 patients. This should be already an indication that the scores are meaningful.
@@ -772,7 +790,8 @@ survival_results$rfs <- survival_results$rfs[
 # check this stack exchange thread to read more on it:
 # https://stackoverflow.com/questions/42230920/saverds-inflating-size-of-object/52372480
 # the solution is to basically clear the environment from the terms 
-# object
+# object. since it is pretty fast to run the survival analysis
+# we will not save the objects.
 
 
 # we now proceed to prepare the plots. since the survival result is 
@@ -796,26 +815,66 @@ names_coefficients <- list(
     ),
     scanb = c(
         "age" = "age",
-        "tumor_stage" = "Tumor Stage",
-        "node_stage" = "Node Stage",
-        names_signatures
+        names_signatures,
+        "node_stageN1" = "N1",
+        "node_stageN2and3" = "N2 and N3",
+        "tumor_stageT1" = "T1",
+        "tumor_stageT2" = "T2",
+        "tumor_stageT3" = "T3"
     ),
     tcga = c(
         "age" = "age",
         "tumor_stage" = "Tumor Stage",
-        "node_stage" = "Node Stage",
-        names_signatures
+        names_signatures,
+        "node_stageN1" = "N1",
+        "node_stageN2" = "N2",
+        "node_stageN3" = "N3",
+        "tumor_stagestage_ii" = "T2",
+        "tumor_stagestage_iii" = "T3"
     )
 )
 
-forest_plot_fits(
-    fit = survival_results$os$metabric, 
-    cohort = "metabric", 
-    names_coefficients = names_coefficients,
-    patients = "ET only, ER+ BC",
-    type_survival = "OS",
-    clip = c(0.1, 2)
+patients <- list(
+    tcga = "Lum A/B, ER+ BC",
+    scanb = "Endo Only, ER+ BC",
+    metabric = "Endo Only, ER+ BC"
 )
+
+forest_plots <- mapply(
+    function(fits, type_analysis){
+        mapply(
+            function(cohort_fits, name_cohort, type_analysis){
+                lapply(
+                    cohort_fits,
+                    forest_plot_fits,
+                    cohort = name_cohort,
+                    names_coefficients = names_coefficients,
+                    type_survival = toupper(type_analysis),
+                    patients = patients[[name_cohort]],
+                    clip = c(0.1, 2)
+                )
+            },
+            cohort_fits = fits,
+            name_cohort = names(fits),
+            MoreArgs = list(type_analysis = type_analysis),
+            USE.NAMES = TRUE,
+            SIMPLIFY = FALSE
+        )
+    },
+    survival_results,
+    names(survival_results),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+
+saveRDS(
+    forest_plots,
+    "../results/rds_files/surv_analysis_estrogen/forest_plots.rds"
+)
+
+# and now we fetch the tables that will be used later on including the
+# confidence intervals and other parameters from the fit
+
 ```
 
 ```{r}
