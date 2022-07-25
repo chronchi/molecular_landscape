@@ -844,15 +844,22 @@ forest_plots <- mapply(
     function(fits, type_analysis){
         mapply(
             function(cohort_fits, name_cohort, type_analysis){
-                lapply(
-                    cohort_fits,
+                mapply(
                     forest_plot_fits,
-                    cohort = name_cohort,
-                    names_coefficients = names_coefficients,
-                    type_survival = toupper(type_analysis),
-                    patients = patients[[name_cohort]],
-                    clip = c(0.1, 2)
+                    fit = cohort_fits,
+                    name_signature = names(cohort_fits),
+                    MoreArgs = list(
+                        cohort = name_cohort,
+                        names_coefficients = names_coefficients,
+                        type_survival = toupper(type_analysis),
+                        patients = patients[[name_cohort]],
+                        clip = c(0.1, 2),
+                        width = 6.5, 
+                        height = 3, 
+                        path_to_save = "../results/plots/surv_analysis_estrogen"
+                    )
                 )
+            
             },
             cohort_fits = fits,
             name_cohort = names(fits),
@@ -867,6 +874,10 @@ forest_plots <- mapply(
     SIMPLIFY = FALSE
 )
 
+# all forest plots are saved as a pdf in the 
+# results/plots/surv_analysis_estrogen folder and
+# as a rds file in the folder below.
+
 saveRDS(
     forest_plots,
     "../results/rds_files/surv_analysis_estrogen/forest_plots.rds"
@@ -874,12 +885,34 @@ saveRDS(
 
 # and now we fetch the tables that will be used later on including the
 # confidence intervals and other parameters from the fit
+tables_survival <- lapply(
+    survival_results, 
+    function(x) 
+        lapply(
+            x,
+            function(y)
+                lapply(
+                    y,
+                    function(z) broom::tidy(z)
+                ) %>% dplyr::bind_rows(.id = "score")
+        ) %>% dplyr::bind_rows(.id = "cohort")
+) %>% dplyr::bind_rows(.id = "type_analysis") %>%
+    dplyr::mutate(HR = exp(estimate))
 
+write.csv(
+    tables_survival,
+    "../results/tables/surv_analysis_estrogen/survival_results.csv",
+    row.names = FALSE
+)
 ```
 
 ```{r}
-survival_results <- saveRDS(
-    "../results/rds_files/surv_analysis_estrogen/survival_results.rds"
+tables_survival <- read.csv(
+    "../results/tables/surv_analysis_estrogen/survival_results.csv"
+)
+
+forest_plots <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/forest_plots.rds"
 )
 ```
 
