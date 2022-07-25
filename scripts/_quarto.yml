@@ -20,7 +20,7 @@ execute:
   warning: false
   echo: false
   error: false
-  freeze: true  # never re-render during project render
+  freeze: auto # re-render when source code changes
 
 format:
   html:
@@ -34,3 +34,6 @@ format:
     toc: true
     number-sections: true
     highlight-style: github
+    
+rendering:
+  keep-md: true

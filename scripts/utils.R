@@ -158,13 +158,6 @@ forest_plot_fits <- function(
         base_data
     )
     
-    filename <- paste0(
-        path_to_save, "/",
-        cohort, "_", type_survival,
-        "_", name_signature, ".pdf"
-    ) 
-    
-    
     forest_plot <- output_df %>% forestplot::forestplot(
         labeltext = c(coefficient, HR), 
         hrzl_lines = list(
@@ -190,7 +183,27 @@ forest_plot_fits <- function(
         ...
     )
     
-    pdf(file = filename, width = width, height = height)
+    filename <- paste0(
+        path_to_save, "/", c("png", "pdf"), "/",
+        cohort, "_", type_survival,
+        "_", name_signature
+    )
+    
+    
+    # note that pdf and png have different arguments. the default
+    # unit for pdf is inches and for png is pixels. for png when
+    # specifying the unit, if inches, then specify also resolution. 
+    pdf(file = paste0(filename[2], ".pdf"), width = width, height = height)
+    plot(forest_plot)
+    dev.off()
+     
+    png(
+        filename = paste0(filename[1], ".png"), 
+        width = width, 
+        height = height,
+        units = "in", 
+        res = 300
+    )
     plot(forest_plot)
     dev.off()
     

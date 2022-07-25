@@ -46,6 +46,8 @@ library(tidyverse)
 
 library(ggplot2)
 library(forestplot)
+library(ggplotify)
+library(patchwork)
 
 library(SummarizedExperiment)
 library(survival)
@@ -244,19 +246,35 @@ umap_projections <- readRDS(
 )
 ```
 
-
 ```{r, fig.width=10, fig.height=20}
 plots_umap <- mapply(
     plot_umap,
-    dataset = datasets,
+    sum_exp = datasets,
     umap_projection = umap_projections,
-    name_dataset = names(datasets),
+    cohort = names(datasets),
     MoreArgs = list(color_by = "pam50", point_size = 2, base_size = 20),
     USE.NAMES = TRUE,
     SIMPLIFY = FALSE
 )
 
 cowplot::plot_grid(plotlist = plots_umap, ncol = 1)
+```
+
+```{r}
+#| eval: false
+
+width_plot <- 12
+height_plot <- width_plot/1.6
+a <- mapply(
+    ggsave,
+    plot = plots_umap,
+    filename = paste0(
+        "../results/plots/surv_analysis_estrogen/umap/",
+        names(plots_umap),
+        ".pdf"
+    ),
+    MoreArgs = list(width = width_plot, height = height_plot)
+)
 ```
 
 From the plots above we see a distinction of the different molecular subtypes.
@@ -609,6 +627,7 @@ biology.
 In the next section we will show how these scores are also prognostic for
 ER+ BC patients.
 
+
 ## Survival analysis
 
 Since the scores are continuous variables and they are already scaled due
@@ -663,7 +682,8 @@ on SCANB and METABRIC will be performed on endocrine only treated, ER+ BC
 patients. On TCGA, to mitigate this effect, we subselect only luminal A and 
 B patients, and we keep in mind that they might have been treated with
 chemotherapy as well. Moreover, in Sweden the guidelines for BC treatment is to
-use 10% as the threshold for ER status.
+use 10% as the threshold for ER status. Therefore, ER+ BC patients used on
+SCANB are those that are above the 10% threshold.
 
 The table below shows the number of patients for each cohort.
 
@@ -856,8 +876,13 @@ forest_plots <- mapply(
                         clip = c(0.1, 2),
                         width = 6.5, 
                         height = 3, 
-                        path_to_save = "../results/plots/surv_analysis_estrogen"
-                    )
+                        path_to_save = paste0(
+                            "../results/plots/surv_analysis_estrogen",
+                            "/forest_plots/"  
+                        ) 
+                    ),
+                    USE.NAMES = TRUE,
+                    SIMPLIFY = FALSE
                 )
             
             },
@@ -915,4 +940,52 @@ forest_plots <- readRDS(
     "../results/rds_files/surv_analysis_estrogen/forest_plots.rds"
 )
 ```
+
+### Results
+
+The table below shows the results for each analysis performed for a specific
+term. In order to understand the table the user can filter based on the term,
+cohort and type of analysis. Since METABRIC has recurrence free survival (RFS)
+and overall survival (OS), the results for both analysis are presented here. 
+
+```{r}
+tables_survival %>% 
+    DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
+    DT::formatRound(
+        columns=c(
+            "estimate", "std.error", "statistic", "HR"
+        ), 
+        digits = 2
+    ) %>% 
+    DT::formatSignif(columns = c("p.value"))
+```
+
+The table above shows that $SET_{ER/PR}$ had a small hazard ratio (< 1) in all
+4 analysis performed. Moreover, for all cases where a measure of estrogen
+signaling was used, the hazard ratio was below 1, indicating that the higher
+the score, the less likely the patient is to suffer the event in a specific
+timepoint. This indicates that ER signaling is actually something continuous
+and not dichotomous.
+
+The plot below shows the forest plot of $SET_{ER/PR}$ for all 
+three cohorts. Notice how small the hazard ratio is in all cases. The 
+variability changes depending on the cohort, specially because they have
+different follow-up times, SCANB being the shortest. 
+
+```{r, fig.height=10, fig.width = 7}
+# we use the workaround described here:
+# https://stackoverflow.com/questions/71266791/combine-several-forestplot-object-in-one-graph-in-r
+which_pathway <- "SET_ERPR"
+plots_seterpr <- lapply(
+    forest_plots$os, 
+    function(x){
+        patchwork::wrap_elements(ggplotify::grid2grob(print(x[[which_pathway]])))
+    } 
+)
+
+plots_seterpr$tcga / plots_seterpr$scanb / plots_seterpr$metabric
+```
+
+
+
 
