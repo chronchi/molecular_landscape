@@ -47,7 +47,7 @@ library(tidyverse)
 library(ggplot2)
 library(forestplot)
 library(ggplotify)
-library(patchwork)
+library(gridExtra)
 
 library(SummarizedExperiment)
 library(survival)
@@ -968,24 +968,52 @@ timepoint. This indicates that ER signaling is actually something continuous
 and not dichotomous.
 
 The plot below shows the forest plot of $SET_{ER/PR}$ for all 
-three cohorts. Notice how small the hazard ratio is in all cases. The 
-variability changes depending on the cohort, specially because they have
-different follow-up times, SCANB being the shortest. 
+three cohorts. 
 
 ```{r, fig.height=10, fig.width = 7}
 # we use the workaround described here:
 # https://stackoverflow.com/questions/71266791/combine-several-forestplot-object-in-one-graph-in-r
+# we convert the forest plots to grob and then used gridExtra to 
+# plot into the output
 which_pathway <- "SET_ERPR"
 plots_seterpr <- lapply(
     forest_plots$os, 
     function(x){
-        patchwork::wrap_elements(ggplotify::grid2grob(print(x[[which_pathway]])))
+        ggplotify::grid2grob(print(x[[which_pathway]]))
     } 
 )
 
-plots_seterpr$tcga / plots_seterpr$scanb / plots_seterpr$metabric
+gridExtra::grid.arrange(
+    plots_seterpr$tcga, 
+    plots_seterpr$scanb,
+    plots_seterpr$metabric
+)
 ```
 
+The hazard ratios are all below 1 and small for $SET_{ER/PR}$.
+The variability changes depending on the cohort, 
+specially because they have different follow-up times, 
+SCANB being the shortest. TCGA has very few events, but using the 10
+to 1 rule of thumb, 
+meaning 10 events for each covariate added, the regression
+satisfies the rule of thumb.
 
+## Conclusion
 
+In this chapter we've shown that ER+ BC patients are very distinct
+from each other, as it can be seen from the umap projections and 
+the subtypes. These patients might respond differently for endocrine therapy
+as well, and this might depend on the ER signaling, how active it is. 
+Therefore, when deciding a treatment, more care should be taken with
+ER+ BC patients and check their signaling scores somehow. The $SET_{ER/PR}$
+signature is a good signature showing very good hazard ratios across
+the different cohorts. This signature has also been validated on the clinics
+for use.
+
+Knowing the ER signaling for a patient is very important when deciding
+treatment, but not enough. What could be other alternatives for patients
+that have low ER signaling and are still considered ER+? Should they use
+only endocrine therapy or supplement it with something else? In the
+next chapters we present a framework where we can take a look
+at a more personalised approach for treatments. 
 
