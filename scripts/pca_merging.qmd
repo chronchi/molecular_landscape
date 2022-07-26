@@ -1,0 +1,50 @@
+# A new framework for personalized medicine: integrating
+
+In the next few chapters we will show a new framework for personalized medicine.
+This is motivated by the fact that we know already some patients are more 
+sensitive to endocrine therapy than others, but we don't know what are 
+possible treatments. Moreover, it is very difficult to compare, molecularly,
+patients among themselves. 
+
+The PREDICT tool [@Wishart2010] provides
+a tool for practitioners to calculate survival risks among patients with
+similar clinical characteristics. This is very important as it shows how 
+to combine data from previous patients to guide further treatments of new
+patients. However, no additional information is given, such as alternative
+pathways to target or what might be different from other patients. 
+
+Other tools that help in the clinics are the molecular signatures developed
+by companies [@Wallden2015; @vandeVijver2002; @Paik2004]. These signatures
+are intended to be used with ER+ BC patients and depending on the tool,
+on node negative, post-menopausal women. Based on the set of genes, a 
+risk score is assigned or each patient. The score means if a patient would 
+benefit from additional chemotherapy besides the usual endocrine therapy 
+received for either 5 or 10 years. They also lack the additional information
+of what are possible pathways involved and alternative treatments beside
+chemotherapy.
+
+There are a few challenges to overcome pathway analysis for patients 
+individually and how to compare patients molecularly. There is no 
+tool that allows to integrate patients in a continuous way. Usually
+integration is a one step procedure and cannot be updated. The usual
+tools are [@Risso2014; @Zhang2020; @Fei2018] and they do not provide
+batch effect removal for new samples. The only way is to re-run the procedure 
+together with the new sample. The problem of doing this is usually you don't
+have enough samples to estimate batch effects across groups and therefore
+correct it. 
+
+This chapter show how to perform PCA projection using samples from different 
+datasets and how new samples can be introduced without retraining of the 
+PCA. We first introduce the notion of a new normalization that
+depends on housekeeping genes. After using this new normalization, we proceed
+with PCA on a subset of two cohorts using the 1000 most variable genes.
+We then validate the integration with new samples from a completely
+different cohort.  
+
+## Transcriptomics and qPCR normalization
+
+## Integrating TCGA and METABRIC using PCA
+
+## The integration is robust with respect of selection of samples
+
+## Validating with SCANB

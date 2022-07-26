@@ -11,6 +11,7 @@ book:
   chapters:
     - index.qmd
     - surv_analysis_estrogen.qmd
+    - pca_merging.qmd
     - references.qmd
 
 bibliography: references.bib
