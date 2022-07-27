@@ -465,3 +465,60 @@ get_gene_col_data <- function(
     colData(sum_exp) %>% data.frame
 
 }
+
+#' Get the PCA projection coordinates for a dataset
+#'
+#' @param sum_exp A summarized experiment object
+#' @param pca_fit A PCA fit returned from PCATools. This object is the one
+#'     trained using the samples from TCGA and METABRIC.
+#' @return A dataframe. The PC coordinates are returned for the new
+#'     dataset
+#' @examples
+#' \dontrun{
+#' get_pca_coordinates(
+#'     scanb,
+#'     pca_fit
+#' )
+#' }
+get_pca_coordinates <- function(
+    sum_exp,
+    pca_fit
+){
+    
+    # first check if avg_ranking is there
+    if( !("avg_ranking" %in% SummarizedExperiment::assayNames(sum_exp)) ){
+        stop(
+            paste0(
+                "avg_ranking not available in the object, make sure",
+                " the normalization was done."
+            )
+        )
+    }
+    
+    loadings_pca <- pca_fit$loadings
+    
+    # we now add 0 to average ranking for the genes that are not
+    # available in the summarized experiment 
+    genes_for_pca <- rownames(loadings_pca)
+    avg_ranking_matrix <- assay(sum_exp, "avg_ranking") %>% as.matrix
+    genes_not_available <- setdiff(genes_for_pca, rownames(avg_ranking_matrix))
+    if (length(genes_not_available) > 0){
+        avg_ranking_matrix <- rbind(
+            avg_ranking_matrix,
+            matrix(
+                0, 
+                nrow = length(genes_not_available), 
+                ncol = ncol(sum_exp),
+                dimnames = list(
+                    genes_not_available,
+                    colnames(avg_ranking_matrix)
+                )
+            )
+        )
+    }
+    
+    # calculate the pc coordinates
+    avg_ranking_matrix <- avg_ranking_matrix[genes_for_pca, ]
+    t(avg_ranking_matrix) %*% (loadings_pca %>% as.matrix)
+    
+}

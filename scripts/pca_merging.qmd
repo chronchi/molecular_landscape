@@ -51,6 +51,20 @@ library(singscore)
 library(SummarizedExperiment)
 
 source("utils.R")
+
+# the following script load all data necessary to run the chunks.
+# the data is generated from this quarto document itself, therefore
+# if you are running this documents the first time and don't have the
+# files, comment the following lines. Moreover, if this is your first
+# time running the document, you should run all chunks, to generate 
+# all the necessary files, if you don't have them. Once all files 
+# are saved and available in the respective folder, the following
+# lines can be executed. 
+load_at_setup <- TRUE
+if (load_at_setup){
+    name_document <- "pca_merging"
+    source("load_rds_files.R")
+}
 ```
 
 ## Transcriptomics and qPCR normalization
@@ -83,12 +97,21 @@ saveRDS(
 ```
 
 ```{r}
-datasets <- readRDS(
-    "../results/rds_files/surv_analysis_estrogen/datasets_with_scores.rds"
-)
-stable_genes <- readRDS("../results/rds_files/pca_merging/stable_genes.rds")
-which_exp <- readRDS("../results/rds_files/surv_analysis_estrogen/which_exp.rds")
+if (!load_at_setup){
+    datasets <- readRDS(
+        "../results/rds_files/surv_analysis_estrogen/datasets_with_scores.rds"
+    )
+    
+    stable_genes <- readRDS(
+        "../results/rds_files/pca_merging/stable_genes.rds"
+    )
+    
+    which_exp <- readRDS(
+        "../results/rds_files/surv_analysis_estrogen/which_exp.rds"
+    )
+}
 ```
+
 
 The first step is to check what number of these 50 genes are available
 on TCGA and METABRIC, as these datasets will be used for training the 
@@ -122,7 +145,7 @@ very easy to retrieve the information for the patients.
 # the strategy is to calculate the standard deviation for each cohort separately
 # and then select the genes with the highest average standard deviation and
 # then we include the stable genes as well
-common_genes <- intersect(rownames(datasets$tcga), rownames(datasets$metabric))
+common_genes <- Reduce(intersect, lapply(datasets, rownames))
 nb_tcga <- ncol(datasets$tcga)
 nb_metabric <- ncol(datasets$metabric)
 sd_genes <- mapply(
@@ -148,7 +171,7 @@ sd_genes <- mapply(
     dplyr::mutate(symbol = common_genes) 
 
 most_variable_genes <- sd_genes %>% 
-    dplyr::slice_max(n = 1000, order_by = average)
+    dplyr::slice_max(n = 1000, order_by = average) 
 
 genes_for_pca <- c(most_variable_genes$symbol, stable_genes) %>% unique
 saveRDS(
@@ -157,7 +180,7 @@ saveRDS(
 )
 ```
 
-The table with the selecte genes is shown below along with their standard
+The table with the selected genes is shown below along with their standard
 deviation. We added the stable genes to the table as well.
 
 ```{r}
@@ -200,9 +223,11 @@ saveRDS(
 ```
 
 ```{r}
-datasets_normalized <- readRDS(
-    "../results/rds_files/pca_merging/datasets_normalized.rds"
-)
+if (!load_at_setup){
+    datasets_normalized <- readRDS(
+        "../results/rds_files/pca_merging/datasets_normalized.rds"
+    )
+}
 ```
 
 The histogram below shows the distribution of the average ranking of the
@@ -232,7 +257,7 @@ In the plots below histograms for gene expression of some important
 genes in breast cancer are plotted.
 
 ```{r, fig.width = 20, fig.height=12}
-genes <- c("TFF1", "ESR1", "CCND1")
+genes <- c("TFF1", "ESR1")#, "CCND1")
 col_data_genes <- mapply(
     get_gene_col_data,
     sum_exp = datasets_normalized,
@@ -334,11 +359,15 @@ saveRDS(
 )
 ```
 
-```{r, fig.width=21, fig.height=12}
-correlation_scores <- readRDS(
-    "../results/rds_files/pca_merging/correlation_scores.rds"
-)
+```{r}
+if (!load_at_setup){
+    correlation_scores <- readRDS(
+        "../results/rds_files/pca_merging/correlation_scores.rds"
+    )
+}
+```
 
+```{r, fig.width=21, fig.height=12}
 correlation_df <- lapply(
     correlation_scores,
     function(x) data.frame(correlation = x, gene = names(x), row.names = NULL)
@@ -367,8 +396,257 @@ the others will compensate.
 
 ## Integrating TCGA and METABRIC using PCA
 
+The next step is creating the framework where we can integrate any patient
+sample and compare each other, at least spatially. The approach is similar
+to some sort of unsupervised learning, where no labels or groups are
+specified, which is something common in algorithms for batch removal. By using
+PCA in some subset of TCGA and METABRIC, we should learn the idiosyncrasies
+of the RNA-seq and microarray technologies as well as batch effects general to
+datasets. Since these two cohorts are big ones, we assume that if there are
+common batch effects, they are represented on them. 
+
+The practical steps are: first subselect 1000 samples in total from
+METABRIC **and** TCGA. Train PCA using these 1000 samples. Validate the
+results by projecting the other samples. In the next section we show how
+robust the approach is when selecting the samples. In the next chapters we
+validate the projection in unseen cohorts. 
+
+Integrating as laid out here only uses molecular data, therefore patients
+might be close to each other but they might have very different clinical 
+features. This should always be kept in mind.
+
+```{r}
+# we start by selecting the patients that will be used in the training 
+# set. 
+merged_col_data <- lapply(datasets_normalized, colData) %>% 
+    lapply(., data.frame) %>%
+    dplyr::bind_rows(.id = "cohort")
+
+which_cohorts_training <- c("tcga", "metabric")
+
+set.seed(132904)
+samples_for_training <- merged_col_data %>%
+    dplyr::filter(cohort %in% which_cohorts_training) %>%
+    dplyr::pull(sample_name) %>%
+    sample(., size = 1000)
+```
+
+The table below shows the molecular characteristics of the patients
+selected for the PCA training.
+
+```{r}
+merged_col_data %>% dplyr::filter(
+    sample_name %in% samples_for_training
+) %>% janitor::tabyl(cohort, pam50) %>% 
+    kableExtra::kbl() %>%
+    kableExtra::kable_classic(full_width = FALSE)
+```
+
+```{r}
+#| eval: false
+training_set <- lapply(
+    datasets_normalized[which_cohorts_training], 
+    function(sum_exp, i, genes_for_pca) 
+        assay(sum_exp[genes_for_pca, ], i = i) %>% 
+        data.frame(check.names = FALSE), 
+    i = "avg_ranking",
+    genes_for_pca = genes_for_pca
+) %>% 
+    dplyr::bind_cols() %>%
+    .[, samples_for_training]
+
+pca_fit <- PCAtools::pca(
+    training_set,
+    metadata = dplyr::bind_rows(
+        lapply(
+            datasets_normalized[which_cohorts_training],
+            function(df){
+                colData(df) %>% data.frame %>%
+                    dplyr::filter(sample_name %in% colnames(training_set))
+            }
+        ),
+        .id = "cohort"
+    ) %>% .[colnames(training_set), ]
+)
+
+saveRDS(
+    pca_fit,
+    "../results/rds_files/pca_merging/pca_fit.rds"
+)
+```
+
+```{r}
+if (!load_at_setup){
+    pca_fit <- readRDS(
+        "../results/rds_files/pca_merging/pca_fit.rds"
+    )
+}
+```
+
+The following figure shows the embedding of the two datasets together of the
+1000 samples used for training. We select several PCs of interest to show 
+how the embedding works.
+
+```{r, fig.width=20, fig.height=14}
+plots_pca_fit <- list()
+point_size <- 2
+
+plots_pca_fit$pc1_pc2_cohort <- PCAtools::biplot(
+    pca_fit,
+    colby = "cohort",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC1",
+    y = "PC2",
+    title = "First two components colored by cohort",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc1_pc2_er_status <- PCAtools::biplot(
+    pca_fit,
+    colby = "er_status",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC1",
+    y = "PC2",
+    title = "First two components colored by ER status",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc2_pc3_cohort <- PCAtools::biplot(
+    pca_fit,
+    colby = "cohort",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC2",
+    y = "PC3",
+    title = "Second and third components colored by cohort",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc2_pc3_er_status <- PCAtools::biplot(
+    pca_fit,
+    colby = "er_status",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC2",
+    y = "PC3",
+    title = "Second and third components colored by ER status",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc2_pc3_pam50 <- PCAtools::biplot(
+    pca_fit,
+    colby = "pam50",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC2",
+    y = "PC3",
+    title = "Second and third components colored by PAM50",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+cowplot::plot_grid(plotlist = plots_pca_fit, ncol = 2)
+```
+
+```{r}
+PCAtools::biplot(
+    pca_fit,
+    colby = "cohort",
+    lab = NULL, 
+    legendPosition = "right",
+    pointSize = point_size,
+    x = "PC2",
+    y = "PC3"
+)
+```
+
+
+The first two components correspond to the batch effect. The second
+component explains the ER status and the two cohorts are well inter mingled.
+When plotting the second and third components and coloring by the molecular
+subtype, we see a clear distinction, recapitulating the biology.
+
+```{r}
+#| eval: false
+datasets_pca_coordinates <- lapply(
+    datasets_normalized,
+    get_pca_coordinates,
+    pca_fit = pca_fit
+)
+
+saveRDS(
+    datasets_pca_coordinates,
+    "../results/rds_files/pca_merging/datasets_pca_coordinates.rds"
+)
+```
+
+
+```{r}
+if (!load_at_setup){
+    datasets_pca_coordinates <- readRDS(
+        "../results/rds_files/pca_merging/datasets_pca_coordinates.rds"
+    )
+}
+```
+
+The plot below shows all the samples from TCGA and cohort projected into
+the molecular landscape. The samples are mixing well, the only thing is that
+METABRIC is a bit offset to the left bottom.
+
+```{r}
+df_pca_coordinates <- datasets_pca_coordinates %>% 
+    do.call(rbind, .) %>%
+    data.frame %>% 
+    tibble::rownames_to_column(var = "sample_name") %>%
+    dplyr::inner_join(
+        .,
+        merged_col_data,
+        by = "sample_name"
+    )
+
+df_pca_coordinates %>%
+    dplyr::filter(cohort %in% which_cohorts_training) %>%
+    ggplot2::ggplot(
+        aes(x = PC2, y = PC3, color = cohort)
+    ) + 
+        ggplot2::geom_point()
+```
+
+To correct the offset, we sum 0.5 in PC2 and 1 in coordinate 3. By doing this,
+the offset is corrected. 
+
+```{r}
+datasets_pca_coordinates$metabric[, "PC2"] <- 
+    datasets_pca_coordinates$metabric[, "PC2"] + 0.5
+datasets_pca_coordinates$metabric[, "PC3"] <- 
+    datasets_pca_coordinates$metabric[, "PC3"] + 1
+
+df_pca_coordinates <- datasets_pca_coordinates %>% 
+    do.call(rbind, .) %>%
+    data.frame %>% 
+    tibble::rownames_to_column(var = "sample_name") %>%
+    dplyr::inner_join(
+        .,
+        merged_col_data,
+        by = "sample_name"
+    )
+
+df_pca_coordinates %>%
+    dplyr::filter(cohort %in% which_cohorts_training) %>%
+    ggplot2::ggplot(
+        aes(x = PC2, y = PC3, color = cohort)
+    ) + 
+        ggplot2::geom_point()
+```
+
+By summing the offset is corrected. 
+
 ## The integration is robust with respect of selection of samples
 
 ## Normalization is necessary to reduce batch effects in other components
-
-## Validating with SCANB
