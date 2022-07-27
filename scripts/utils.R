@@ -209,3 +209,259 @@ forest_plot_fits <- function(
     
     forest_plot
 }
+
+
+#' Prepare the data for normalization
+#'
+#' @description 
+#' `prepare_data_normalization` checks if the data structure
+#'     is right and if it has the appropriate slots 
+#' 
+#' @details 
+#' The function check if the object is a summarized experiment object
+#' first, so the normalization procedures can be saved later on. It also
+#' checks if the assay_to_use is available on the summarized experiment
+#' object, without this it cannot proceed with the normalization. Lastly
+#' it proceeds to subset the dataframe to only contain the necessary genes
+#' to calculate the ranking obtained in the procedure described
+#' in the paper.
+#' 
+#' @param sum_exp Summarized experiment object. It should contain a "rank"
+#'     slot that will be used to calculate the average rank of the stable 
+#'     genes.
+#' @param assay_to_use A string. Which assay to use when calculating the
+#'     average expression of the stable genes.
+#' @param stable_genes A vector. Stable genes.
+#' @param stable_genes A vector. Most variable genes determined by some 
+#'     procedure.
+#' @param verbose. An integer. If verbose equals to 1, then it prints the
+#'     number of stable genes, total genes in the dataframe and total number
+#'     of samples
+#' @examples
+#' \dontrun{
+#' prepare_data_normalization(
+#'     tcga,
+#'     "logFPKM_TMM",
+#'     c("GAPDH"),
+#'     c("ESR1", "GREB1")
+#' )
+#' }
+prepare_data_normalization <- function(
+    sum_exp, 
+    assay_to_use, 
+    stable_genes,
+    most_variable_genes,
+    verbose = 1
+){
+
+    sum_exp_classes <- c(
+        "SummarizedExperiment", 
+        "RangedSummarizedExperiment"
+    )
+    
+    if( !(is(sum_exp, "SummarizedExperiment")) ){
+        stop(
+            paste0(
+                "Object is not from class(es) ", 
+                paste(sum_exp_classes, collapse = ", "),
+                ". Please check your data structure."
+            )
+        )
+    }
+    
+    if( !(assay_to_use %in% SummarizedExperiment::assayNames(sum_exp)) ){
+        stop(
+            paste0(
+                "Assay not available, check if you specified the right ", 
+                "name or you included your assay in the data structure."
+            )
+        )
+    }
+    
+    # subselect the necessary genes for downstream procedures
+    sum_exp <- sum_exp[
+        intersect(rownames(sum_exp), c(stable_genes, most_variable_genes)),
+    ]
+    
+    if (verbose == 1){
+        cat(paste0(
+            "Total number of stable genes: ", 
+            length(intersect(rownames(sum_exp), stable_genes)), "\n",
+            "Total number of genes: ", nrow(sum_exp), "\n",
+            "Number of samples: ", ncol(sum_exp), "\n"
+        ))
+    }
+    
+    # calculate the ranking that will be used in the other functions
+    assay(sum_exp, "rank") <- singscore::rankGenes(
+        as.matrix(assay(sum_exp, assay_to_use))
+    )
+    
+    sum_exp
+}
+
+
+#' Calculate the average ranking and average expression of stable genes
+#'
+#' @param sum_exp Summarized experiment object. It should contain a "rank"
+#'     slot that will be used to calculate the average rank of the stable 
+#'     genes.
+#' @param assay_to_use A string. Which assay to use when calculating the
+#'     average expression of the stable genes.
+#' @param stable_genes A vector. Stable genes.
+#' @examples
+#' \dontrun{
+#' avg_ranking(tcga, "logFPKM_TMM", c("GAPDH"))
+#' }
+avg_ranking <- function(sum_exp, assay_to_use, stable_genes){
+
+    available_stable_genes <- intersect(rownames(sum_exp), stable_genes)
+    
+    rank_stable_genes <- assay(sum_exp, "rank")[available_stable_genes, ]
+    expr_stable_genes <- assay(sum_exp, assay_to_use)[available_stable_genes, ]
+    
+    
+    values <- list(
+        avg_ranking = colMeans(rank_stable_genes)/nrow(sum_exp),
+        avg_expression = colMeans(expr_stable_genes)
+    )
+    
+    values$sd_ranking <- sd(values$avg_ranking)
+    values$sd_expression <- sd(values$avg_expression)
+    
+    values
+}
+
+#' Calculate the average expression and ranking based on stable genes
+#'
+#' @inheritParams avg_ranking
+#' @param avg_ranking_sds A list. Output from the function avg_ranking
+#' @examples
+#' \dontrun{
+#' calculate_norm_ranks(tcga, "logFPKM_TMM", output_avg_ranking)
+#' }
+calculate_norm_ranks <- function(sum_exp, assay_to_use, avg_ranking_sds){
+        
+    # for each patient calculate the division for each gene in each
+    # element of average expression obtained from the avg_ranking function
+    df <- sapply(
+        1:ncol(sum_exp),
+        function(i, sum_exp, avg_ranking_sds){
+            expression_levels <- assay(sum_exp, assay_to_use)[,i]
+            expression_levels/avg_ranking_sds$avg_expression[i]
+        },
+        sum_exp = sum_exp,
+        avg_ranking_sds = avg_ranking_sds
+    ) %>% 
+        `colnames<-`(colnames(sum_exp)) %>%
+        `rownames<-`(rownames(sum_exp))
+    
+    # we now add the normalized average expression to the original summarized
+    # experiment so it can be used to other analysis
+    assay(sum_exp, "avg_expression") <- df
+    
+    # notice here we are converting the average normalized ranking back to 
+    # average rank, since we will divide the rank of the gene and not
+    # the normalized rank. Also all this operations are sums, so we 
+    # can go back and forth here.
+    df <- sapply(
+        1:ncol(sum_exp),
+        function(i, sum_exp, avg_ranking_sds){
+            rank_genes <- assay(sum_exp, "rank")[,i]
+            rank_genes/(avg_ranking_sds$avg_ranking[i]*nrow(sum_exp))
+        },
+        sum_exp = sum_exp,
+        avg_ranking_sds = avg_ranking_sds
+    ) %>% 
+        `colnames<-`(colnames(sum_exp)) %>%
+        `rownames<-`(rownames(sum_exp))
+    
+    # we now add the normalized average ranking to the original summarized
+    # experiment so it can be used to other analysis
+    assay(sum_exp, "avg_ranking") <- df
+    
+    sum_exp$avg_ranking <- avg_ranking_sds$avg_ranking
+    sum_exp$avg_expression <- avg_ranking_sds$avg_expression
+    
+    sum_exp
+    
+}
+
+#' Wrapper for prepare_data_normalization avg_ranking and calculate_norm_ranks
+#'
+#' @inheritParams prepare_data_normalization
+#' @examples
+#' \dontrun{
+#' get_final_ranking_values(
+#'     tcga,
+#'     "logFPKM_TMM",
+#'     c("GAPDH"),
+#'     c("ESR1", "GREB1")
+#' )
+#' }
+get_final_ranking_values <- function(
+    sum_exp, 
+    assay_to_use,
+    stable_genes,
+    most_variable_genes,
+    verbose = 1
+){
+    
+    sum_exp <- prepare_data_normalization(
+        sum_exp = sum_exp,
+        assay_to_use = assay_to_use,
+        stable_genes = stable_genes,
+        most_variable_genes = most_variable_genes,
+        verbose = verbose
+    )
+    
+    avg_ranking_sds <- avg_ranking(
+        sum_exp = sum_exp, 
+        assay_to_use = assay_to_use, 
+        stable_genes = stable_genes
+    )
+    
+    sum_exp <- calculate_norm_ranks(
+        sum_exp = sum_exp,
+        avg_ranking_sds = avg_ranking_sds,
+        assay_to_use = assay_to_use
+    )
+    
+    sum_exp
+    
+}
+
+#' Extract gene expression levels and add to colData
+#'
+#' @param sum_exp A summarized experiment object
+#' @param genes A character vector. A vector containing the name of genes
+#'     of interest to extract the values
+#' @param assay_to_use A string. Specify from which assay slot to extract
+#'     the gene values
+#' @return a dataframe
+#' @examples
+#' \dontrun{
+#' get_gene_col_data(
+#'     tcga,
+#'     c("ESR1", "GREB1"),
+#'     "logFPKM_TMM"
+#' )
+#' }
+get_gene_col_data <- function(
+    sum_exp,
+    genes,
+    assay_to_use
+){
+    common_genes <- intersect(rownames(sum_exp), genes)
+    
+    if(length(common_genes) != length(genes)) {
+        print("Not all genes are available")
+    }
+    
+    colData(sum_exp)[, common_genes] <- 
+        assay(sum_exp, assay_to_use)[common_genes, ] %>%
+        as.matrix %>% t
+    
+    colData(sum_exp) %>% data.frame
+
+}

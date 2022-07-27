@@ -41,10 +41,334 @@ with PCA on a subset of two cohorts using the 1000 most variable genes.
 We then validate the integration with new samples from a completely
 different cohort.  
 
+```{r setup}
+library(tidyverse)
+
+library(ggplot2)
+library(PCAtools)
+
+library(singscore)
+library(SummarizedExperiment)
+
+source("utils.R")
+```
+
 ## Transcriptomics and qPCR normalization
+
+In this first step we introduce a new normalization. The rational is that we 
+need a normalization procedure that is applied in a single sample only, similar
+to logCPM, but that can be applied to microarray too. In this case, given 
+a set of samples, we start by ranking the genes in each sample. We then 
+normalize the ranking to be between 0 and 1, i.e., we divide by the total
+number of genes available in that sample. Then, given a list of 50 stable 
+genes across cancer [@Bhuva2020], we calculate the average ranking of these
+genes in the sample and then for each gene in the sample we divide by this
+average. 
+
+### Selecting stable genes
+
+```{r}
+#| eval: false
+datasets <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/datasets_with_scores.rds"
+)
+stable_genes <- intersect(
+    singscore::getStableGenes(n_stable = 50, type = "carcinoma"),
+    Reduce(intersect, lapply(datasets[c("tcga", "metabric")], rownames))
+)
+saveRDS(
+    stable_genes,
+    "../results/rds_files/pca_merging/stable_genes.rds"
+)
+```
+
+```{r}
+datasets <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/datasets_with_scores.rds"
+)
+stable_genes <- readRDS("../results/rds_files/pca_merging/stable_genes.rds")
+which_exp <- readRDS("../results/rds_files/surv_analysis_estrogen/which_exp.rds")
+```
+
+The first step is to check what number of these 50 genes are available
+on TCGA and METABRIC, as these datasets will be used for training the 
+PCA projection. The total number of available genes is `r length(stable_genes)`.
+
+Now we select the 1000 most variable genes across METABRIC and TCGA. Reducing
+the number of genes used when calculating the PCA helps in the future. Several
+publicly available datasets don't have many genes available, therefore reducing
+the number of genes increases the chances of using this approach in other
+datasets. 
+
+Moreover, the use of a large number of genes is used because if some of 
+them are not available, this should be ok and the normalized sample
+should be fine. We show this property later.
+
+A table with the genes available is shown below.
+
+```{r}
+DT::datatable(data.frame(genes = stable_genes))
+```
+
+### Calculating the normalization
+
+We will create subset of the summarised experiment objects to save these
+information. Moreover, since a summarized experiment object is being used,
+we can save the new normalization in the `assays` and the average ranking scores
+of the housekeeping genes in the column data `colData`. This way it is 
+very easy to retrieve the information for the patients. 
+
+```{r}
+# the strategy is to calculate the standard deviation for each cohort separately
+# and then select the genes with the highest average standard deviation and
+# then we include the stable genes as well
+common_genes <- intersect(rownames(datasets$tcga), rownames(datasets$metabric))
+nb_tcga <- ncol(datasets$tcga)
+nb_metabric <- ncol(datasets$metabric)
+sd_genes <- mapply(
+    function(df, assay_to_use, common_genes){
+        
+        # select first common genes across the two cohorts, so the identified
+        # genes are the same
+        df <- df[common_genes, ]
+        
+        rowSds(as.matrix(assay(df, assay_to_use)))
+    },
+    df = datasets[c("tcga", "metabric")],
+    assay_to_use = which_exp[c("tcga", "metabric")],
+    MoreArgs = list(common_genes = common_genes)
+) %>% data.frame %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(average = sqrt(
+        ((nb_tcga-1)*tcga^2 + (nb_metabric-1)*metabric^2)/
+            (nb_tcga + nb_metabric - 2) # this is the formula to calculate the
+                                        # average for standard deviations
+    )) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(symbol = common_genes) 
+
+most_variable_genes <- sd_genes %>% 
+    dplyr::slice_max(n = 1000, order_by = average)
+
+genes_for_pca <- c(most_variable_genes$symbol, stable_genes) %>% unique
+saveRDS(
+    genes_for_pca,
+    "../results/rds_files/pca_merging/genes_for_pca.rds"
+)
+```
+
+The table with the selecte genes is shown below along with their standard
+deviation. We added the stable genes to the table as well.
+
+```{r}
+sd_genes %>% dplyr::filter(symbol %in% genes_for_pca) %>%
+    dplyr::mutate(
+        is_housekeeping = ifelse(symbol %in% stable_genes, "yes", "no")
+    ) %>%
+    DT::datatable(
+        rownames = FALSE,
+        options = list(
+            columnDefs = list(
+                list(className = 'dt-center', targets = (0:ncol(sd_genes)))
+            )
+        )
+    ) %>%
+    DT::formatRound(c("tcga", "metabric", "average"))
+```
+
+Overall we can see that housekeeping genes have very low standard deviation
+across cohorts, which is good. 
+
+```{r}
+#| eval: false
+datasets_normalized <- mapply(
+    get_final_ranking_values,
+    sum_exp = datasets,
+    assay_to_use = which_exp,
+    MoreArgs = list(
+        stable_genes = stable_genes,
+        most_variable_genes = most_variable_genes %>% dplyr::pull(symbol)    
+    ),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+
+saveRDS(
+    datasets_normalized,
+    "../results/rds_files/pca_merging/datasets_normalized.rds"
+)
+```
+
+```{r}
+datasets_normalized <- readRDS(
+    "../results/rds_files/pca_merging/datasets_normalized.rds"
+)
+```
+
+The histogram below shows the distribution of the average ranking of the
+housekeeping genes for each sample in each cohort.
+
+```{r, fig.height=4, fig.width=10}
+avg_rankings <- lapply(
+    datasets_normalized, 
+    function(x) colData(x) %>% data.frame %>% dplyr::select(avg_ranking)
+) %>% dplyr::bind_rows(.id = "cohort") %>%
+    dplyr::mutate(cohort = toupper(cohort))
+
+avg_rankings %>% ggplot2::ggplot(
+    aes(x = avg_ranking, fill = cohort)
+) + 
+    ggplot2::geom_histogram(alpha = 0.9, bins = 30) +
+    ggplot2::labs(x = "Average ranking of housekeeping genes") + 
+    ggplot2::facet_wrap(~cohort, scales = "free_y") +
+    ggplot2::theme_bw()
+```
+
+The average ranking are somewhat similar. For the two experiments where there
+are RNA-seq samples, the distribution is the same. For METABRIC, a microarray
+experiment, the distribution is shifted a bit below. 
+
+In the plots below histograms for gene expression of some important
+genes in breast cancer are plotted.
+
+```{r, fig.width = 20, fig.height=12}
+genes <- c("TFF1", "ESR1", "CCND1")
+col_data_genes <- mapply(
+    get_gene_col_data,
+    sum_exp = datasets_normalized,
+    assay_to_use = "avg_ranking",
+    MoreArgs = list(genes = genes),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+) %>% 
+    dplyr::bind_rows(.id = "cohort") %>%
+    dplyr::mutate(cohort = toupper(cohort)) %>%
+    tidyr::pivot_longer(
+        cols = all_of(genes),
+        names_to = "gene",
+        values_to = "avg_ranking_genes"
+    )
+
+ggplot2::ggplot(
+    col_data_genes,
+    aes(x = avg_ranking_genes, fill = er_status)
+) + 
+    ggplot2::geom_histogram(bins = 30, alpha = 0.5, position = "identity") + 
+    ggplot2::facet_wrap(~cohort + gene, scales = "free_y") +
+    ggplot2::labs(
+        x = "Normalized average ranking by using housekeeping genes"
+    ) +
+    ggplot2::theme_bw(base_size = 30)
+```
+
+ESR1 and TFF1 expressions are divided across ER status, as expected. The 
+proliferation marker CCND1 is also highly expressed in all conditions.
+
+### Checking robustness with respect of number of houesekeeping genes available
+
+When calculating the normalized data, a total of 44 housekeeping genes
+were used. Sometimes not all of these genes are available, therefore we 
+will calculate the normalization using random subsets of 44 housekeeping
+genes with different random sizes. The sets will have a minimum of 
+20 genes and maximum of 44. The sampling of the set size is obtained
+by using a uniform distribution. We focus just on TCGA for simplicity.
+
+```{r}
+#| eval: false
+set.seed(02943)
+sizes_sets <- floor(runif(10, min = 20, max = 44))
+random_subsets <- sapply(
+    sizes_sets,
+    sample,
+    x = stable_genes,
+    replace = FALSE,
+    simplify = FALSE
+)
+
+saveRDS(random_subsets, "../results/rds_files/pca_merging/random_subsets.rds")
+
+random_normalization <- parallel::mclapply(
+    random_subsets,
+    get_final_ranking_values,
+    sum_exp = datasets$tcga,
+    assay_to_use = which_exp$tcga,
+    most_variable_genes = most_variable_genes %>% dplyr::pull(symbol),
+    mc.cores = 10
+)
+
+saveRDS(
+    random_normalization, 
+    "../results/rds_files/pca_merging/random_normalization.rds"
+)
+
+# fetch the average ranking for each calculation. we will plot the scores
+# for some genes and calculate correlation for all genes as well. 
+# correlation is calculate by using the original list with 44 genes
+avg_ranking_random <- lapply(
+    random_normalization,
+    assay,
+    i = "avg_ranking"
+)
+
+correlation_scores <- lapply(
+    avg_ranking_random,
+    function(df, og_sum_exp, most_variable_genes){
+        sapply(
+            most_variable_genes,
+            function(gene, df, og_values){
+                cor(df[gene, ], og_values[gene, ])
+            },
+            df = df,
+            og_values = assay(og_sum_exp, "avg_ranking")
+        )
+    },
+    og_sum_exp = datasets_normalized$tcga,
+    most_variable_genes = most_variable_genes$symbol
+) %>% `names<-`(
+    paste0("nb_genes_", sapply(random_subsets, length))
+)
+
+saveRDS(
+    correlation_scores,
+    "../results/rds_files/pca_merging/correlation_scores.rds"
+)
+```
+
+```{r, fig.width=21, fig.height=12}
+correlation_scores <- readRDS(
+    "../results/rds_files/pca_merging/correlation_scores.rds"
+)
+
+correlation_df <- lapply(
+    correlation_scores,
+    function(x) data.frame(correlation = x, gene = names(x), row.names = NULL)
+) %>% dplyr::bind_rows(.id = "nb_genes")
+
+correlation_df %>% ggplot2::ggplot(
+    aes(x = correlation) 
+) + 
+    ggplot2::geom_histogram(bins = 30) +
+    ggplot2::labs(
+        x = "Correlation", 
+        title = paste0(
+            "Correlation distribution for different",
+            " subsets of the housekeeping genes"
+        )
+    ) + 
+    ggplot2::facet_wrap(~nb_genes) + 
+    ggplot2::theme_bw(base_size = 30) +
+    ggplot2::theme(panel.spacing = unit(3, "lines"))
+```
+
+The plots above show the different distributions given the subsets of 
+housekeeping genes. All the correlation coefficients are close to 1. This
+means that if a subset of housekeeping genes are missing it is fine, as 
+the others will compensate. 
 
 ## Integrating TCGA and METABRIC using PCA
 
 ## The integration is robust with respect of selection of samples
+
+## Normalization is necessary to reduce batch effects in other components
 
 ## Validating with SCANB

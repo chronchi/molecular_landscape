@@ -178,6 +178,17 @@ saveRDS(
     list(tcga = tcga, scanb = scanb, metabric = metabric),
     "../results/rds_files/surv_analysis_estrogen/datasets.rds"
 )
+
+which_exp <- list(
+    tcga = "logFPKM_TMM",
+    scanb = "logFPKM",
+    metabric = "median_intensity"
+)
+
+saveRDS(
+    which_exp,
+    "../results/rds_files/surv_analysis_estrogen/which_exp.rds"
+)
 ```
 
 ```{r}
@@ -185,11 +196,7 @@ datasets <- readRDS("../results/rds_files/surv_analysis_estrogen/datasets.rds")
 
 # these are some global parameters for each dataset. important for
 # when calculating scores and embeddings.
-which_exp <- list(
-    tcga = "logFPKM_TMM",
-    scanb = "logFPKM",
-    metabric = "median_intensity"
-)
+which_exp <- readRDS("../results/rds_files/surv_analysis_estrogen/which_exp.rds")
 ```
 
 ## UMAP projection of the datasets
