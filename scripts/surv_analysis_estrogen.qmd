@@ -56,6 +56,13 @@ library(GSVA)
 library(uwot)
 
 source("utils.R")
+
+# by setting the dev to png and pdf, this saves the figures in a specific
+# folder in both formats. moreover, since png is coming first, it shows
+# this figure when rendering the html. What is nice about this is that it
+# inherits the properties from the chunk to save the figure, so no need
+# to use ggplot2::ggsave to save the plots. this also works 
+knitr::opts_chunk$set(dev = c('png', 'pdf'))
 ```
 
 ```{r}

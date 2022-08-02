@@ -8,7 +8,13 @@ db_files <- list(
         correlation_scores = "correlation_scores",
         genes_for_pca = "genes_for_pca",
         pca_fit = "pca_fit",
-        datasets_pca_coordinates = "datasets_pca_coordinates"
+        datasets_pca_coordinates = "datasets_pca_coordinates",
+        merged_col_data = "merged_col_data",
+        which_cohorts_training = "which_cohorts_training",
+        df_pca_coordinates_og = "df_pca_coordinates_og",
+        df_pca_coordinates = "df_pca_coordinates",
+        new_pcas = "new_pcas",
+        pca_fit_no_norm = "pca_fit_no_norm"
     )
 )
 
@@ -39,7 +45,9 @@ if (length(path_to_files) != length(db_files[[name_document]])){
 nb_cores <- parallel::detectCores() - 1
 files_loaded <- parallel::mclapply(
     path_to_files,
-    readRDS,
+    function(x){
+        readRDS(x)  
+    },
     mc.cores = nb_cores
 )
 list2env(files_loaded, envir = .GlobalEnv)

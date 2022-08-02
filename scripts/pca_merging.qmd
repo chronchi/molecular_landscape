@@ -1,45 +1,48 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 80
+---
+
 # A new framework for personalized medicine: integrating
 
 In the next few chapters we will show a new framework for personalized medicine.
-This is motivated by the fact that we know already some patients are more 
-sensitive to endocrine therapy than others, but we don't know what are 
-possible treatments. Moreover, it is very difficult to compare, molecularly,
-patients among themselves. 
+This is motivated by the fact that we know already some patients are more
+sensitive to endocrine therapy than others, but we don't know what are possible
+treatments. Moreover, it is very difficult to compare, molecularly, patients
+among themselves.
 
-The PREDICT tool [@Wishart2010] provides
-a tool for practitioners to calculate survival risks among patients with
-similar clinical characteristics. This is very important as it shows how 
-to combine data from previous patients to guide further treatments of new
-patients. However, no additional information is given, such as alternative
-pathways to target or what might be different from other patients. 
+The PREDICT tool [@Wishart2010] provides a tool for practitioners to calculate
+survival risks among patients with similar clinical characteristics. This is
+very important as it shows how to combine data from previous patients to guide
+further treatments of new patients. However, no additional information is given,
+such as alternative pathways to target or what might be different from other
+patients.
 
-Other tools that help in the clinics are the molecular signatures developed
-by companies [@Wallden2015; @vandeVijver2002; @Paik2004]. These signatures
-are intended to be used with ER+ BC patients and depending on the tool,
-on node negative, post-menopausal women. Based on the set of genes, a 
-risk score is assigned or each patient. The score means if a patient would 
-benefit from additional chemotherapy besides the usual endocrine therapy 
-received for either 5 or 10 years. They also lack the additional information
-of what are possible pathways involved and alternative treatments beside
-chemotherapy.
+Other tools that help in the clinics are the molecular signatures developed by
+companies [@Wallden2015; @vandeVijver2002; @Paik2004]. These signatures are
+intended to be used with ER+ BC patients and depending on the tool, on node
+negative, post-menopausal women. Based on the set of genes, a risk score is
+assigned or each patient. The score means if a patient would benefit from
+additional chemotherapy besides the usual endocrine therapy received for either
+5 or 10 years. They also lack the additional information of what are possible
+pathways involved and alternative treatments beside chemotherapy.
 
-There are a few challenges to overcome pathway analysis for patients 
-individually and how to compare patients molecularly. There is no 
-tool that allows to integrate patients in a continuous way. Usually
-integration is a one step procedure and cannot be updated. The usual
-tools are [@Risso2014; @Zhang2020; @Fei2018] and they do not provide
-batch effect removal for new samples. The only way is to re-run the procedure 
-together with the new sample. The problem of doing this is usually you don't
-have enough samples to estimate batch effects across groups and therefore
-correct it. 
+There are a few challenges to overcome pathway analysis for patients
+individually and how to compare patients molecularly. There is no tool that
+allows to integrate patients in a continuous way. Usually integration is a one
+step procedure and cannot be updated. The usual tools are [@Risso2014;
+@Zhang2020; @Fei2018] and they do not provide batch effect removal for new
+samples. The only way is to re-run the procedure together with the new sample.
+The problem of doing this is usually you don't have enough samples to estimate
+batch effects across groups and therefore correct it.
 
-This chapter show how to perform PCA projection using samples from different 
-datasets and how new samples can be introduced without retraining of the 
-PCA. We first introduce the notion of a new normalization that
-depends on housekeeping genes. After using this new normalization, we proceed
-with PCA on a subset of two cohorts using the 1000 most variable genes.
-We then validate the integration with new samples from a completely
-different cohort.  
+This chapter show how to perform PCA projection using samples from different
+datasets and how new samples can be introduced without retraining of the PCA. We
+first introduce the notion of a new normalization that depends on housekeeping
+genes. After using this new normalization, we proceed with PCA on a subset of
+two cohorts using the 1000 most variable genes. We then validate the integration
+with new samples from a completely different cohort.
 
 ```{r setup}
 library(tidyverse)
@@ -49,6 +52,7 @@ library(PCAtools)
 
 library(singscore)
 library(SummarizedExperiment)
+library(survival)
 
 source("utils.R")
 
@@ -65,19 +69,25 @@ if (load_at_setup){
     name_document <- "pca_merging"
     source("load_rds_files.R")
 }
+
+# by setting the dev to png and pdf, this saves the figures in a specific
+# folder in both formats. moreover, since png is coming first, it shows
+# this figure when rendering the html. What is nice about this is that it
+# inherits the properties from the chunk to save the figure, so no need
+# to use ggplot2::ggsave to save the plots. this also works 
+knitr::opts_chunk$set(dev = c('png', 'pdf'))
 ```
 
 ## Transcriptomics and qPCR normalization
 
-In this first step we introduce a new normalization. The rational is that we 
+In this first step we introduce a new normalization. The rational is that we
 need a normalization procedure that is applied in a single sample only, similar
-to logCPM, but that can be applied to microarray too. In this case, given 
-a set of samples, we start by ranking the genes in each sample. We then 
-normalize the ranking to be between 0 and 1, i.e., we divide by the total
-number of genes available in that sample. Then, given a list of 50 stable 
-genes across cancer [@Bhuva2020], we calculate the average ranking of these
-genes in the sample and then for each gene in the sample we divide by this
-average. 
+to logCPM, but that can be applied to microarray too. In this case, given a set
+of samples, we start by ranking the genes in each sample. We then normalize the
+ranking to be between 0 and 1, i.e., we divide by the total number of genes
+available in that sample. Then, given a list of 50 stable genes across cancer
+[@Bhuva2020], we calculate the average ranking of these genes in the sample and
+then for each gene in the sample we divide by this average.
 
 ### Selecting stable genes
 
@@ -112,34 +122,38 @@ if (!load_at_setup){
 }
 ```
 
-
-The first step is to check what number of these 50 genes are available
-on TCGA and METABRIC, as these datasets will be used for training the 
-PCA projection. The total number of available genes is `r length(stable_genes)`.
+The first step is to check what number of these 50 genes are available on TCGA
+and METABRIC, as these datasets will be used for training the PCA projection.
+The total number of available genes is `r length(stable_genes)`.
+[Table @fig-stable-genes] shows the name of the genes 
+available in TCGA and METABRIC.
 
 Now we select the 1000 most variable genes across METABRIC and TCGA. Reducing
 the number of genes used when calculating the PCA helps in the future. Several
 publicly available datasets don't have many genes available, therefore reducing
 the number of genes increases the chances of using this approach in other
-datasets. 
+datasets.
 
-Moreover, the use of a large number of genes is used because if some of 
-them are not available, this should be ok and the normalized sample
-should be fine. We show this property later.
-
-A table with the genes available is shown below.
+Moreover, the use of a large number of genes is used because if some of them
+are not available. We show in later sections that if some number of stable
+genes are missing, it will not affect the normalization. 
 
 ```{r}
-DT::datatable(data.frame(genes = stable_genes))
+#| label: fig-stable-genes
+#| fig-cap: ([Table @fig-stable-genes]) Available stable genes 
+#|     in both TCGA and METABRIC cohorts.
+DT::datatable(
+    data.frame(genes = stable_genes)
+)
 ```
 
 ### Calculating the normalization
 
 We will create subset of the summarised experiment objects to save these
-information. Moreover, since a summarized experiment object is being used,
-we can save the new normalization in the `assays` and the average ranking scores
-of the housekeeping genes in the column data `colData`. This way it is 
-very easy to retrieve the information for the patients. 
+information. Moreover, since a summarized experiment object is being used, we
+can save the new normalization in the `assays` and the average ranking scores of
+the housekeeping genes in the column data `colData`. This way it is very easy to
+retrieve the information for the patients.
 
 ```{r}
 # the strategy is to calculate the standard deviation for each cohort separately
@@ -180,10 +194,15 @@ saveRDS(
 )
 ```
 
-The table with the selected genes is shown below along with their standard
-deviation. We added the stable genes to the table as well.
+[Table @fig-sd-stable-genes] shows the top 1000 genes along with their standard
+deviation. The stable genes are also added to the list.
 
 ```{r}
+#| label: fig-sd-stable-genes
+#| fig-cap: ([Table @fig-sd-stable-genes]) Standard deviation of each gene in
+#|     each condition and 
+#|     pooled standard deviation. 
+
 sd_genes %>% dplyr::filter(symbol %in% genes_for_pca) %>%
     dplyr::mutate(
         is_housekeeping = ifelse(symbol %in% stable_genes, "yes", "no")
@@ -200,7 +219,7 @@ sd_genes %>% dplyr::filter(symbol %in% genes_for_pca) %>%
 ```
 
 Overall we can see that housekeeping genes have very low standard deviation
-across cohorts, which is good. 
+across cohorts, which is good.
 
 ```{r}
 #| eval: false
@@ -233,7 +252,11 @@ if (!load_at_setup){
 The histogram below shows the distribution of the average ranking of the
 housekeeping genes for each sample in each cohort.
 
-```{r, fig.height=4, fig.width=10}
+```{r avg-rankings-hkg, fig.height=4, fig.width=10}
+#| label: fig-avg-ranking-hkg
+#| fig-cap: Distribution of the average ranking of the housekeeping genes
+#|     defined previously for each cohort separately.
+
 avg_rankings <- lapply(
     datasets_normalized, 
     function(x) colData(x) %>% data.frame %>% dplyr::select(avg_ranking)
@@ -251,10 +274,10 @@ avg_rankings %>% ggplot2::ggplot(
 
 The average ranking are somewhat similar. For the two experiments where there
 are RNA-seq samples, the distribution is the same. For METABRIC, a microarray
-experiment, the distribution is shifted a bit below. 
+experiment, the distribution is shifted a bit below.
 
-In the plots below histograms for gene expression of some important
-genes in breast cancer are plotted.
+In the plots below histograms for gene expression of some important genes in
+breast cancer are plotted.
 
 ```{r, fig.width = 20, fig.height=12}
 genes <- c("TFF1", "ESR1")#, "CCND1")
@@ -286,17 +309,17 @@ ggplot2::ggplot(
     ggplot2::theme_bw(base_size = 30)
 ```
 
-ESR1 and TFF1 expressions are divided across ER status, as expected. The 
+ESR1 and TFF1 expressions are divided across ER status, as expected. The
 proliferation marker CCND1 is also highly expressed in all conditions.
 
 ### Checking robustness with respect of number of houesekeeping genes available
 
-When calculating the normalized data, a total of 44 housekeeping genes
-were used. Sometimes not all of these genes are available, therefore we 
-will calculate the normalization using random subsets of 44 housekeeping
-genes with different random sizes. The sets will have a minimum of 
-20 genes and maximum of 44. The sampling of the set size is obtained
-by using a uniform distribution. We focus just on TCGA for simplicity.
+When calculating the normalized data, a total of 44 housekeeping genes were
+used. Sometimes not all of these genes are available, therefore we will
+calculate the normalization using random subsets of 44 housekeeping genes with
+different random sizes. The sets will have a minimum of 20 genes and maximum of
+44. The sampling of the set size is obtained by using a uniform distribution. We
+focus just on TCGA for simplicity.
 
 ```{r}
 #| eval: false
@@ -389,31 +412,31 @@ correlation_df %>% ggplot2::ggplot(
     ggplot2::theme(panel.spacing = unit(3, "lines"))
 ```
 
-The plots above show the different distributions given the subsets of 
-housekeeping genes. All the correlation coefficients are close to 1. This
-means that if a subset of housekeeping genes are missing it is fine, as 
-the others will compensate. 
+The plots above show the different distributions given the subsets of
+housekeeping genes. All the correlation coefficients are close to 1. This means
+that if a subset of housekeeping genes are missing it is fine, as the others
+will compensate.
 
 ## Integrating TCGA and METABRIC using PCA
 
 The next step is creating the framework where we can integrate any patient
-sample and compare each other, at least spatially. The approach is similar
-to some sort of unsupervised learning, where no labels or groups are
-specified, which is something common in algorithms for batch removal. By using
-PCA in some subset of TCGA and METABRIC, we should learn the idiosyncrasies
-of the RNA-seq and microarray technologies as well as batch effects general to
-datasets. Since these two cohorts are big ones, we assume that if there are
-common batch effects, they are represented on them. 
+sample and compare each other, at least spatially. The approach is similar to
+some sort of unsupervised learning, where no labels or groups are specified,
+which is something common in algorithms for batch removal. By using PCA in some
+subset of TCGA and METABRIC, we should learn the idiosyncrasies of the RNA-seq
+and microarray technologies as well as batch effects general to datasets. Since
+these two cohorts are big ones, we assume that if there are common batch
+effects, they are represented on them.
 
-The practical steps are: first subselect 1000 samples in total from
-METABRIC **and** TCGA. Train PCA using these 1000 samples. Validate the
-results by projecting the other samples. In the next section we show how
-robust the approach is when selecting the samples. In the next chapters we
-validate the projection in unseen cohorts. 
+The practical steps are: first subselect 1000 samples in total from METABRIC
+**and** TCGA. Train PCA using these 1000 samples. Validate the results by
+projecting the other samples. In the next section we show how robust the
+approach is when selecting the samples. In the next chapters we validate the
+projection in unseen cohorts.
 
-Integrating as laid out here only uses molecular data, therefore patients
-might be close to each other but they might have very different clinical 
-features. This should always be kept in mind.
+Integrating as laid out here only uses molecular data, therefore patients might
+be close to each other but they might have very different clinical features.
+This should always be kept in mind.
 
 ```{r}
 # we start by selecting the patients that will be used in the training 
@@ -422,7 +445,17 @@ merged_col_data <- lapply(datasets_normalized, colData) %>%
     lapply(., data.frame) %>%
     dplyr::bind_rows(.id = "cohort")
 
+saveRDS(
+    merged_col_data,
+    "../results/rds_files/pca_merging/merged_col_data.rds"
+)
+
 which_cohorts_training <- c("tcga", "metabric")
+
+saveRDS(
+    which_cohorts_training,
+    "../results/rds_files/pca_merging/which_cohorts_training.rds"
+)
 
 set.seed(132904)
 samples_for_training <- merged_col_data %>%
@@ -431,8 +464,8 @@ samples_for_training <- merged_col_data %>%
     sample(., size = 1000)
 ```
 
-The table below shows the molecular characteristics of the patients
-selected for the PCA training.
+The table below shows the molecular characteristics of the patients selected for
+the PCA training.
 
 ```{r}
 merged_col_data %>% dplyr::filter(
@@ -484,10 +517,10 @@ if (!load_at_setup){
 ```
 
 The following figure shows the embedding of the two datasets together of the
-1000 samples used for training. We select several PCs of interest to show 
-how the embedding works.
+1000 samples used for training. We select several PCs of interest to show how
+the embedding works.
 
-```{r, fig.width=20, fig.height=14}
+```{r, fig.width=20, fig.height=16}
 plots_pca_fit <- list()
 point_size <- 2
 
@@ -554,23 +587,10 @@ plots_pca_fit$pc2_pc3_pam50 <- PCAtools::biplot(
 cowplot::plot_grid(plotlist = plots_pca_fit, ncol = 2)
 ```
 
-```{r}
-PCAtools::biplot(
-    pca_fit,
-    colby = "cohort",
-    lab = NULL, 
-    legendPosition = "right",
-    pointSize = point_size,
-    x = "PC2",
-    y = "PC3"
-)
-```
-
-
-The first two components correspond to the batch effect. The second
-component explains the ER status and the two cohorts are well inter mingled.
-When plotting the second and third components and coloring by the molecular
-subtype, we see a clear distinction, recapitulating the biology.
+The first two components correspond to the batch effect. The second component
+explains the ER status and the two cohorts are well inter mingled. When plotting
+the second and third components and coloring by the molecular subtype, we see a
+clear distinction, recapitulating the biology.
 
 ```{r}
 #| eval: false
@@ -586,7 +606,6 @@ saveRDS(
 )
 ```
 
-
 ```{r}
 if (!load_at_setup){
     datasets_pca_coordinates <- readRDS(
@@ -595,12 +614,13 @@ if (!load_at_setup){
 }
 ```
 
-The plot below shows all the samples from TCGA and cohort projected into
-the molecular landscape. The samples are mixing well, the only thing is that
+The plot below shows all the samples from TCGA and cohort projected into the
+molecular landscape. The samples are mixing well, the only thing is that
 METABRIC is a bit offset to the left bottom.
 
 ```{r}
-df_pca_coordinates <- datasets_pca_coordinates %>% 
+#| eval: false
+df_pca_coordinates_og <- datasets_pca_coordinates %>% 
     do.call(rbind, .) %>%
     data.frame %>% 
     tibble::rownames_to_column(var = "sample_name") %>%
@@ -610,24 +630,39 @@ df_pca_coordinates <- datasets_pca_coordinates %>%
         by = "sample_name"
     )
 
-df_pca_coordinates %>%
-    dplyr::filter(cohort %in% which_cohorts_training) %>%
-    ggplot2::ggplot(
-        aes(x = PC2, y = PC3, color = cohort)
-    ) + 
-        ggplot2::geom_point()
+saveRDS(
+    df_pca_coordinates_og,
+    "../results/rds_files/pca_merging/df_pca_coordinates_og.rds"
+)
+```
+
+```{r}
+plot_pca_coordinates(
+    df_pca_coordinates_og %>% dplyr::filter(cohort %in% c("tcga", "metabric")),
+    color = "cohort",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        " and METABRIC"
+    )
+)
 ```
 
 To correct the offset, we sum 0.5 in PC2 and 1 in coordinate 3. By doing this,
-the offset is corrected. 
+the offset is corrected.
 
 ```{r}
-datasets_pca_coordinates$metabric[, "PC2"] <- 
-    datasets_pca_coordinates$metabric[, "PC2"] + 0.5
-datasets_pca_coordinates$metabric[, "PC3"] <- 
-    datasets_pca_coordinates$metabric[, "PC3"] + 1
+#| eval: false
+corrected_pca_coordinates <- datasets_pca_coordinates
+corrected_pca_coordinates$metabric[, "PC2"] <- 
+    corrected_pca_coordinates$metabric[, "PC2"] + 0.5
+corrected_pca_coordinates$metabric[, "PC3"] <- 
+    corrected_pca_coordinates$metabric[, "PC3"] + 1
 
-df_pca_coordinates <- datasets_pca_coordinates %>% 
+df_pca_coordinates <- corrected_pca_coordinates %>% 
     do.call(rbind, .) %>%
     data.frame %>% 
     tibble::rownames_to_column(var = "sample_name") %>%
@@ -637,16 +672,591 @@ df_pca_coordinates <- datasets_pca_coordinates %>%
         by = "sample_name"
     )
 
-df_pca_coordinates %>%
-    dplyr::filter(cohort %in% which_cohorts_training) %>%
-    ggplot2::ggplot(
-        aes(x = PC2, y = PC3, color = cohort)
-    ) + 
-        ggplot2::geom_point()
+saveRDS(
+    df_pca_coordinates, 
+    "../results/rds_files/pca_merging/df_pca_coordinates.rds"
+)
 ```
 
-By summing the offset is corrected. 
+```{r}
+plot_corrected <- plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")),
+    color = "cohort",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        " and METABRIC\n",
+        "Corrected METABRIC samples"
+    )
+)
+
+plot_corrected
+```
+
+By summing the offset is corrected. The question that remains still is what is
+causing this offset. Could it be the expression of some genes or it is an offset
+inherent by the averaging of house keeping genes?
+
+In order to check if the integration made sense, it is possible to color by ER
+status, NPI for METABRIC samples and tumor/node stage for TCGA. To check ER
+signaling scores, the pathways Estrogen response early/late and $SET_{ER/PR}$
+are used to color the projection.
+
+The first figure shows the coloring by age.
+
+```{r}
+plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")),
+    color = "age",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        " and METABRIC\n",
+        "Corrected METABRIC samples"
+    )
+) + ggplot2::scale_color_viridis_c() +
+    ggplot2::labs(color = "Age")
+```
+
+Age seems to be well mixed. Next one is ER status.
+
+```{r}
+plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")),
+    color = "er_status",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        " and METABRIC\n",
+        "Corrected METABRIC samples"
+    )
+) + ggplot2::scale_color_viridis_d() +
+    ggplot2::labs(color = "ER status")
+```
+
+It has a very good separation among the different patients.
+
+```{r}
+plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")),
+    color = "npi",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from corrected METABRIC"
+    )
+) + ggplot2::scale_color_viridis_c(na.value = 0) +
+    ggplot2::labs(color = "NPI")
+```
+
+It looks good, ER+ BC patients have lower NPI, which makes sense.
+
+```{r, fig.width=12, fig.height=4}
+p1 <- plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga")),
+    color = "tumor_stage",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA"
+    )
+) + ggplot2::scale_color_viridis_d() +
+    ggplot2::geom_point(size = 2) + 
+    ggplot2::labs(color = "Tumor\nstage")
+
+p2 <- plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga")),
+    color = "node_stage",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA"
+    )
+) + ggplot2::scale_color_viridis_d() +
+    ggplot2::geom_point(size = 2) + 
+    ggplot2::labs(color = "Node\nstage")
+
+cowplot::plot_grid(p1, p2, ncol = 2)
+```
+
+For both tumor and node stage the samples seem to have mixed well, indicating
+the projection is not a function of the stages.
+
+And finally the image below shows the color by molecular subtype.
+
+```{r}
+plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
+        dplyr::filter(!(pam50 %in% c("claudin-low", "nc"))),
+    color = "pam50",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA"
+    )
+) +
+    ggplot2::geom_point(size = 2) + 
+    ggplot2::labs(color = "PAM50")
+```
+
+The molecular subtypes are projected as expected, going from left to right there
+are the basal-like BC patients, going to HER2 and then they are split between
+luminal A and B. The normal like patients are in the top and closer to the
+luminal A, reflecting the biology.
+
+The next figures show the ER signaling measures coloring the projections.
+
+```{r}
+plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")),
+    color = "SET_ERPR",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        " and METABRIC\n",
+        "Corrected METABRIC samples"
+    )
+) + ggplot2::scale_color_viridis_c() +
+    ggplot2::labs(color = expression(SET[ER/PR]))
+```
+
+```{r}
+plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")),
+    color = "HALLMARK_ESTROGEN_RESPONSE_EARLY",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        " and METABRIC\n",
+        "Corrected METABRIC samples"
+    )
+) + ggplot2::scale_color_viridis_c() +
+    ggplot2::labs(color = "Estrogen\nearly")
+```
+
+```{r}
+plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")),
+    color = "HALLMARK_ESTROGEN_RESPONSE_LATE",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        " and METABRIC\n",
+        "Corrected METABRIC samples"
+    )
+) + ggplot2::scale_color_viridis_c() +
+    ggplot2::labs(color = "Estrogen\nlate")
+```
+
+In all cases the mixing is relatively good. For $SET_{ER/PR}$ you have a
+gradient going from the right to the left and top to bottom, showing again that
+patients on the far top right probably are those patients with better prognosis.
+
+This can actually be validate using survival analysis for the patients by using
+a combination of PC2 and PC3. In this case the two components were multiplied by
+each other. Since PC3 is just positive, that means a negative value is in the
+region of the ER negative patients.
+
+::: panel-tabset
+### TCGA OS
+
+```{r}
+fun_stat <- function(x, y){prod(x, y)}
+
+df_pca_coordinates %>% 
+    dplyr::filter(cohort == "tcga") %>% 
+    dplyr::filter(
+        pam50 %in% c("luma", "lumb") &
+        node_stage != "NX" &
+        !(tumor_stage %in% c("stage_iv", "na")) & 
+        er_status == "pos"
+    ) %>% 
+    dplyr::rowwise() %>%
+    dplyr::mutate(pc2_pc3 = fun_stat(PC2, PC3)) %>%
+    dplyr::ungroup() %>%
+    survival::coxph(
+        Surv(os_months, os_status) ~ 
+            pc2_pc3 + age + tumor_stage + node_stage,
+        data = .
+    ) %>% broom::tidy() %>%
+    dplyr::mutate(HR = exp(estimate)) %>%
+    DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
+    DT::formatRound(
+        columns=c(
+            "estimate", "std.error", "statistic", "HR"
+        ), 
+        digits = 2
+    ) %>% 
+    DT::formatSignif(columns = c("p.value"))
+```
+
+### METABRIC OS
+
+```{r, warning=FALSE}
+df_pca_coordinates %>% 
+    dplyr::filter(cohort == "metabric") %>% 
+    dplyr::filter(
+        CHEMOTHERAPY == "NO" &
+        er_status == "pos" & 
+        HORMONE_THERAPY == "YES"
+    ) %>% 
+    dplyr::rowwise() %>%
+    dplyr::mutate(pc2_pc3 = fun_stat(PC2, PC3)) %>%
+    dplyr::ungroup() %>%
+    survival::coxph(
+        Surv(os_months, os_status) ~ 
+            pc2_pc3 + age + npi,
+        data = .
+    ) %>% broom::tidy() %>%
+    dplyr::mutate(HR = exp(estimate)) %>%
+    DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
+    DT::formatRound(
+        columns=c(
+            "estimate", "std.error", "statistic", "HR"
+        ), 
+        digits = 2
+    ) %>% 
+    DT::formatSignif(columns = c("p.value"))
+```
+
+### METABRIC RFS
+
+```{r, warning=FALSE}
+df_pca_coordinates %>% 
+    dplyr::filter(cohort == "metabric") %>% 
+    dplyr::filter(
+        CHEMOTHERAPY == "NO" &
+        er_status == "pos" & 
+        HORMONE_THERAPY == "YES"
+    ) %>% 
+    dplyr::rowwise() %>%
+    dplyr::mutate(pc2_pc3 = fun_stat(PC2, PC3)) %>%
+    dplyr::ungroup() %>%
+    survival::coxph(
+        Surv(rfs_months, rfs_status) ~ 
+            pc2_pc3 + age + npi,
+        data = .
+    ) %>% broom::tidy() %>%
+    dplyr::mutate(HR = exp(estimate)) %>%
+    DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
+    DT::formatRound(
+        columns=c(
+            "estimate", "std.error", "statistic", "HR"
+        ), 
+        digits = 2
+    ) %>% 
+    DT::formatSignif(columns = c("p.value"))
+```
+:::
+
+The score depending on PC2 and PC3 has a hazard ratio smaller than 1, though it
+is very close. Regardless, it seems that in all cases the score has a small
+p-value, indicating moderate variability.
 
 ## The integration is robust with respect of selection of samples
 
+The embedding could be due to the patients selected and samples that are close
+to each other in one embedding would be far away from them in another embedding.
+Ten random sets of 1000 patients are sampled and the embedding is calculate. A
+total of 10 PCA embeddings are obtained.
+
+```{r}
+#| eval: false
+seeds <- seq(0, 500, by = 29)
+new_pcas <- lapply(
+    seeds, 
+    get_new_pca, 
+    datasets_normalized = datasets_normalized,
+    merged_col_data = merged_col_data,
+    which_cohorts_training = which_cohorts_training
+)
+names(new_pcas) <- as.character(seeds)
+saveRDS(
+    new_pcas,
+    "../results/rds_files/pca_merging/new_pcas.rds"
+)
+```
+
+```{r}
+# plot PCA of random 50 samples using the new and original embeddings.
+plot_pcas_together <- function(
+    new_pca_results, 
+    which_seed, 
+    test_og_pca, 
+    seed_nb,
+    x = "PC2",
+    y = "PC3",
+    size_point = 3,
+    base_size = 30,
+    nb_samples = 50
+){
+    
+    set.seed(seed_nb)
+    random_samples <- sample(x = test_og_pca$sample_name, size = nb_samples)
+    new_pca_results <- new_pca_results[[which_seed]]$test %>%
+        do.call(rbind, .)
+    
+    a <- list(
+        "og_pca" = test_og_pca[random_samples, c("PC2", "PC3")] %>% 
+            data.frame %>%
+            tibble::rownames_to_column(var = "sample_name"),
+        "new_pca" = new_pca_results[random_samples, c("PC2", "PC3")] %>%
+            data.frame %>%
+            tibble::rownames_to_column(var = "sample_name")
+    ) %>% dplyr::bind_rows(
+        .id = "type_data"
+    ) %>% 
+        ggplot2::ggplot(aes_string(
+            x = x, 
+            y = y, 
+            color = "type_data", 
+            group = "sample_name"
+        )) + 
+        ggplot2::geom_point(size = size_point) + 
+        ggplot2::geom_line(color = "gray") + 
+        ggplot2::labs(title = paste0("Seed nb: ", which_seed)) + 
+        ggplot2::theme_bw(base_size = base_size) + 
+        ggplot2::theme(legend.position = c(0.2, 0.7))
+}
+```
+
+```{r plots-pcas-random, fig.width=18, fig.height=20}
+#| label: fig-plots-pcas-random
+#| fig-cap: Selecting a random set of 1000 patients an rerunning the pipeline
+#|     to obtain other embeddings. Red color corresponds to the embedding using
+#|     the new fitted PCA. Blue corresponds to the embedding of the original
+#|     PCA. Each dot corresponds to a patient.  
+plots_new_pcas <- sapply(
+    names(new_pcas),
+    plot_pcas_together,
+    new_pca_results = new_pcas,
+    test_og_pca = df_pca_coordinates %>%
+        `rownames<-`(df_pca_coordinates$sample_name),
+    seed_nb = 0923, 
+    size_point = 3,
+    base_size = 15,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+plots_new_pcas_all <- cowplot::plot_grid(
+    plotlist = plots_new_pcas, 
+    ncol = 3
+)
+
+plots_new_pcas_all
+```
+
+@fig-plots-pcas-random shows that the embedding is invariant for rotation,
+translation and reflection. Therefore, the subset of samples used for the
+embedding does not really matter.
+
 ## Normalization is necessary to reduce batch effects in other components
+
+Since PCA is removing batch effects from the datasets, one could argue it could
+also remove platform dependent normalization values and therefore one would need
+to look only at lower principal components. In this section we show that doing
+the normalization is necessary to get a good integration in the datasets.
+
+The idea is similar as before, but instead of performing the *qPCR*-like
+normalization on the datasets, one would use the logFPKM values for TCGA and
+median intensity for microarray. The problem with this kind of approach also
+includes the fact that only other samples that went through this processing
+could be used in the pipeline.
+
+```{r}
+training_set <- mapply( 
+    function(sum_exp, i, genes_for_pca){
+        assay(sum_exp[genes_for_pca, ], i = i) %>% 
+            data.frame(check.names = FALSE)    
+    },
+    datasets_normalized[which_cohorts_training],
+    i = which_exp[which_cohorts_training],
+    MoreArgs = list(genes_for_pca = genes_for_pca),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+) %>% 
+    dplyr::bind_cols() %>%
+    .[, samples_for_training]
+
+pca_fit_no_norm <- PCAtools::pca(
+    training_set,
+    metadata = merged_col_data %>% 
+        dplyr::filter(sample_name %in% colnames(training_set)) %>%
+        .[colnames(training_set), ]
+)
+
+saveRDS(
+    pca_fit_no_norm,
+    "../results/rds_files/pca_merging/pca_fit_no_norm.rds"
+)
+```
+
+```{r pca-no-norm, fig.width=20, fig.height=16}
+#| label: fig-pca-no-norm
+#| fig-cap: PCA projections colored by different factors and organized
+#|    by different components. (A) Plot of the first two components colored
+#|    by cohort. (B) Plot of the first two components colored by ER status.
+#|    (C) Plot of the second and third components colored by cohort. 
+#|    (D) Plot of the second and third components colored by ER status.
+#|    (E) Plot of the second and third components colored by PAM50.
+
+plots_pca_fit <- list()
+point_size <- 2
+which_pca_fit <- pca_fit_no_norm
+plots_pca_fit$pc1_pc2_cohort <- PCAtools::biplot(
+    pca_fit_no_norm,
+    colby = "cohort",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC1",
+    y = "PC2",
+    title = "First two components colored by cohort",
+    subtitle = "Only 1000 training samples, no qPCR normalization",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc1_pc2_er_status <- PCAtools::biplot(
+    pca_fit_no_norm,
+    colby = "er_status",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC1",
+    y = "PC2",
+    title = "First two components colored by ER status",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc2_pc3_cohort <- PCAtools::biplot(
+    pca_fit_no_norm,
+    colby = "cohort",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC2",
+    y = "PC3",
+    title = "Second and third components colored by cohort",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc2_pc3_er_status <- PCAtools::biplot(
+    pca_fit_no_norm,
+    colby = "er_status",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC2",
+    y = "PC3",
+    title = "Second and third components colored by ER status",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc2_pc3_pam50 <- PCAtools::biplot(
+    pca_fit_no_norm,
+    colby = "pam50",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC2",
+    y = "PC3",
+    title = "Second and third components colored by PAM50",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+cowplot::plot_grid(plotlist = plots_pca_fit, ncol = 2, labels = "AUTO")
+```
+
+@fig-pca-no-norm shows the contrast with the other method including the
+normalization. Without the normalization, the samples from METABRIC tend to
+concentrate close to the center, they are not so well mixed. This is to be
+expected, as they have different scales, specially that the minimum value for
+METABRIC is around 4.5.
+
+```{r}
+datasets_pca_coordinates_no_norm <- mapply(
+    get_pca_coordinates,
+    datasets_normalized,
+    which_exp = which_exp,
+    MoreArgs = list(pca_fit = pca_fit_no_norm)
+)
+
+df_pca_coordinates_og_no_norm <- datasets_pca_coordinates_no_norm %>% 
+    do.call(rbind, .) %>%
+    data.frame %>% 
+    tibble::rownames_to_column(var = "sample_name") %>%
+    dplyr::inner_join(
+        .,
+        merged_col_data,
+        by = "sample_name"
+    )
+
+plot_no_norm <- plot_pca_coordinates(
+    df_pca_coordinates_og_no_norm %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")),
+    color = "cohort",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        " and METABRIC\n",
+        "No qPCR normalization performed in the samples"
+    )
+)
+```
+
+```{r pca-norm-no-norm, fig.width=10, fig.height=4}
+#| label: fig-pca-norm-no-norm
+#| fig-cap: PC2 and PC3 from all METABRIC and TCGA samples. (A) Embedding
+#|     using the qPCR-like normalization. (B) Embedding using the original
+#|     normalization from each dataset.
+
+cowplot::plot_grid(
+    plot_corrected,
+    plot_no_norm
+)
+```
+
+@fig-pca-norm-no-norm shows side by side the differences when using the
+qPCR-like normalization and when not using. The left plot is using the qPCR
+normalization and shows how well the mixing gets, putting samples in the same
+scale. If the scaling in a sample level is not performed, samples do not mix
+well.

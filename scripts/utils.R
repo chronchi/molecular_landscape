@@ -482,43 +482,150 @@ get_gene_col_data <- function(
 #' }
 get_pca_coordinates <- function(
     sum_exp,
-    pca_fit
+    pca_fit,
+    which_exp = "avg_ranking"
 ){
     
-    # first check if avg_ranking is there
-    if( !("avg_ranking" %in% SummarizedExperiment::assayNames(sum_exp)) ){
-        stop(
-            paste0(
-                "avg_ranking not available in the object, make sure",
-                " the normalization was done."
+    # first check if avg_ranking is there if it was
+    # selected
+    if (which_exp == "avg_ranking"){
+        if( !("avg_ranking" %in% SummarizedExperiment::assayNames(sum_exp)) ){
+            stop(
+                paste0(
+                    "avg_ranking not available in the object, make sure",
+                    " the normalization was done."
+                )
             )
-        )
+        }    
     }
+    
     
     loadings_pca <- pca_fit$loadings
     
     # we now add 0 to average ranking for the genes that are not
     # available in the summarized experiment 
     genes_for_pca <- rownames(loadings_pca)
-    avg_ranking_matrix <- assay(sum_exp, "avg_ranking") %>% as.matrix
-    genes_not_available <- setdiff(genes_for_pca, rownames(avg_ranking_matrix))
+    assay_matrix <- assay(sum_exp, which_exp) %>% as.matrix
+    genes_not_available <- setdiff(genes_for_pca, rownames(assay_matrix))
     if (length(genes_not_available) > 0){
-        avg_ranking_matrix <- rbind(
-            avg_ranking_matrix,
+        assay_matrix <- rbind(
+            assay_matrix,
             matrix(
                 0, 
                 nrow = length(genes_not_available), 
                 ncol = ncol(sum_exp),
                 dimnames = list(
                     genes_not_available,
-                    colnames(avg_ranking_matrix)
+                    colnames(assay_matrix)
                 )
             )
         )
     }
     
     # calculate the pc coordinates
-    avg_ranking_matrix <- avg_ranking_matrix[genes_for_pca, ]
-    t(avg_ranking_matrix) %*% (loadings_pca %>% as.matrix)
+    assay_matrix <- assay_matrix[genes_for_pca, ]
+    t(assay_matrix) %*% (loadings_pca %>% as.matrix)
     
+}
+
+#' Plot projection given the PCA coordinates
+#'
+#' @param df_pca A dataframe. This is a data frame containing the principal 
+#'     components given in the get_pca_coordinates and any other 
+#'     metadata related to the samples
+#' @param color A string. ggplot2 aesthetic parameter
+#' @param x A string. ggplot2 aesthetic parameter
+#' @param y A string. ggplot2 aesthetic parameter
+#' @param base_size An integer. ggplot2 aesthetic parameter
+#' @param size An integer. ggplot2 aesthetic parameter
+#' @param title A string. ggplot2 aesthetic parameter
+#' @return A ggplot2 plot
+#' @examples
+#' \dontrun{
+#' plot_pca_coordinates(
+#'     df_pca, x = "PC1", y = "PC2", color = "cohort", base_size = 20
+#' )
+#' }
+plot_pca_coordinates <- function(
+    df_pca,
+    x = "PC1",
+    y = "PC2",
+    base_size = 20,
+    size = 2,
+    title = "",
+    color = NULL
+){
+  
+    ggplot2::ggplot(
+        df_pca,
+        aes_string(x = x, y = y, colour = color)
+    ) + 
+        ggplot2::geom_point(size = size) +
+        ggplot2::labs(title = title) + 
+        ggplot2::theme_bw(base_size = base_size)
+    
+}
+
+
+#' Plot projection given the PCA coordinates
+#'
+#' @param seed_nb An integer.
+#' @param merged_col_data A dataframe. Contains the name of the samples from
+#'     the cohorts
+#' @param datasets_normalized A list of Summarized experiment. A summarized experiment 
+#'     with normalized data from all cohorts
+#' @param which_cohorts_trainings A vector of strings. Specify which
+#'     cohorts to use when training the PCA.
+#' @return A list with the new PCA fit and the embeddings from
+#'     all samples.
+get_new_pca <- function(
+    seed_nb, 
+    merged_col_data, 
+    datasets_normalized,
+    which_cohorts_trainings
+){
+ 
+    print(paste("Seed:", seed_nb))
+    set.seed(seed_nb)
+    samples_for_training <- merged_col_data %>% 
+        data.frame %>%
+        dplyr::filter(cohort %in% which_cohorts_training) %>%
+        dplyr::pull(sample_name) %>%
+        sample(., size = 1000)
+    
+    training_set <- lapply(
+        datasets_normalized[which_cohorts_training], 
+        function(sum_exp, i, genes_for_pca) 
+            assay(sum_exp[genes_for_pca, ], i = i) %>% 
+            data.frame(check.names = FALSE), 
+        i = "avg_ranking",
+        genes_for_pca = genes_for_pca
+    ) %>% 
+        dplyr::bind_cols() %>%
+        .[, samples_for_training]
+
+    pca_fit <- PCAtools::pca(
+        training_set,
+        metadata = dplyr::bind_rows(
+            lapply(
+                datasets_normalized[which_cohorts_training],
+                function(df){
+                    colData(df) %>% data.frame %>%
+                        dplyr::filter(sample_name %in% colnames(training_set))
+                }
+            ),
+            .id = "cohort"
+        ) %>% .[colnames(training_set), ]
+    )
+
+    datasets_pca_coordinates <- lapply(
+        datasets_normalized,
+        get_pca_coordinates,
+        pca_fit = pca_fit
+    )
+    
+    list(
+        train = pca_fit,
+        test = datasets_pca_coordinates
+    )
 }
