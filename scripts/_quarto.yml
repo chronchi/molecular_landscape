@@ -12,6 +12,8 @@ book:
     - index.qmd
     - surv_analysis_estrogen.qmd
     - pca_merging.qmd
+    - validation.qmd
+    - scoring.qmd
     - references.qmd
   page-footer: 
     right: 
