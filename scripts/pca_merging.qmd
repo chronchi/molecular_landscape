@@ -249,7 +249,8 @@ if (!load_at_setup){
 }
 ```
 
-The histogram below shows the distribution of the average ranking of the
+@fig-avg-ranking-hkg shows a histogram with
+the distribution of the average ranking of the
 housekeeping genes for each sample in each cohort.
 
 ```{r avg-rankings-hkg, fig.height=4, fig.width=10}
@@ -276,11 +277,16 @@ The average ranking are somewhat similar. For the two experiments where there
 are RNA-seq samples, the distribution is the same. For METABRIC, a microarray
 experiment, the distribution is shifted a bit below.
 
-In the plots below histograms for gene expression of some important genes in
-breast cancer are plotted.
+@fig-gene-bc-imp shows histograms of gene expression from some
+important genes in
+breast cancer.
 
 ```{r, fig.width = 20, fig.height=12}
-genes <- c("TFF1", "ESR1")#, "CCND1")
+#| label: fig-gene-bc-imp
+#| fig-cap: Distribution of the gene expression levels of ESR1 and TFF1
+#|     in each one of the cohorts
+
+genes <- c("TFF1", "ESR1")
 col_data_genes <- mapply(
     get_gene_col_data,
     sum_exp = datasets_normalized,
@@ -319,7 +325,8 @@ used. Sometimes not all of these genes are available, therefore we will
 calculate the normalization using random subsets of 44 housekeeping genes with
 different random sizes. The sets will have a minimum of 20 genes and maximum of
 44. The sampling of the set size is obtained by using a uniform distribution. We
-focus just on TCGA for simplicity.
+focus just on TCGA for simplicity. The correlation used in this case
+was the Pearson correlation.
 
 ```{r}
 #| eval: false
@@ -391,6 +398,9 @@ if (!load_at_setup){
 ```
 
 ```{r, fig.width=21, fig.height=12}
+#| label: fig-correlation
+#| fig-cap: Correlation distribution for different subsets of housekeeping
+#|     genes (HKGs). Each different subset has a different number of HKGs.
 correlation_df <- lapply(
     correlation_scores,
     function(x) data.frame(correlation = x, gene = names(x), row.names = NULL)
@@ -412,7 +422,7 @@ correlation_df %>% ggplot2::ggplot(
     ggplot2::theme(panel.spacing = unit(3, "lines"))
 ```
 
-The plots above show the different distributions given the subsets of
+@fig-correlation shows the different distributions given the subsets of
 housekeeping genes. All the correlation coefficients are close to 1. This means
 that if a subset of housekeeping genes are missing it is fine, as the others
 will compensate.
@@ -516,11 +526,20 @@ if (!load_at_setup){
 }
 ```
 
-The following figure shows the embedding of the two datasets together of the
+@fig-pca-embeddings shows the embedding of the two datasets together of the
 1000 samples used for training. We select several PCs of interest to show how
 the embedding works.
 
 ```{r, fig.width=20, fig.height=16}
+#| label: fig-pca-embeddings
+#| fig-cap: PCA projections colored by different factors and organized
+#|    by different components. (A) Plot of the first two components colored
+#|    by cohort. (B) Plot of the first two components colored by ER status.
+#|    (C) Plot of the second and third components colored by cohort. 
+#|    (D) Plot of the second and third components colored by ER status.
+#|    (E) Plot of the second and third components colored by PAM50.
+#|    (F) Plot of the second and third components colored by INTCLUST, only
+#|    METABRIC has an assigned value for this variable, NAs are TCGA samples.
 plots_pca_fit <- list()
 point_size <- 2
 
@@ -584,7 +603,19 @@ plots_pca_fit$pc2_pc3_pam50 <- PCAtools::biplot(
     pointSize = point_size
 )
 
-cowplot::plot_grid(plotlist = plots_pca_fit, ncol = 2)
+plots_pca_fit$pc2_pc3_intclust <- PCAtools::biplot(
+    pca_fit,
+    colby = "INTCLUST",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC2",
+    y = "PC3",
+    title = "Second and third components colored by INTCLUST",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+cowplot::plot_grid(plotlist = plots_pca_fit, ncol = 2, labels = "AUTO")
 ```
 
 The first two components correspond to the batch effect. The second component
@@ -614,7 +645,7 @@ if (!load_at_setup){
 }
 ```
 
-The plot below shows all the samples from TCGA and cohort projected into the
+@fig-pca-og shows all the samples from TCGA and cohort projected into the
 molecular landscape. The samples are mixing well, the only thing is that
 METABRIC is a bit offset to the left bottom.
 
@@ -637,6 +668,9 @@ saveRDS(
 ```
 
 ```{r}
+#| label: fig-pca-og
+#| fig-cap: Original PC2 and PC3 of all samples, including test and 
+#|     train samples, of TCGA and METABRIC.
 plot_pca_coordinates(
     df_pca_coordinates_og %>% dplyr::filter(cohort %in% c("tcga", "metabric")),
     color = "cohort",
@@ -679,6 +713,10 @@ saveRDS(
 ```
 
 ```{r}
+#| label: fig-pca-corrected
+#| fig-cap: Corrected PC2 and PC3 of all samples, including test and 
+#|     train samples, of TCGA and METABRIC. Only METABRIC samples were
+#|     corrected
 plot_corrected <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
@@ -697,7 +735,8 @@ plot_corrected <- plot_pca_coordinates(
 plot_corrected
 ```
 
-By summing the offset is corrected. The question that remains still is what is
+By summing the offset is corrected, as shown in @fig-pca-corrected. 
+The question that remains still is what is
 causing this offset. Could it be the expression of some genes or it is an offset
 inherent by the averaging of house keeping genes?
 
@@ -706,9 +745,12 @@ status, NPI for METABRIC samples and tumor/node stage for TCGA. To check ER
 signaling scores, the pathways Estrogen response early/late and $SET_{ER/PR}$
 are used to color the projection.
 
-The first figure shows the coloring by age.
+@fig-pca-age shows the coloring by age.
 
 ```{r}
+#| label: fig-pca-age
+#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#|     colored by age.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
@@ -726,9 +768,13 @@ plot_pca_coordinates(
     ggplot2::labs(color = "Age")
 ```
 
-Age seems to be well mixed. Next one is ER status.
+Age seems to be well mixed. @fig-pca-er-status shows the
+PCA colored by ER status.
 
 ```{r}
+#| label: fig-pca-er-status
+#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#|     colored by ER status.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
@@ -747,8 +793,13 @@ plot_pca_coordinates(
 ```
 
 It has a very good separation among the different patients.
+@fig-pca-npi is the PCA embedding colored by NPI. Only METABRIC samples
+have this information.
 
 ```{r}
+#| label: fig-pca-npi
+#| fig-cap: Corrected PC2 and PC3 of samples from METABRIC only
+#|     colored by NPI.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
@@ -766,7 +817,12 @@ plot_pca_coordinates(
 
 It looks good, ER+ BC patients have lower NPI, which makes sense.
 
+
 ```{r, fig.width=12, fig.height=4}
+#| label: fig-pca-tumor-node
+#| fig-cap: Corrected PC2 and PC3 of samples from TCGA only
+#|     colored by tumor stage and node stage.
+
 p1 <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga")),
@@ -801,11 +857,16 @@ cowplot::plot_grid(p1, p2, ncol = 2)
 ```
 
 For both tumor and node stage the samples seem to have mixed well, indicating
-the projection is not a function of the stages.
+the projection is not a function of the stages, as shown in 
+@fig-pca-tumor-node.
 
-And finally the image below shows the color by molecular subtype.
+And finally @fig-pca-pam50 below shows the color by PAM50 molecular
+subtype.
 
 ```{r}
+#| label: fig-pca-pam50
+#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#|     colored by PAM50 molecular subtype.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
@@ -831,6 +892,9 @@ luminal A, reflecting the biology.
 The next figures show the ER signaling measures coloring the projections.
 
 ```{r}
+#| label: fig-pca-seterpr
+#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#|     colored by the SET ER/PR score.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
@@ -849,6 +913,9 @@ plot_pca_coordinates(
 ```
 
 ```{r}
+#| label: fig-pca-early
+#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#|     colored by the hallmark estrogen response early score.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
@@ -867,6 +934,9 @@ plot_pca_coordinates(
 ```
 
 ```{r}
+#| label: fig-pca-late
+#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#|     colored by the hallmark estrogen response early score.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
