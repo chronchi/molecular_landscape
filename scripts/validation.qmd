@@ -1,1 +1,13 @@
 # Validating the molecular landscape
+
+In the last chapters only TCGA and METABRIC samples were used in the training
+and testing of the PCA projection. To completely validate, we use another
+big cohort, SCANB, that was not used in the PCA fitting and testing before.
+This way we ensure that the embedding is independent of the cohort. Moreover,
+we use the SMC cohort [@Kan2018], whose patients are from South Korea and 
+the data is microarray. We show how well it is embedded, and that 
+is not dependent on population parameters. 
+
+## SCANB embedding
+
+## SMC embedding

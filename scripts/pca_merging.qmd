@@ -143,7 +143,8 @@ genes are missing, it will not affect the normalization.
 #| fig-cap: ([Table @fig-stable-genes]) Available stable genes 
 #|     in both TCGA and METABRIC cohorts.
 DT::datatable(
-    data.frame(genes = stable_genes)
+    data.frame(genes = stable_genes),
+    options = list(scrollX = TRUE)
 )
 ```
 
@@ -212,8 +213,10 @@ sd_genes %>% dplyr::filter(symbol %in% genes_for_pca) %>%
         options = list(
             columnDefs = list(
                 list(className = 'dt-center', targets = (0:ncol(sd_genes)))
-            )
-        )
+            ),
+            scrollX = TRUE
+        ),
+        filter = 'top'
     ) %>%
     DT::formatRound(c("tcga", "metabric", "average"))
 ```
