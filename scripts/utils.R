@@ -651,6 +651,57 @@ get_fuzziness_score <- function(
         genes = genes_to_remove %>% as.data.frame,
         pc = names(pca_fit$loadings)[which_pcs],
         MoreArgs = list(pca_fit = pca_fit)
-    )
+    ) %>% `names<-`(paste0("PC", which_pcs))
     
+}
+
+#' Plot PCA of samples with random missing genes
+#'
+#' @param pca_random_genes_patients A list. PCA coordinates from 
+#'     patients with missing genes
+#' @param patient A string. Name of the patient
+#' @return A plot showing where points would be if genes were
+#'     missing.
+plot_pca_random_genes <- function(
+    pca_random_genes_patients,
+    patient
+){
+    df <- pca_random_genes_patients[[patient]]
+    
+    df %>%
+    ggplot2::ggplot(
+        aes(
+            x = PC2, 
+            y = PC3, 
+            color = proportion, 
+            shape = embedding, 
+            size = embedding,
+            alpha = embedding
+        )
+    ) +
+    ggplot2::geom_line(
+        data = df %>% dplyr::filter(embedding == "original") %>%
+            dplyr::bind_rows(., data.frame("PC2" = c(0), "PC3" = c(0))),
+        aes(x = PC2, y = PC3), 
+        inherit.aes = FALSE,
+        alpha = 0.4,
+        linetype = "dashed"
+    ) +
+    ggplot2::geom_point(
+        data = df_pca_coordinates %>% dplyr::filter(cohort == "tcga"), 
+        aes(x = PC2, y = PC3),
+        alpha = 0.2, 
+        color = "gray",
+        inherit.aes = FALSE
+    ) +
+    ggplot2::geom_point() +
+    ggplot2::scale_color_viridis_d() +
+    ggplot2::scale_size_manual(
+        values = c("original" = 5, "random" = 2)
+    ) +
+    ggplot2::scale_alpha_manual(values = c("original" = 1, "random" = 0.5)) +
+    ggplot2::labs(
+        title = patient
+    ) +
+    ggplot2::theme_bw()
 }

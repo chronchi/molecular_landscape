@@ -4,9 +4,9 @@ In the last chapters only TCGA and METABRIC samples were used in the training
 and testing of the PCA projection. To completely validate, we use another
 big cohort, SCANB, that was not used in the PCA fitting and testing before.
 This way we ensure that the embedding is independent of the cohort. Moreover,
-we use the SMC cohort [@Kan2018], whose patients are from South Korea and 
-the data is microarray. We show how well it is embedded, and that 
-is not dependent on population parameters. 
+we use the SMC cohort [@Kan2018], whose patients are from South Korea.
+We show how well it is embedded, and that 
+is not dependent on population characteristics. 
 
 ```{r setup}
 library(tidyverse)
@@ -437,20 +437,39 @@ in the embedding as a proxy of deviation from the true coordinate. For this
 we use samples from SCANB, as they were not used in the training process and
 we know the true position since all genes are available. The genes are 
 removed even before the normalization procedure, as they are usually not
-available there. As the previous plot, we sample several list of genes
-with different number of top genes missing from PC2.
+available there. We select randomly a number of top genes from PC2 and PC3
+to compose the list of missing genes. Again we vary the proportion of these 
+genes.
 
 ```{r}
-samples_to_use <- sample(colnames(datasets$scanb), size = 50)
-nb_genes <- 150
-proportions <- seq(0, 1, by = 0.1)
+#| eval: false
+nb_genes <- 200
+proportions <- seq(0, 1, by = 0.05)
 gene_names <- rownames(pca_fit$loadings)
-which_pcs <- c(2)
-top_loadings_genes <- gene_names[order(
-    abs(pca_fit$loadings[, which_pcs]), 
-    decreasing = TRUE
-)[1:nb_genes]]
+which_pcs <- 2:3
+top_loadings_genes_random <- sapply(
+    which_pcs,
+    function(pc, gene_names, pca_fit, nb_genes){
+        gene_names[order(
+            abs(pca_fit$loadings[, paste0("PC", pc)]), 
+            decreasing = TRUE
+        )[1:nb_genes]]   
+    },
+    gene_names = gene_names,
+    pca_fit = pca_fit,
+    nb_genes = nb_genes
+)
 
+saveRDS(
+    top_loadings_genes_random,
+    "../results/rds_files/validation/top_loadings_genes_random.rds"
+)
+
+# we select a number of samples since it is not necessary to run
+# the analysis on all samples, but we want a representative sampling
+# so any sampling should suffice for the analysis
+set.seed(2039)
+samples_to_use <- sample(colnames(datasets$tcga), size = 200)
 genes_proportions_top <- lapply(
     proportions,
     function(prop, gene_names, top_loadings_genes, pca_fit, nb_genes){
@@ -481,10 +500,416 @@ genes_proportions_top <- lapply(
         ) 
     },
     gene_names = gene_names,
-    top_loadings_genes = top_loadings_genes,
+    top_loadings_genes = top_loadings_genes_random,
     nb_genes = nb_genes
 ) %>% `names<-`(paste0(proportions))
+
+saveRDS(
+    samples_to_use,
+    "../results/rds_files/validation/samples_to_use.rds"
+)
+
+saveRDS(
+    genes_proportions_top,
+    "../results/rds_files/validation/genes_proportions_top.rds"
+)
+
+fuzziness_scores_random_top <- rapply(
+    genes_proportions_top,
+    get_fuzziness_score,
+    pca_fit = pca_fit,
+    how = "list"
+)
+
+saveRDS(
+    fuzziness_scores_random_top,
+    "../results/rds_files/validation/fuzziness_scores_random_top.rds"
+)
+
+
+pca_coords_random <- parallel::mclapply(
+    genes_proportions_top,
+    function(
+        lists_genes, 
+        sum_exp, 
+        pca_fit, 
+        assay_to_use, 
+        stable_genes, 
+        most_variable_genes
+    ){
+        
+        # for each list of gene, remove the provided genes and proceed
+        # with the whole pipeline for all samples selected
+        lapply(
+            lists_genes,
+            function(
+                genes_to_remove, 
+                sum_exp, 
+                pca_fit,
+                assay_to_use, 
+                stable_genes, 
+                most_variable_genes
+            ){
+                
+                # remove genes
+                sum_exp <- sum_exp[setdiff(rownames(sum_exp), genes_to_remove),]
+                
+                # now proceed with the normalization pipeline and PC retrieval
+                sum_exp <- get_final_ranking_values(
+                    sum_exp,
+                    assay_to_use,
+                    stable_genes,
+                    most_variable_genes
+                )
+                pca_coords <- get_pca_coordinates(sum_exp, pca_fit)
+             
+                pca_coords[, paste0("PC", 1:10)]
+                
+            },
+            sum_exp = sum_exp, 
+            pca_fit = pca_fit, 
+            assay_to_use = assay_to_use, 
+            stable_genes = stable_genes, 
+            most_variable_genes = most_variable_genes
+        )
+    },
+    sum_exp = datasets$tcga[, samples_to_use],
+    pca_fit = pca_fit, 
+    assay_to_use = "logFPKM_TMM", 
+    stable_genes = stable_genes, 
+    most_variable_genes = setdiff(genes_for_pca, stable_genes),
+    mc.cores = 11
+)
+
+saveRDS(
+    pca_coords_random,
+    "../results/rds_files/validation/pca_coords_random.rds"
+)
+
+
+get_pca_random_genes <- function(
+    use_sample,
+    og_pca,
+    pca_coords_random,
+    fuzziness_scores_random,
+    which_pcs = paste0("PC", 1:10)
+){
+    
+    # for each proportion, extract the coordinates
+    pca_coords <- lapply(
+        pca_coords_random,
+        function(x){
+            sapply(
+                x,
+                function(y) y[use_sample, which_pcs]
+            ) %>% t %>% data.frame
+        }
+    ) %>% dplyr::bind_rows(., .id = "proportion") %>%
+        data.frame
+    
+    fuzziness_scores <- lapply(
+        fuzziness_scores_random,
+        function(x){
+            sapply(
+                x,
+                function(y) y
+            ) %>% t %>% data.frame
+        }
+    ) %>% dplyr::bind_rows(., .id = "proportion") %>%
+        data.frame
+    
+    
+    dplyr::bind_rows(
+            list(
+                random = pca_coords,
+                original = og_pca %>% 
+                    dplyr::filter(sample_name == use_sample) %>%
+                    dplyr::select(all_of(which_pcs)) %>%
+                    dplyr::mutate(proportion = "all_genes") %>%
+                    data.frame %>%
+                    .[, colnames(pca_coords)]
+            ),
+            .id = "embedding"
+        )
+}
+
+pca_random_genes_patients <- sapply(
+    samples_to_use, 
+    get_pca_random_genes, 
+    og_pca = df_pca_coordinates,
+    pca_coords_random = pca_coords_random, 
+    fuzziness_scores_random = fuzziness_scores_random_top,
+    which_pcs = paste0("PC", 2:3),
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+saveRDS(
+    pca_random_genes_patients,
+    "../results/rds_files/validation/pca_random_genes_patients.rds"
+)
 ```
 
+::: {.panel-tabset}
+
+```{r}
+patient_name <- samples_to_use[10]
+```
+
+#### `r patient_name`
+
+```{r, fig.width=8, fig.height=5}
+#| label: fig-missing-correction-10
+plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+```
+
+```{r}
+patient_name <- samples_to_use[20]
+```
+
+#### `r patient_name`
+
+```{r, fig.width=8, fig.height=5}
+#| label: fig-missing-correction-20
+plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+```
+
+```{r}
+patient_name <- samples_to_use[50]
+```
+
+#### `r patient_name`
+
+```{r, fig.width=8, fig.height=5}
+#| label: fig-missing-correction-50
+plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+```
+
+```{r}
+patient_name <- samples_to_use[80]
+```
+
+#### `r patient_name`
+
+```{r, fig.width=8, fig.height=5}
+#| label: fig-missing-correction-80
+plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+```
+
+```{r}
+patient_name <- samples_to_use[182]
+```
+
+#### `r patient_name`
+
+```{r, fig.width=8, fig.height=5}
+#| label: fig-missing-correction-182
+plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+```
+
+```{r}
+patient_name <- samples_to_use[198]
+```
+
+#### `r patient_name`
+
+```{r, fig.width=8, fig.height=5}
+#| label: fig-missing-correction-198
+plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+```
+
+:::
+
+When looking at the figures above, it seems that whenever there are 
+genes missing,
+and the more of top loadings they are, the closer they are to the origin.
+This makes sense, since PCA is doing a simple linear combination of the loadings.
+This should be fine to correct, since we can fit a line going through the 
+origin and goes through the points above. Then the adjustment will depend
+on the number of genes that are missing and are top loadings. The more 
+they are, the more adjustment we will need. 
+
+For the adjustment we only know two things, its current position and 
+how many of the top loadings are missing. Based on this information we
+should be able to correct the samples. Given the list of genes that are missing,
+we fit lines that would go through the genes that are missing in the TCGA
+and METABRIC samples. We then try to find the line that is closes to the point.
+After performing the fit and the line, we can then move the point to closer
+to the METABRIC and TCGA samples. The point should be close to the line
+and close to points that have the same proportion of top loadings 
+missing.
 
 ## SMC embedding
+
+By following the same procedures as previously, normalizing and getting
+the PC coordinates, @fig-smc-cohort shows the biplot of PC1 and PC2
+when coloring by cohorts. The samples seem to be well mixed already in
+the RNA-seq samples. This is probably due to the fact that the SMC cohort
+has TPM values. 
+
+```{r}
+#| eval: false
+clin_data_smc <- read.table(
+    "../data/2018_SMC/data_clinical_sample.txt",
+    sep = "\t",
+    header = TRUE
+) %>% dplyr::filter(
+    !is.na(PAM50_SUBTYPE)
+) %>%
+    dplyr::mutate(
+        pam50 = tolower(PAM50_SUBTYPE)
+    ) %>%
+    dplyr::mutate(
+        pam50 = stringr::str_replace_all(pam50, "luminal", "lum")
+    ) %>%
+    `rownames<-`(.$SAMPLE_ID) %>%
+    dplyr::mutate(sample_name = SAMPLE_ID)
+
+smc_df <- read.table(
+    "../data/2018_SMC/data_mrna_seq_tpm.txt",
+    sep = "\t",
+    header = TRUE
+) %>% 
+    dplyr::filter(!duplicated(Hugo_Symbol)) %>%
+    dplyr::mutate(Entrez_Gene_Id = NULL) %>%
+    `rownames<-`(.$Hugo_Symbol) %>%
+    dplyr::mutate(Hugo_Symbol = NULL)
+smc_df <- smc_df[, rownames(clin_data_smc)]
+
+# almost all genes are available, only 4 are missing
+smc_df <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(
+        "tpm" = smc_df,
+        "logtpm" = log2(smc_df + 0.01)
+    ),
+    colData = clin_data_smc
+)
+
+# get the normalization performed 
+smc_normalized <- get_final_ranking_values(
+    sum_exp = smc_df,
+    assay_to_use = "logtpm",
+    stable_genes = stable_genes,
+    most_variable_genes = setdiff(rownames(pca_fit$loadings), stable_genes)
+)
+
+# calculate the embedding
+smc_df_pca <- get_pca_coordinates(smc_normalized, pca_fit) %>%
+    dplyr::bind_cols(
+        ., 
+        colData(smc_normalized) %>% data.frame %>% 
+            dplyr::mutate(
+                er_status = ifelse(str_detect(IHC_SUBTYPE, "ER\\+"), "pos", "neg")
+            ) %>% 
+            dplyr::mutate(cohort = "smc")
+    ) %>% 
+    dplyr::bind_rows(., df_pca_coordinates)
+
+# save all the results
+saveRDS(
+    smc_df,
+    "../results/rds_files/validation/smc_df.rds"
+)
+
+saveRDS(
+    smc_df_pca %>% data.frame,
+    "../results/rds_files/validation/smc_df_pca.rds"
+)
+
+saveRDS(
+    smc_normalized,
+    "../results/rds_files/validation/smc_normalized.rds"
+)
+```
+
+When checking the total number of genes missing, there are only 
+`r nrow(datasets_normalized$tcga) - nrow(smc_normalized)` genes missing. 
+And as seen before, this number is almost irrelevant, in the sense that
+the embedding will still be robust and locations will be precise enough.
+
+```{r}
+#| label: fig-smc-cohort
+smc_df_pca %>% 
+    ggplot2::ggplot(
+        aes(x = PC1, y = PC2, color = cohort)
+    ) +
+    ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+    ggplot2::scale_size_manual(values = c(
+        "smc" = 2, 
+        "tcga" = 1,
+        "scanb" = 1,
+        "metabric" = 1
+    )) +
+    ggplot2::scale_alpha_manual(values = c(
+        "smc" = 1, 
+        "tcga" = 0.1,
+        "scanb" = 0.1,
+        "metabric" = 0.1
+    )) +
+    ggplot2::labs(
+        color = "Cohort",
+        alpha = "Cohort",
+        size = "Cohort",
+        title = paste0(
+            "First two components of SMC overlayed on all the three\n",
+            "big cohorts in the the molecular landscape"
+        ),
+        subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
+    ) + 
+    ggplot2::theme_bw(base_size = 10)
+```
+
+As previously, @fig-pca-smc-er-pam50 shows the biplot of PC2 and PC3, 
+highlighting the well mixing of the cohorts. When coloring by ER status,
+samples are in the right group. Molecular subtype is also correct. This
+cohort is special in the sense that there are more luminal B patients,
+as discussed in the paper. That is why there are more samples in the 
+luminal B region.
+
+```{r, fig.width=18, fig.height=11}
+#| label: fig-pca-smc-er-pam50
+#| fig-cap: PCA embedding of all samples from TCGA, SCANB and METABRIC including
+#|     the SMC samples on top.
+#|     (A) Colored by cohort,
+#|     (B) colored by ER status, (C) colored by PAM50 molecular subtype.
+
+get_plot_smc <- function(smc_df_pca, color, x = "PC2", y = "PC3"){
+    
+    smc_df_pca %>% 
+        dplyr::filter(pam50 %in% c("basal", "her2", "lumb", "luma", "normal")) %>%
+        ggplot2::ggplot(
+            aes_string(x = x, y = y, color = color)
+        ) +
+        ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+        ggplot2::scale_size_manual(values = c(
+            "smc" = 3, 
+            "tcga" = 1,
+            "scanb" = 1,
+            "metabric" = 1
+        )) +
+        ggplot2::scale_alpha_manual(values = c(
+            "smc" = 1, 
+            "tcga" = 0.1,
+            "scanb" = 0.1,
+            "metabric" = 0.1
+        )) +
+        ggplot2::labs(
+            alpha = "Cohort",
+            size = "Cohort",
+            title = "SMC samples overlayed on the molecular landscape",
+            subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
+        ) + 
+        ggplot2::theme_bw(base_size = 20)
+}
+
+plots_smc <- sapply(
+    c("cohort", "er_status", "pam50"), 
+    get_plot_smc,
+    smc_df_pca = smc_df_pca,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+cowplot::plot_grid(plotlist = plots_smc, labels = "AUTO")
+```
+

@@ -21,7 +21,14 @@ db_files <- list(
         pca_fit = "pca_fit",
         fuzziness_scores_random = "fuzziness_scores_random",
         datasets_normalized = "datasets_normalized",
-        datasets = "datasets_with_scores"
+        datasets = "datasets_with_scores",
+        stable_genes = "stable_genes",
+        genes_for_pca = "genes_for_pca",
+        samples_to_use = "samples_to_use",
+        pca_random_genes_patients = "pca_random_genes_patients",
+        fuzziness_scores_random = "fuzziness_scores_random",
+        smc_df_pca = "smc_df_pca",
+        smc_normalized = "smc_normalized"
     )
 )
 
