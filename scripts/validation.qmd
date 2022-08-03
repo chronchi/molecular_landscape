@@ -432,14 +432,13 @@ to check the number of top loadings in the list.
 ### Validating the score
 
 In this section we calculate the embeddings with different number of genes
-missing from a given sample and then calculate the euclidean distance
-in the embedding as a proxy of deviation from the true coordinate. For this
-we use samples from SCANB, as they were not used in the training process and
-we know the true position since all genes are available. The genes are 
+missing from a given sample and then plot the original embedding with
+the newly one. For this
+we use samples from TCGA. The genes are 
 removed even before the normalization procedure, as they are usually not
 available there. We select randomly a number of top genes from PC2 and PC3
-to compose the list of missing genes. Again we vary the proportion of these 
-genes.
+to compose the list of missing genes. The proportion of the top loading
+genes is varied. 
 
 ```{r}
 #| eval: false
