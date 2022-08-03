@@ -649,6 +649,17 @@ saveRDS(
 )
 ```
 
+```{r}
+plots_random_genes <- sapply(
+    samples_to_use, 
+    plot_pca_random_genes,
+    pca_random_genes_patients = pca_random_genes_patients,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+```
+
+
 ::: {.panel-tabset}
 
 ```{r}
@@ -659,7 +670,7 @@ patient_name <- samples_to_use[10]
 
 ```{r, fig.width=8, fig.height=5}
 #| label: fig-missing-correction-10
-plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+plots_random_genes[[patient_name]]
 ```
 
 ```{r}
@@ -670,7 +681,7 @@ patient_name <- samples_to_use[20]
 
 ```{r, fig.width=8, fig.height=5}
 #| label: fig-missing-correction-20
-plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+plots_random_genes[[patient_name]]
 ```
 
 ```{r}
@@ -681,7 +692,7 @@ patient_name <- samples_to_use[50]
 
 ```{r, fig.width=8, fig.height=5}
 #| label: fig-missing-correction-50
-plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+plots_random_genes[[patient_name]]
 ```
 
 ```{r}
@@ -692,7 +703,7 @@ patient_name <- samples_to_use[80]
 
 ```{r, fig.width=8, fig.height=5}
 #| label: fig-missing-correction-80
-plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+plots_random_genes[[patient_name]]
 ```
 
 ```{r}
@@ -703,7 +714,7 @@ patient_name <- samples_to_use[182]
 
 ```{r, fig.width=8, fig.height=5}
 #| label: fig-missing-correction-182
-plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+plots_random_genes[[patient_name]]
 ```
 
 ```{r}
@@ -714,7 +725,7 @@ patient_name <- samples_to_use[198]
 
 ```{r, fig.width=8, fig.height=5}
 #| label: fig-missing-correction-198
-plot_pca_random_genes(pca_random_genes_patients, patient = patient_name)
+plots_random_genes[[patient_name]]
 ```
 
 :::
@@ -737,6 +748,40 @@ After performing the fit and the line, we can then move the point to closer
 to the METABRIC and TCGA samples. The point should be close to the line
 and close to points that have the same proportion of top loadings 
 missing.
+
+```{r}
+#| eval: false
+folder_to_save <- paste0(
+    "../results/plots/validation/random_loadings/"
+)
+fig_width <- 8
+fig_height <- 5
+
+sapply(
+    1:20,
+    function(i, final_plots){
+        ggsave(
+            filename = paste0(folder_to_save, "/", ifelse(i < 10, paste0("0",i), i), ".png"),
+            plot = final_plots[[i]],
+            width = fig_width,
+            height = fig_height, 
+            dpi = 320
+        )
+    },
+    final_plots = plots_random_genes
+)
+
+# we then proceed to generate a gif by using the following command:
+# ffmpeg -framerate 1 -pattern_type glob -i 'random_loadings/*.png' random_loadings.mp4
+```
+
+These plots show how the fuzziness score might be indicative of how
+good the embedding will be depending on the number of missing genes. The
+video below shows the images for 20 different patients. Notice how all of
+them are connected to the origin as well.
+
+<iframe width="720" height="480" src="../plots/validation/random_loadings.mp4" align="middle" frameborder="0" allowfullscreen></iframe>
+
 
 ## SMC embedding
 
