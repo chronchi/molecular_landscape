@@ -629,3 +629,28 @@ get_new_pca <- function(
         test = datasets_pca_coordinates
     )
 }
+
+
+#' Calculate fuzziness score
+#'
+#' @param genes_to_remove A character vector. Genes that are not available
+#'     in the sample
+#' @param pca_fit A PCAtools object. Output of pca from PCAtools.
+#' @return A vector with the fuzziness score for each component.
+get_fuzziness_score <- function(
+    genes_to_remove,
+    pca_fit,
+    which_pcs = 2:3
+){
+    
+    
+    mapply(
+        function(genes, pc, pca_fit){
+            sum(abs(pca_fit$loadings[genes, pc]))
+        },
+        genes = genes_to_remove %>% as.data.frame,
+        pc = names(pca_fit$loadings)[which_pcs],
+        MoreArgs = list(pca_fit = pca_fit)
+    )
+    
+}

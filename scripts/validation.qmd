@@ -8,6 +8,483 @@ we use the SMC cohort [@Kan2018], whose patients are from South Korea and
 the data is microarray. We show how well it is embedded, and that 
 is not dependent on population parameters. 
 
+```{r setup}
+library(tidyverse)
+
+library(ggplot2)
+library(PCAtools)
+
+library(singscore)
+library(SummarizedExperiment)
+
+source("utils.R")
+
+# the following script load all data necessary to run the chunks.
+# the data is generated from this quarto document itself, therefore
+# if you are running this documents the first time and don't have the
+# files, comment the following lines. Moreover, if this is your first
+# time running the document, you should run all chunks, to generate 
+# all the necessary files, if you don't have them. Once all files 
+# are saved and available in the respective folder, the following
+# lines can be executed. 
+load_at_setup <- TRUE
+if (load_at_setup){
+    name_document <- "validation"
+    source("load_rds_files.R")
+}
+
+# by setting the dev to png and pdf, this saves the figures in a specific
+# folder in both formats. moreover, since png is coming first, it shows
+# this figure when rendering the html. What is nice about this is that it
+# inherits the properties from the chunk to save the figure, so no need
+# to use ggplot2::ggsave to save the plots. this also works 
+knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+```
+
+
 ## SCANB embedding
+
+The embedding was already calculate before when calculating the fit and
+tests, since the datasets were organized and loaded together. We also
+know already that all the 1044 genes are available in the SCANB cohort. 
+SCANB is well mixed with all cohorts as @fig-pca-scanb shows.
+
+```{r}
+#| label: fig-pca-scanb
+#| fig-cap: PCA embedding colored by cohort. All samples from TCGA, METABRIC
+#|     and SCANB were used. 
+plot_pca_coordinates(
+    df_pca_coordinates,
+    color = "cohort",
+    x = "PC2",
+    y = "PC3",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        ", METABRIC and SCANB\n",
+        "Corrected METABRIC samples"
+    )
+)
+```
+
+Ideally there would be some overlap between SCANB and TCGA already in the 
+first component. Moreover, if there isn't, the cohort should be closer
+to TCGA than to METABRIC, due to technologies and normalization procedures,
+as both of them are log FPKM. Even though SCANB was processed in a way 
+to get directly FPKM values, by using cufflinks, TCGA was normalized to get
+log FPKM as well, as discussed previously. @fig-pca-scanb-pc1 shows
+how close SCANB is from TCGA, moreover there is already some overlap. The 
+variability in the first component is bigger for METABRIC compared to
+TCGA and SCANB. Probably this is due to the technology processing, since
+they have genes in the same scale. @fig-pca-no-norm contrasts the different
+normalization procedures. If genes are not scaled correctly, the PCA
+shows an inverse picture.
+
+```{r}
+#| label: fig-pca-scanb-pc1
+#| fig-cap: PCA embedding colored by cohort. The components used are the
+#|     first and second components.
+plot_pca_coordinates(
+    df_pca_coordinates,
+    color = "cohort",
+    x = "PC1",
+    y = "PC2",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        ", METABRIC and SCANB\n",
+        "Corrected METABRIC samples"
+    )
+)
+```
+
+@fig-pca-scanb-er-pam50 shows that the SCANB samples are also well mixed
+regarding the clinical factors, including the $SET_{ER/PR}$ signature.
+
+```{r, fig.width=20, fig.height=14}
+#| label: fig-pca-scanb-er-pam50
+#| fig-cap: PCA embedding of all samples from TCGA, SCANB and METABRIC.
+#|     (A) Colored by cohort,
+#|     (B) colored by ER status, (C) colored by PAM50 molecular subtype,
+#|     (D) colored by the $SET_{ER/PR}$ signature
+size <- 2
+base_size <- 18
+
+plots_with_scanb <- sapply(
+    c("cohort", "er_status", "pam50", "SET_ERPR"), 
+    plot_pca_coordinates,
+    df_pca = df_pca_coordinates %>% dplyr::filter(
+        pam50 %in% c("luma", "lumb", "basal", "her2", "normal")
+    ),
+    x = "PC2", 
+    y = "PC3",
+    size = size,
+    base_size = base_size,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        ", METABRIC and SCANB\n",
+        "Corrected METABRIC samples"
+    ),
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+plots_with_scanb$SET_ERPR <- plots_with_scanb$SET_ERPR +
+    ggplot2::labs(
+        color = expression(SET[ER/PR])
+    ) + 
+    ggplot2::scale_color_viridis_c() 
+
+cowplot::plot_grid(
+    plotlist = plots_with_scanb,
+    ncol = 2,
+    labels = "AUTO"
+)
+```
+
+
+## Missing genes
+
+Genes missing in publicly available datasets is very common. Usually this is
+due to processing pipelines or even data quality, therefore genes are removed.
+This should not be much of a problem, if the data is good enough, when 
+calculating the qPCR-like normalization as it was shown before. The problem
+arises when multiplying the loadings obtained in the PCA with the 
+normalized expression of the sample. If several genes are missing, 0s are 
+added to the matrix and therefore the loadings for these genes cannot be 
+used. Since 1000 genes were used, we investigate the loadings of genes and 
+try to calculate a fuzziness score, indicating when the embedding should
+be trusted if genes are missing, and which genes are missing. 
+
+### Fuzziness score 
+
+The idea of the fuzziness score is that we use the loadings of the missing
+genes and calculate the cumulative sum of their absolute values. 
+The higher this value
+the more it indicates the missing genes are important. We start by
+removing random genes from random samples of the SCANB cohort. Each sample
+will have a random number of genes removed from the set of 1044 genes. 
+Then two scores are calculated, one for PC2 and another for PC3. We also
+calculate the fuzziness score for the top loading genes and the 
+low loadings genes, to compare these values.
+
+We start by comparing the scores from top loadings and low loading genes. For
+this we remove the top 50 loadings and bottom 50 loadings, in terms of
+absolute values. @fig-loadings-top-bottom shows the cumulative sum
+of the absolute values from the top and bottom loadings respectively. See how 
+important the top loadings are compared to the bottom loadings. A way of
+thinking of this is that the top loadings weights are much more important
+when calculating the embedding.
+
+```{r}
+#| label: fig-loadings-top-bottom
+#| fig-cap: Cumulative sum of absolute values for the top loadings and
+#|     bottom loadings as a function of the number of selected genes.
+which_loadings <- c("PC2", "PC3")
+n <- 200
+top_or_bottom <- c("top", "bottom")
+
+fuzziness_scores_top <- sapply(
+    1:n,
+    function(n, pca_fit){
+        top_loadings <- apply(
+            pca_fit$loadings[, which_loadings],
+            2,
+            function(x, gene_names){
+                gene_names[order(abs(x), decreasing = TRUE)[1:n]]
+            },
+            gene_names = rownames(pca_fit$loadings)
+        )
+        
+        get_fuzziness_score(top_loadings, pca_fit)
+    },
+    pca_fit = pca_fit
+) %>% t %>% data.frame %>% 
+    `colnames<-`(which_loadings) %>%
+    dplyr::mutate(n = 1:n())
+
+fuzziness_scores_bottom <- sapply(
+    1:n,
+    function(n, pca_fit){
+        top_loadings <- apply(
+            pca_fit$loadings[, which_loadings],
+            2,
+            function(x, gene_names){
+                gene_names[order(abs(x), decreasing = FALSE)[1:n]]
+            },
+            gene_names = rownames(pca_fit$loadings)
+        )
+        
+        get_fuzziness_score(top_loadings, pca_fit)
+    },
+    pca_fit = pca_fit
+) %>% t %>% data.frame %>% 
+    `colnames<-`(which_loadings) %>%
+    dplyr::mutate(n = 1:n())
+
+fuzziness_scores <- dplyr::bind_rows(
+    list(top = fuzziness_scores_top, bottom = fuzziness_scores_bottom),
+    .id = "top_or_bottom"
+) %>% dplyr::mutate(
+    top_or_bottom = factor(top_or_bottom, levels = c("top", "bottom"))
+)
+
+fuzziness_scores %>% tidyr::pivot_longer(
+    cols = which_loadings,
+    names_to = "PC",
+    values_to = "fuzziness_score"
+) %>%
+    ggplot2::ggplot(aes(x = n, y = fuzziness_score, color = PC)) +
+    ggplot2::geom_line(size = 3, alpha = 0.5) +
+    ggplot2::scale_color_viridis_d() +
+    ggplot2::facet_wrap(~top_or_bottom) +
+    ggplot2::labs(
+        x = "Number of genes",
+        y = "Fuzziness score",
+        color = "Principal\ncomponent"
+    ) + 
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::theme(legend.position = c(0.88, 0.8))
+```
+
+This was using the top loadings, so probably the fuzziness score of a sample
+with relatively good data will be between 0 and 10 maximum, meaning that
+they have less than 200 genes missing. When genes are missing, we hope that
+they are in the bottom part of the loadings, so the fuzziness score
+is as small as possible. 
+
+Suppose now that the genes missing in a sample are random. We will calculate
+random fuzziness scores based on this to have a feeling of the scores. 
+
+```{r}
+#| eval: false
+nb_of_genes <- seq(from = 2, to = 220, by = 20)
+list_of_random_genes <- lapply(
+    nb_of_genes,
+    function(n, genes){
+        sapply(
+            1:1000,
+            function(x, genes, n){
+                sample(genes, size = n)
+            },
+            genes = genes,
+            n = n,
+            simplify = FALSE
+        )
+    },
+    genes = rownames(pca_fit$loadings)
+)
+
+fuzziness_scores_random <- lapply(
+    list_of_random_genes,
+    function(list_genes, pca_fit){
+        sapply(
+            list_genes,
+            get_fuzziness_score,
+            pca_fit = pca_fit
+        ) %>% t %>% data.frame %>% 
+            `colnames<-`(which_loadings)
+    },
+    pca_fit = pca_fit
+) %>% `names<-`(paste0("#", nb_of_genes)) %>%
+    dplyr::bind_rows(., .id = "nb_genes") %>%
+    dplyr::mutate(
+        nb_genes = factor(
+            nb_genes,
+            levels = paste0("#", nb_of_genes)
+        )
+    ) %>%
+    tidyr::pivot_longer(
+        which_loadings,
+        names_to = "PC",
+        values_to = "fuzziness_score"
+    )
+
+saveRDS(
+    fuzziness_scores_random,
+    "../results/rds_files/validation/fuzziness_scores_random.rds"
+)
+```
+
+```{r}
+#| label: fig-fuzziness-random
+#| fig-cap: Distribution of the fuzziness scores from random missing genes.
+#|     Each color corresponds to a different distribution using a different
+#|     number of genes.
+fuzziness_scores_random %>% 
+    dplyr::filter(PC == "PC2") %>%
+    ggplot2::ggplot(aes(x = fuzziness_score, fill = nb_genes)) +
+    ggplot2::geom_histogram(position = "identity", bins = 30, alpha = 0.7) +
+    ggplot2::scale_fill_viridis_d() +
+    ggplot2::labs(
+        x = "Fuzziness score",
+        y = "Count",
+        title = "Distribution of fuzziness score as a function of the number\nof genes missing",
+        subtitle = "Only PC2 fuzziness scores",
+        fill = "# missing\ngenes"
+    ) +
+    ggplot2::theme_bw()
+```
+
+@fig-fuzziness-random shows the results as a function of the number of missing
+genes. We see that in average, if 200 genes are missing, the fuzziness
+score is around 5. If less than a 100 genes are missing, the fuzziness
+score is around 3. In the next section we show how this influences the
+position where the sample is projected into the embedding.
+
+Finally, we calculate the fuzziness score as a number of top loadings 
+missing. Suppose 150 genes are missing. We will change the proportion
+of genes that are in the top loadings and in the missing list. Since
+the cumulative sum for PC2 and PC3 are very similar, we focus only on
+PC2.
+
+```{r}
+#| label: fig-fuzziness-random-top
+#| fig-cap: Distribution of the fuzziness scores from 150 random missing genes
+#|     with different proportions of top loading genes in the list.
+#|     Each color corresponds to a different distribution using a different
+#|     proportion of genes.
+
+nb_genes <- 150
+proportions <- seq(0, 1, by = 0.1)
+gene_names <- rownames(pca_fit$loadings)
+which_pcs <- c(2)
+top_loadings_genes <- gene_names[order(
+    abs(pca_fit$loadings[, which_pcs]), 
+    decreasing = TRUE
+)[1:nb_genes]]
+
+proportions_top_fuzziness <- lapply(
+    proportions,
+    function(prop, gene_names, top_loadings_genes, pca_fit, nb_genes){
+        
+        nb_genes_top <- floor(prop * nb_genes)
+        nb_genes_non_top <- floor((1 - prop) * nb_genes)
+        
+        # run the fuzziness several times to get a distribution based on
+        # the proportions
+        list_genes <- sapply(
+            1:1000,
+            function(
+                i, 
+                genes_top, 
+                genes_non_top, 
+                nb_genes_top, 
+                nb_genes_non_top,
+                pca_fit
+            ){
+                get_fuzziness_score(
+                    c(
+                        sample(genes_top, size = nb_genes_top),
+                        sample(genes_non_top, size = nb_genes_non_top)
+                    ), 
+                    pca_fit,
+                    which_pcs = which_pcs
+                )
+            },
+            genes_top = top_loadings_genes,
+            genes_non_top = setdiff(gene_names, top_loadings_genes),
+            nb_genes_top = nb_genes_top,
+            nb_genes_non_top,
+            pca_fit = pca_fit
+        ) %>% data.frame %>% `colnames<-`(paste0("PC", which_pcs))
+    },
+    gene_names = gene_names,
+    top_loadings_genes = top_loadings_genes,
+    pca_fit = pca_fit,
+    nb_genes = nb_genes
+) %>% `names<-`(paste0(proportions)) %>%
+    dplyr::bind_rows(., .id = "proportions") %>% 
+    tidyr::pivot_longer(
+        cols = paste0("PC", which_pcs),
+        names_to = "PC",
+        values_to = "fuzziness_score"
+    )
+
+
+proportions_top_fuzziness %>% 
+    ggplot2::ggplot(
+        aes(x = fuzziness_score, fill = proportions)    
+    ) + 
+    ggplot2::geom_histogram(alpha = 0.7, bins = 30, position = "identity") +
+    ggplot2::scale_fill_viridis_d() +
+    ggplot2::labs(
+        x = "Fuzziness score",
+        y = "Count",
+        title = paste0(
+            "Distribution of fuzziness score as a function of the\nproportion ",
+            "of the top loading genes in the list of missing genes"
+        ),
+        subtitle = "Only PC2 fuzziness scores",
+        fill = "Proportion of\ntop genes"
+    ) +
+    ggplot2::theme_bw()
+```
+
+@fig-fuzziness-random-top shows the fuzziness score with different proportions
+of the top loading genes. We see that they are actually very important when
+calculating the score. The top loading genes were defined as the top 150 genes
+in the list. So when calculating the number of missing genes it is important
+to check the number of top loadings in the list. 
+
+### Validating the score
+
+In this section we calculate the embeddings with different number of genes
+missing from a given sample and then calculate the euclidean distance
+in the embedding as a proxy of deviation from the true coordinate. For this
+we use samples from SCANB, as they were not used in the training process and
+we know the true position since all genes are available. The genes are 
+removed even before the normalization procedure, as they are usually not
+available there. As the previous plot, we sample several list of genes
+with different number of top genes missing from PC2.
+
+```{r}
+samples_to_use <- sample(colnames(datasets$scanb), size = 50)
+nb_genes <- 150
+proportions <- seq(0, 1, by = 0.1)
+gene_names <- rownames(pca_fit$loadings)
+which_pcs <- c(2)
+top_loadings_genes <- gene_names[order(
+    abs(pca_fit$loadings[, which_pcs]), 
+    decreasing = TRUE
+)[1:nb_genes]]
+
+genes_proportions_top <- lapply(
+    proportions,
+    function(prop, gene_names, top_loadings_genes, pca_fit, nb_genes){
+        
+        nb_genes_top <- floor(prop * nb_genes)
+        nb_genes_non_top <- floor((1 - prop) * nb_genes)
+        
+        # run the fuzziness several times to get a distribution based on
+        # the proportions
+        list_genes <- lapply(
+            1:10,
+            function(
+                i, 
+                genes_top, 
+                genes_non_top, 
+                nb_genes_top, 
+                nb_genes_non_top
+            ){
+                c(
+                    sample(genes_top, size = nb_genes_top),
+                    sample(genes_non_top, size = nb_genes_non_top)
+                )
+            },
+            genes_top = top_loadings_genes,
+            genes_non_top = setdiff(gene_names, top_loadings_genes),
+            nb_genes_top = nb_genes_top,
+            nb_genes_non_top
+        ) 
+    },
+    gene_names = gene_names,
+    top_loadings_genes = top_loadings_genes,
+    nb_genes = nb_genes
+) %>% `names<-`(paste0(proportions))
+```
+
 
 ## SMC embedding

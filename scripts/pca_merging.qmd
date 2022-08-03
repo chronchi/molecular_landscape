@@ -75,7 +75,7 @@ if (load_at_setup){
 # this figure when rendering the html. What is nice about this is that it
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
-knitr::opts_chunk$set(dev = c('png', 'pdf'))
+knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
 ```
 
 ## Transcriptomics and qPCR normalization

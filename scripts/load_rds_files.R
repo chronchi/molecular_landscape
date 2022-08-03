@@ -15,6 +15,13 @@ db_files <- list(
         df_pca_coordinates = "df_pca_coordinates",
         new_pcas = "new_pcas",
         pca_fit_no_norm = "pca_fit_no_norm"
+    ),
+    validation = c(
+        df_pca_coordinates = "df_pca_coordinates",
+        pca_fit = "pca_fit",
+        fuzziness_scores_random = "fuzziness_scores_random",
+        datasets_normalized = "datasets_normalized",
+        datasets = "datasets_with_scores"
     )
 )
 

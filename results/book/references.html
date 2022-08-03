@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-0.9.342">
+<meta name="generator" content="quarto-1.0.37">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -99,23 +99,24 @@ div.csl-indent {
 }
 </style>
 
+
 <script src="site_libs/quarto-nav/quarto-nav.js"></script>
 <script src="site_libs/quarto-nav/headroom.min.js"></script>
 <script src="site_libs/clipboard/clipboard.min.js"></script>
-<meta name="quarto:offset" content="./">
 <script src="site_libs/quarto-search/autocomplete.umd.js"></script>
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
 <link href="./scoring.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js"></script>
 <script src="site_libs/quarto-html/popper.min.js"></script>
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link id="quarto-text-highlighting-styles" href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -219,8 +220,6 @@ div.csl-indent {
 
 
 
-
-
 <div class="quarto-title-meta">
 
     
@@ -257,6 +256,12 @@ Hänzelmann, Sonja, Robert Castelo, and Justin Guinney. 2013.
 <span>“<span>GSVA</span>: Gene Set Variation Analysis for Microarray and
 <span>RNA</span>-Seq Data.”</span> <em><span>BMC</span>
 Bioinformatics</em> 14 (1). <a href="https://doi.org/10.1186/1471-2105-14-7">https://doi.org/10.1186/1471-2105-14-7</a>.
+</div>
+<div id="ref-Kan2018" class="csl-entry" role="doc-biblioentry">
+Kan, Zhengyan, Ying Ding, Jinho Kim, Hae Hyun Jung, Woosung Chung, Samir
+Lal, Soonweng Cho, et al. 2018. <span>“Multi-Omics Profiling of Younger
+Asian Breast Cancers Reveals Distinctive Molecular Signatures.”</span>
+<em>Nature Communications</em> 9 (1). <a href="https://doi.org/10.1038/s41467-018-04129-4">https://doi.org/10.1038/s41467-018-04129-4</a>.
 </div>
 <div id="ref-McElreath2020-jn" class="csl-entry" role="doc-biblioentry">
 McElreath, Richard. 2020. <em>Statistical Rethinking</em>. 2nd ed.
@@ -326,6 +331,24 @@ and Bioinformatics</em> 2 (3). <a href="https://doi.org/10.1093/nargab/lqaa078">
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
   const icon = "";
   const anchorJS = new window.AnchorJS();
   anchorJS.options = {
