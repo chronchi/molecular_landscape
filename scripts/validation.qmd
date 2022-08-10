@@ -54,10 +54,11 @@ SCANB is well mixed with all cohorts as @fig-pca-scanb shows.
 #| fig-cap: PCA embedding colored by cohort. All samples from TCGA, METABRIC
 #|     and SCANB were used. 
 plot_pca_coordinates(
-    df_pca_coordinates,
+    df_pca_coordinates %>% 
+        dplyr::slice(1:n()),
     color = "cohort",
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
@@ -65,7 +66,7 @@ plot_pca_coordinates(
         ", METABRIC and SCANB\n",
         "Corrected METABRIC samples"
     )
-)
+) + ggplot2::scale_color_viridis_d()
 ```
 
 Ideally there would be some overlap between SCANB and TCGA already in the 
@@ -94,8 +95,7 @@ plot_pca_coordinates(
     base_size = 10,
     title = paste0(
         "Embedding of all samples from TCGA",
-        ", METABRIC and SCANB\n",
-        "Corrected METABRIC samples"
+        ", METABRIC and SCANB"
     )
 )
 ```
@@ -118,14 +118,13 @@ plots_with_scanb <- sapply(
     df_pca = df_pca_coordinates %>% dplyr::filter(
         pam50 %in% c("luma", "lumb", "basal", "her2", "normal")
     ),
-    x = "PC2", 
-    y = "PC3",
+    x = "PC3", 
+    y = "PC4",
     size = size,
     base_size = base_size,
     title = paste0(
         "Embedding of all samples from TCGA",
-        ", METABRIC and SCANB\n",
-        "Corrected METABRIC samples"
+        ", METABRIC and SCANB"
     ),
     USE.NAMES = TRUE, 
     simplify = FALSE
@@ -182,7 +181,7 @@ when calculating the embedding.
 #| label: fig-loadings-top-bottom
 #| fig-cap: Cumulative sum of absolute values for the top loadings and
 #|     bottom loadings as a function of the number of selected genes.
-which_loadings <- c("PC2", "PC3")
+which_loadings <- c("PC3", "PC4")
 n <- 200
 top_or_bottom <- c("top", "bottom")
 
@@ -198,7 +197,7 @@ fuzziness_scores_top <- sapply(
             gene_names = rownames(pca_fit$loadings)
         )
         
-        get_fuzziness_score(top_loadings, pca_fit)
+        get_fuzziness_score(top_loadings, pca_fit, which_pcs = 3:4)
     },
     pca_fit = pca_fit
 ) %>% t %>% data.frame %>% 
@@ -232,7 +231,7 @@ fuzziness_scores <- dplyr::bind_rows(
 )
 
 fuzziness_scores %>% tidyr::pivot_longer(
-    cols = which_loadings,
+    cols = dplyr::all_of(which_loadings),
     names_to = "PC",
     values_to = "fuzziness_score"
 ) %>%
@@ -246,11 +245,11 @@ fuzziness_scores %>% tidyr::pivot_longer(
         color = "Principal\ncomponent"
     ) + 
     ggplot2::theme_bw(base_size = 15) +
-    ggplot2::theme(legend.position = c(0.88, 0.8))
+    ggplot2::theme(legend.position = c(0.65, 0.8))
 ```
 
 This was using the top loadings, so probably the fuzziness score of a sample
-with relatively good data will be between 0 and 10 maximum, meaning that
+with relatively good data will be between 0 and 12 maximum, meaning that
 they have less than 200 genes missing. When genes are missing, we hope that
 they are in the bottom part of the loadings, so the fuzziness score
 is as small as possible. 
@@ -314,7 +313,7 @@ saveRDS(
 #|     Each color corresponds to a different distribution using a different
 #|     number of genes.
 fuzziness_scores_random %>% 
-    dplyr::filter(PC == "PC2") %>%
+    dplyr::filter(PC == "PC3") %>%
     ggplot2::ggplot(aes(x = fuzziness_score, fill = nb_genes)) +
     ggplot2::geom_histogram(position = "identity", bins = 30, alpha = 0.7) +
     ggplot2::scale_fill_viridis_d() +
@@ -350,7 +349,7 @@ PC2.
 nb_genes <- 150
 proportions <- seq(0, 1, by = 0.1)
 gene_names <- rownames(pca_fit$loadings)
-which_pcs <- c(2)
+which_pcs <- c(3)
 top_loadings_genes <- gene_names[order(
     abs(pca_fit$loadings[, which_pcs]), 
     decreasing = TRUE
@@ -417,7 +416,7 @@ proportions_top_fuzziness %>%
             "Distribution of fuzziness score as a function of the\nproportion ",
             "of the top loading genes in the list of missing genes"
         ),
-        subtitle = "Only PC2 fuzziness scores",
+        subtitle = "Only PC3 fuzziness scores",
         fill = "Proportion of\ntop genes"
     ) +
     ggplot2::theme_bw()
@@ -436,7 +435,7 @@ missing from a given sample and then plot the original embedding with
 the newly one. For this
 we use samples from TCGA. The genes are 
 removed even before the normalization procedure, as they are usually not
-available there. We select randomly a number of top genes from PC2 and PC3
+available there. We select randomly a number of top genes from PC3 and PC4
 to compose the list of missing genes. The proportion of the top loading
 genes is varied. 
 
@@ -445,7 +444,7 @@ genes is varied.
 nb_genes <- 200
 proportions <- seq(0, 1, by = 0.05)
 gene_names <- rownames(pca_fit$loadings)
-which_pcs <- 2:3
+which_pcs <- 3:4
 top_loadings_genes_random <- sapply(
     which_pcs,
     function(pc, gene_names, pca_fit, nb_genes){
@@ -638,7 +637,7 @@ pca_random_genes_patients <- sapply(
     og_pca = df_pca_coordinates,
     pca_coords_random = pca_coords_random, 
     fuzziness_scores_random = fuzziness_scores_random_top,
-    which_pcs = paste0("PC", 2:3),
+    which_pcs = paste0("PC", 3:4),
     USE.NAMES = TRUE, 
     simplify = FALSE
 )
@@ -654,6 +653,7 @@ plots_random_genes <- sapply(
     samples_to_use, 
     plot_pca_random_genes,
     pca_random_genes_patients = pca_random_genes_patients,
+    df_pca_coordinates = df_pca_coordinates,
     USE.NAMES = TRUE, 
     simplify = FALSE
 )
@@ -761,7 +761,12 @@ sapply(
     1:20,
     function(i, final_plots){
         ggsave(
-            filename = paste0(folder_to_save, "/", ifelse(i < 10, paste0("0",i), i), ".png"),
+            filename = paste0(
+                folder_to_save, 
+                "/", 
+                ifelse(i < 10, paste0("0",i), i), 
+                ".png"
+            ),
             plot = final_plots[[i]],
             width = fig_width,
             height = fig_height, 
@@ -843,7 +848,9 @@ smc_df_pca <- get_pca_coordinates(smc_normalized, pca_fit) %>%
         ., 
         colData(smc_normalized) %>% data.frame %>% 
             dplyr::mutate(
-                er_status = ifelse(str_detect(IHC_SUBTYPE, "ER\\+"), "pos", "neg")
+                er_status = ifelse(
+                    str_detect(IHC_SUBTYPE, "ER\\+"), "pos", "neg"
+                )
             ) %>% 
             dplyr::mutate(cohort = "smc")
     ) %>% 
@@ -873,6 +880,8 @@ the embedding will still be robust and locations will be precise enough.
 
 ```{r}
 #| label: fig-smc-cohort
+#| fig-cap: Biplot of first two PCA components from SMC, TCGA, SCANB and 
+#|     METABRIC. SMC is highlighted in the plot and has a bigger dot.
 smc_df_pca %>% 
     ggplot2::ggplot(
         aes(x = PC1, y = PC2, color = cohort)
@@ -916,40 +925,13 @@ luminal B region.
 #|     the SMC samples on top.
 #|     (A) Colored by cohort,
 #|     (B) colored by ER status, (C) colored by PAM50 molecular subtype.
-
-get_plot_smc <- function(smc_df_pca, color, x = "PC2", y = "PC3"){
-    
-    smc_df_pca %>% 
-        dplyr::filter(pam50 %in% c("basal", "her2", "lumb", "luma", "normal")) %>%
-        ggplot2::ggplot(
-            aes_string(x = x, y = y, color = color)
-        ) +
-        ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
-        ggplot2::scale_size_manual(values = c(
-            "smc" = 3, 
-            "tcga" = 1,
-            "scanb" = 1,
-            "metabric" = 1
-        )) +
-        ggplot2::scale_alpha_manual(values = c(
-            "smc" = 1, 
-            "tcga" = 0.1,
-            "scanb" = 0.1,
-            "metabric" = 0.1
-        )) +
-        ggplot2::labs(
-            alpha = "Cohort",
-            size = "Cohort",
-            title = "SMC samples overlayed on the molecular landscape",
-            subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
-        ) + 
-        ggplot2::theme_bw(base_size = 20)
-}
-
 plots_smc <- sapply(
     c("cohort", "er_status", "pam50"), 
-    get_plot_smc,
-    smc_df_pca = smc_df_pca,
+    get_plot_new_samples,
+    name_cohort = "smc",
+    df_pca = smc_df_pca %>% dplyr::filter(cohort != "scanb"),
+    x = "PC3",
+    y = "PC4",
     USE.NAMES = TRUE, 
     simplify = FALSE
 )

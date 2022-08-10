@@ -173,7 +173,10 @@ sd_genes <- mapply(
         rowSds(as.matrix(assay(df, assay_to_use)))
     },
     df = datasets[c("tcga", "metabric")],
-    assay_to_use = which_exp[c("tcga", "metabric")],
+    assay_to_use = list(
+        tcga = "vst",
+        metabric = "median_intensity"
+    ),
     MoreArgs = list(common_genes = common_genes)
 ) %>% data.frame %>%
     dplyr::rowwise() %>%
@@ -187,8 +190,9 @@ sd_genes <- mapply(
 
 most_variable_genes <- sd_genes %>% 
     dplyr::slice_max(n = 1000, order_by = average) 
+genes_for_pca <- most_variable_genes$symbol
 
-genes_for_pca <- c(most_variable_genes$symbol, stable_genes) %>% unique
+genes_for_pca <- c(genes_for_pca, stable_genes) %>% unique
 saveRDS(
     genes_for_pca,
     "../results/rds_files/pca_merging/genes_for_pca.rds"
@@ -232,7 +236,7 @@ datasets_normalized <- mapply(
     assay_to_use = which_exp,
     MoreArgs = list(
         stable_genes = stable_genes,
-        most_variable_genes = most_variable_genes %>% dplyr::pull(symbol)    
+        most_variable_genes = setdiff(genes_for_pca, stable_genes)
     ),
     USE.NAMES = TRUE,
     SIMPLIFY = FALSE
@@ -512,7 +516,9 @@ pca_fit <- PCAtools::pca(
             }
         ),
         .id = "cohort"
-    ) %>% .[colnames(training_set), ]
+    ) %>% .[colnames(training_set), ],
+    center = FALSE,
+    scale = FALSE
 )
 
 saveRDS(
@@ -618,12 +624,36 @@ plots_pca_fit$pc2_pc3_intclust <- PCAtools::biplot(
     pointSize = point_size
 )
 
+plots_pca_fit$pc3_pc4_pam50 <- PCAtools::biplot(
+    pca_fit,
+    colby = "pam50",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC3",
+    y = "PC4",
+    title = "Third and fourth components colored by PAM50",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc3_pc4_cohort <- PCAtools::biplot(
+    pca_fit,
+    colby = "cohort",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC3",
+    y = "PC4",
+    title = "Third and fourth components colored by cohort",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
 cowplot::plot_grid(plotlist = plots_pca_fit, ncol = 2, labels = "AUTO")
 ```
 
-The first two components correspond to the batch effect. The second component
+The first three components correspond to the batch effect. The third component
 explains the ER status and the two cohorts are well inter mingled. When plotting
-the second and third components and coloring by the molecular subtype, we see a
+the third and fourth components and coloring by the molecular subtype, we see a
 clear distinction, recapitulating the biology.
 
 ```{r}
@@ -654,7 +684,7 @@ METABRIC is a bit offset to the left bottom.
 
 ```{r}
 #| eval: false
-df_pca_coordinates_og <- datasets_pca_coordinates %>% 
+df_pca_coordinates <- datasets_pca_coordinates %>% 
     do.call(rbind, .) %>%
     data.frame %>% 
     tibble::rownames_to_column(var = "sample_name") %>%
@@ -665,20 +695,22 @@ df_pca_coordinates_og <- datasets_pca_coordinates %>%
     )
 
 saveRDS(
-    df_pca_coordinates_og,
-    "../results/rds_files/pca_merging/df_pca_coordinates_og.rds"
+    df_pca_coordinates,
+    "../results/rds_files/pca_merging/df_pca_coordinates.rds"
 )
 ```
 
 ```{r}
 #| label: fig-pca-og
-#| fig-cap: Original PC2 and PC3 of all samples, including test and 
+#| fig-cap: Original PC3 and PC4 of all samples, including test and 
 #|     train samples, of TCGA and METABRIC.
 plot_pca_coordinates(
-    df_pca_coordinates_og %>% dplyr::filter(cohort %in% c("tcga", "metabric")),
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
+        dplyr::slice(sample(1:n())),
     color = "cohort",
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
@@ -688,60 +720,31 @@ plot_pca_coordinates(
 )
 ```
 
-To correct the offset, we sum 0.5 in PC2 and 1 in coordinate 3. By doing this,
-the offset is corrected.
+And @fig-pca-pam50.
 
 ```{r}
-#| eval: false
-corrected_pca_coordinates <- datasets_pca_coordinates
-corrected_pca_coordinates$metabric[, "PC2"] <- 
-    corrected_pca_coordinates$metabric[, "PC2"] + 0.5
-corrected_pca_coordinates$metabric[, "PC3"] <- 
-    corrected_pca_coordinates$metabric[, "PC3"] + 1
-
-df_pca_coordinates <- corrected_pca_coordinates %>% 
-    do.call(rbind, .) %>%
-    data.frame %>% 
-    tibble::rownames_to_column(var = "sample_name") %>%
-    dplyr::inner_join(
-        .,
-        merged_col_data,
-        by = "sample_name"
-    )
-
-saveRDS(
-    df_pca_coordinates, 
-    "../results/rds_files/pca_merging/df_pca_coordinates.rds"
-)
-```
-
-```{r}
-#| label: fig-pca-corrected
-#| fig-cap: Corrected PC2 and PC3 of all samples, including test and 
-#|     train samples, of TCGA and METABRIC. Only METABRIC samples were
-#|     corrected
-plot_corrected <- plot_pca_coordinates(
+#| label: fig-pca-pam50
+#| fig-cap: Original PC3 and PC4 of all samples, including test and 
+#|     train samples, of TCGA and METABRIC.
+plot_pca_coordinates(
     df_pca_coordinates %>% 
-        dplyr::filter(cohort %in% c("tcga", "metabric")),
-    color = "cohort",
-    x = "PC2",
-    y = "PC3",
+        dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
+        dplyr::filter(
+            pam50 %in% c("basal", "her2", "lumb", "luma", "normal")
+        ) %>%
+        dplyr::slice(sample(1:n())),
+    color = "pam50",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
         "Embedding of all samples from TCGA",
-        " and METABRIC\n",
-        "Corrected METABRIC samples"
+        " and METABRIC"
     )
 )
-
-plot_corrected
 ```
 
-By summing the offset is corrected, as shown in @fig-pca-corrected. 
-The question that remains still is what is
-causing this offset. Could it be the expression of some genes or it is an offset
-inherent by the averaging of house keeping genes?
 
 In order to check if the integration made sense, it is possible to color by ER
 status, NPI for METABRIC samples and tumor/node stage for TCGA. To check ER
@@ -758,8 +761,8 @@ plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
     color = "age",
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
@@ -782,8 +785,8 @@ plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
     color = "er_status",
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
@@ -807,8 +810,8 @@ plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
     color = "npi",
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
@@ -823,15 +826,15 @@ It looks good, ER+ BC patients have lower NPI, which makes sense.
 
 ```{r, fig.width=12, fig.height=4}
 #| label: fig-pca-tumor-node
-#| fig-cap: Corrected PC2 and PC3 of samples from TCGA only
+#| fig-cap: PC3 and PC4 of samples from TCGA only
 #|     colored by tumor stage and node stage.
 
 p1 <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga")),
     color = "tumor_stage",
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
@@ -845,8 +848,8 @@ p2 <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga")),
     color = "node_stage",
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
@@ -863,24 +866,24 @@ For both tumor and node stage the samples seem to have mixed well, indicating
 the projection is not a function of the stages, as shown in 
 @fig-pca-tumor-node.
 
-And finally @fig-pca-pam50 below shows the color by PAM50 molecular
+And finally @fig-pca-pam50-2 below shows the color by PAM50 molecular
 subtype.
 
 ```{r}
-#| label: fig-pca-pam50
-#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#| label: fig-pca-pam50-2
+#| fig-cap: Corrected PC3 and PC4 of samples from TCGA and METABRIC
 #|     colored by PAM50 molecular subtype.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
         dplyr::filter(!(pam50 %in% c("claudin-low", "nc"))),
     color = "pam50",
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from TCGA"
+        "Embedding of all samples from TCGA and METABRIC"
     )
 ) +
     ggplot2::geom_point(size = 2) + 
@@ -896,171 +899,88 @@ The next figures show the ER signaling measures coloring the projections.
 
 ```{r}
 #| label: fig-pca-seterpr
-#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#| fig-cap: biplot of PC3 and PC4 of samples from TCGA and METABRIC
 #|     colored by the SET ER/PR score.
-plot_pca_coordinates(
-    df_pca_coordinates %>% 
-        dplyr::filter(cohort %in% c("tcga", "metabric")),
-    color = "SET_ERPR",
-    x = "PC2",
-    y = "PC3",
-    size = 1,
-    base_size = 10,
-    title = paste0(
-        "Embedding of all samples from TCGA",
-        " and METABRIC\n",
-        "Corrected METABRIC samples"
-    )
-) + ggplot2::scale_color_viridis_c() +
-    ggplot2::labs(color = expression(SET[ER/PR]))
+
+color <- "SET_ERPR"
+x <- "PC3"
+y <- "PC4"
+size <- 1
+base_size <- 10
+title <- "Embedding of all samples from TCGA and METABRIC"
+
+p1 <- df_pca_coordinates %>% 
+    dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
+    ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
+        ggplot2::stat_summary_hex(bins = 35) +
+        ggplot2::scale_fill_viridis_c() +
+        ggplot2::labs(
+            title = title,
+            fill = expression(SET[ER/PR])
+        ) + 
+        ggplot2::theme_bw(base_size = base_size)
+
+p1
 ```
 
 ```{r}
 #| label: fig-pca-early
-#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
-#|     colored by the hallmark estrogen response early score.
-plot_pca_coordinates(
-    df_pca_coordinates %>% 
-        dplyr::filter(cohort %in% c("tcga", "metabric")),
-    color = "HALLMARK_ESTROGEN_RESPONSE_EARLY",
-    x = "PC2",
-    y = "PC3",
-    size = 1,
-    base_size = 10,
-    title = paste0(
-        "Embedding of all samples from TCGA",
-        " and METABRIC\n",
-        "Corrected METABRIC samples"
-    )
-) + ggplot2::scale_color_viridis_c() +
-    ggplot2::labs(color = "Estrogen\nearly")
+#| fig-cap: biplot of PC3 and PC4 of samples from TCGA and METABRIC
+#|     colored by the hallmark estrogen response early.
+
+color <- "HALLMARK_ESTROGEN_RESPONSE_EARLY"
+x <- "PC3"
+y <- "PC4"
+size <- 1
+base_size <- 10
+title <- "Embedding of all samples from TCGA and METABRIC"
+
+p1 <- df_pca_coordinates %>% 
+    dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
+    ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
+        ggplot2::stat_summary_hex(bins = 35) +
+        ggplot2::scale_fill_viridis_c() +
+        ggplot2::labs(
+            title = title,
+            fill = "Estrogen\nearly"
+        ) + 
+        ggplot2::theme_bw(base_size = base_size)
+
+p1
 ```
 
 ```{r}
 #| label: fig-pca-late
-#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
-#|     colored by the hallmark estrogen response early score.
-plot_pca_coordinates(
-    df_pca_coordinates %>% 
-        dplyr::filter(cohort %in% c("tcga", "metabric")),
-    color = "HALLMARK_ESTROGEN_RESPONSE_LATE",
-    x = "PC2",
-    y = "PC3",
-    size = 1,
-    base_size = 10,
-    title = paste0(
-        "Embedding of all samples from TCGA",
-        " and METABRIC\n",
-        "Corrected METABRIC samples"
-    )
-) + ggplot2::scale_color_viridis_c() +
-    ggplot2::labs(color = "Estrogen\nlate")
+#| fig-cap: biplot of PC3 and PC4 of samples from TCGA and METABRIC
+#|     colored by the hallmark estrogen response late
+
+color <- "HALLMARK_ESTROGEN_RESPONSE_LATE"
+#color <- "HALLMARK_G2M_CHECKPOINT"
+#color <- "HALLMARK_TGF_BETA_SIGNALING"
+#color <- "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION"
+x <- "PC3"
+y <- "PC4"
+size <- 1
+base_size <- 10
+title <- "Embedding of all samples from TCGA and METABRIC"
+
+p1 <- df_pca_coordinates %>% 
+    dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
+    ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
+        ggplot2::stat_summary_hex(bins = 35) +
+        ggplot2::scale_fill_viridis_c() +
+        ggplot2::labs(
+            title = title,
+            fill = "Estrogen\nlate"
+        ) + 
+        ggplot2::theme_bw(base_size = base_size)
+
+p1
 ```
 
 In all cases the mixing is relatively good. For $SET_{ER/PR}$ you have a
-gradient going from the right to the left and top to bottom, showing again that
+gradient going from the right to the left, showing again that
 patients on the far top right probably are those patients with better prognosis.
-
-This can actually be validate using survival analysis for the patients by using
-a combination of PC2 and PC3. In this case the two components were multiplied by
-each other. Since PC3 is just positive, that means a negative value is in the
-region of the ER negative patients.
-
-::: panel-tabset
-### TCGA OS
-
-```{r}
-fun_stat <- function(x, y){prod(x, y)}
-
-df_pca_coordinates %>% 
-    dplyr::filter(cohort == "tcga") %>% 
-    dplyr::filter(
-        pam50 %in% c("luma", "lumb") &
-        node_stage != "NX" &
-        !(tumor_stage %in% c("stage_iv", "na")) & 
-        er_status == "pos"
-    ) %>% 
-    dplyr::rowwise() %>%
-    dplyr::mutate(pc2_pc3 = fun_stat(PC2, PC3)) %>%
-    dplyr::ungroup() %>%
-    survival::coxph(
-        Surv(os_months, os_status) ~ 
-            pc2_pc3 + age + tumor_stage + node_stage,
-        data = .
-    ) %>% broom::tidy() %>%
-    dplyr::mutate(HR = exp(estimate)) %>%
-    DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
-    DT::formatRound(
-        columns=c(
-            "estimate", "std.error", "statistic", "HR"
-        ), 
-        digits = 2
-    ) %>% 
-    DT::formatSignif(columns = c("p.value"))
-```
-
-### METABRIC OS
-
-```{r, warning=FALSE}
-df_pca_coordinates %>% 
-    dplyr::filter(cohort == "metabric") %>% 
-    dplyr::filter(
-        CHEMOTHERAPY == "NO" &
-        er_status == "pos" & 
-        HORMONE_THERAPY == "YES"
-    ) %>% 
-    dplyr::rowwise() %>%
-    dplyr::mutate(pc2_pc3 = fun_stat(PC2, PC3)) %>%
-    dplyr::ungroup() %>%
-    survival::coxph(
-        Surv(os_months, os_status) ~ 
-            pc2_pc3 + age + npi,
-        data = .
-    ) %>% broom::tidy() %>%
-    dplyr::mutate(HR = exp(estimate)) %>%
-    DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
-    DT::formatRound(
-        columns=c(
-            "estimate", "std.error", "statistic", "HR"
-        ), 
-        digits = 2
-    ) %>% 
-    DT::formatSignif(columns = c("p.value"))
-```
-
-### METABRIC RFS
-
-```{r, warning=FALSE}
-df_pca_coordinates %>% 
-    dplyr::filter(cohort == "metabric") %>% 
-    dplyr::filter(
-        CHEMOTHERAPY == "NO" &
-        er_status == "pos" & 
-        HORMONE_THERAPY == "YES"
-    ) %>% 
-    dplyr::rowwise() %>%
-    dplyr::mutate(pc2_pc3 = fun_stat(PC2, PC3)) %>%
-    dplyr::ungroup() %>%
-    survival::coxph(
-        Surv(rfs_months, rfs_status) ~ 
-            pc2_pc3 + age + npi,
-        data = .
-    ) %>% broom::tidy() %>%
-    dplyr::mutate(HR = exp(estimate)) %>%
-    DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
-    DT::formatRound(
-        columns=c(
-            "estimate", "std.error", "statistic", "HR"
-        ), 
-        digits = 2
-    ) %>% 
-    DT::formatSignif(columns = c("p.value"))
-```
-:::
-
-The score depending on PC2 and PC3 has a hazard ratio smaller than 1, though it
-is very close. Regardless, it seems that in all cases the score has a small
-p-value, indicating moderate variability.
 
 ## The integration is robust with respect of selection of samples
 
@@ -1069,7 +989,7 @@ to each other in one embedding would be far away from them in another embedding.
 Ten random sets of 1000 patients are sampled and the embedding is calculate. A
 total of 10 PCA embeddings are obtained.
 
-```{r}
+```{r, warning = FALSE}
 #| eval: false
 seeds <- seq(0, 500, by = 29)
 new_pcas <- lapply(
@@ -1192,7 +1112,9 @@ pca_fit_no_norm <- PCAtools::pca(
     training_set,
     metadata = merged_col_data %>% 
         dplyr::filter(sample_name %in% colnames(training_set)) %>%
-        .[colnames(training_set), ]
+        .[colnames(training_set), ],
+    center = FALSE,
+    scale = FALSE
 )
 
 saveRDS(
@@ -1273,14 +1195,36 @@ plots_pca_fit$pc2_pc3_pam50 <- PCAtools::biplot(
     pointSize = point_size
 )
 
+plots_pca_fit$pc3_pc4_pam50 <- PCAtools::biplot(
+    pca_fit_no_norm,
+    colby = "pam50",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC3",
+    y = "PC4",
+    title = "Third and fourth components colored by PAM50",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
+plots_pca_fit$pc3_pc4_cohort <- PCAtools::biplot(
+    pca_fit_no_norm,
+    colby = "cohort",
+    lab = NULL, 
+    legendPosition = "right",
+    x = "PC3",
+    y = "PC4",
+    title = "Third and fourth components colored by cohort",
+    subtitle = "Only 1000 training samples",
+    pointSize = point_size
+)
+
 cowplot::plot_grid(plotlist = plots_pca_fit, ncol = 2, labels = "AUTO")
 ```
 
 @fig-pca-no-norm shows the contrast with the other method including the
 normalization. Without the normalization, the samples from METABRIC tend to
-concentrate close to the center, they are not so well mixed. This is to be
-expected, as they have different scales, specially that the minimum value for
-METABRIC is around 4.5.
+concentrate close to the center, they are not so well mixed. 
 
 ```{r}
 datasets_pca_coordinates_no_norm <- mapply(
@@ -1300,12 +1244,29 @@ df_pca_coordinates_og_no_norm <- datasets_pca_coordinates_no_norm %>%
         by = "sample_name"
     )
 
+plot_corrected <- plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
+        dplyr::slice(sample(1:n())),
+    color = "cohort",
+    x = "PC3",
+    y = "PC4",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from TCGA",
+        " and METABRIC\n",
+        "qPCR normalization performed in the samples"
+    )
+)
+
 plot_no_norm <- plot_pca_coordinates(
     df_pca_coordinates_og_no_norm %>% 
-        dplyr::filter(cohort %in% c("tcga", "metabric")),
+        dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
+        dplyr::slice(sample(1:n())),
     color = "cohort",
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(

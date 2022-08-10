@@ -11,7 +11,6 @@ db_files <- list(
         datasets_pca_coordinates = "datasets_pca_coordinates",
         merged_col_data = "merged_col_data",
         which_cohorts_training = "which_cohorts_training",
-        df_pca_coordinates_og = "df_pca_coordinates_og",
         df_pca_coordinates = "df_pca_coordinates",
         new_pcas = "new_pcas",
         pca_fit_no_norm = "pca_fit_no_norm"
@@ -19,7 +18,6 @@ db_files <- list(
     validation = c(
         df_pca_coordinates = "df_pca_coordinates",
         pca_fit = "pca_fit",
-        fuzziness_scores_random = "fuzziness_scores_random",
         datasets_normalized = "datasets_normalized",
         datasets = "datasets_with_scores",
         stable_genes = "stable_genes",
@@ -29,6 +27,16 @@ db_files <- list(
         fuzziness_scores_random = "fuzziness_scores_random",
         smc_df_pca = "smc_df_pca",
         smc_normalized = "smc_normalized"
+    ),
+    scoring = c(
+        df_pca_coordinates = "poetic_df_pca_with_scores",
+        pca_fit = "pca_fit",
+        datasets = "datasets_with_poetic",
+        stable_genes = "stable_genes",
+        poetic_df_pca = "poetic_df_pca_with_scores",
+        poetic_normalized = "poetic_normalized",
+        datasets_normalized = "datasets_normalized",
+        pipeline_scores_plots = "pipeline_scores_plots"
     )
 )
 

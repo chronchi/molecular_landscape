@@ -40,7 +40,7 @@ are the biggest cohort of Breast cancer patients in the world. Each datasets
 has an overall equal distribution of ER+ and ER- patients and similar age
 distribution. 
 
-```{r}
+```{r setup}
 # first load the packages
 library(tidyverse)
 
@@ -91,22 +91,27 @@ symbol_names <- mcols(rowRanges(tcga)) %>%
 tcga <- tcga[symbol_names$ensembl_gene_id, ]
 rownames(tcga) <- symbol_names$external_gene_name
 
+fpkm_tcga <- 2^assay(tcga, "logFPKM_TMM")
+prop_expressed <- rowMeans(fpkm_tcga > 1)
+genes_to_keep <- prop_expressed > 0.5
+tcga <- tcga[genes_to_keep, ]
+
 # we now filter down the list of genes from metabric and scanb.
 
 # remove first genes with na in the table
 keep_genes <- rowMeans(assay(metabric, "median_intensity") > 5.5)
-keep_genes <- keep_genes > 0.5 %>% unname %>% unlist
+keep_genes <- keep_genes > 0.7 %>% unname %>% unlist
 keep_genes <- which(is.na(keep_genes))
 metabric <- metabric[-keep_genes, ]
 # now remove genes with low expression across samples
 keep_genes <- rowMeans(assay(metabric, "median_intensity") > 5.5)
-keep_genes <- keep_genes > 0.3
+keep_genes <- keep_genes > 0.7
 metabric <- metabric[keep_genes, ]
 
 # convert back to non log values and then filter.
 fpkm_scanb <- 2^assay(scanb, "logFPKM")
 prop_expressed <- rowMeans(fpkm_scanb > 1)
-genes_to_keep <- prop_expressed > 0.3
+genes_to_keep <- prop_expressed > 0.8
 scanb <- scanb[genes_to_keep, ]
 
 # we now convert the clinical data to some common names and values
@@ -322,10 +327,7 @@ the scores, even when using their genes.
 #| eval: false
 all_genes <- sapply(datasets, rownames) %>% unlist %>% unique
 # now load the msigdbr and concatenate with set erpr
-gene_sets <- msigdbr::msigdbr(species = "Homo sapiens", category = "H") %>%
-    dplyr::filter(gs_name %in% 
-        c("HALLMARK_ESTROGEN_RESPONSE_EARLY", "HALLMARK_ESTROGEN_RESPONSE_LATE")
-    ) %>% 
+gene_sets <- msigdbr::msigdbr(species = "Homo sapiens", category = "H") %>% 
     dplyr::select(gs_name, gene_symbol) %>%
     dplyr::bind_rows(
         .,
@@ -376,13 +378,31 @@ genes_intersection <- sapply(
 
 sapply(genes_intersection, function(x) sapply(x, length)) %>% t %>%
     data.frame %>%
+    tibble::rownames_to_column(var = "pathway") %>%
+    dplyr::inner_join(
+        .,
+        gene_sets %>% 
+            dplyr::group_by(gs_name) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::rename(pathway = gs_name),
+        by = "pathway"
+    ) %>% 
+    dplyr::rowwise() %>%
+    dplyr::mutate(average_percentage = format(mean(
+            c(tcga/n, scanb/n, metabric/n)
+        ),
+        digits = 2
+    )) %>% 
     kableExtra::kbl() %>%
     kableExtra::kable_classic(full_width = FALSE)
 ```
 
-Most of the genes are available in all datasets. Especially the SET
-gene set is available in all of them, which is very good. Out of the
-random 18 subset, only half of genes in average are available.
+Most of the genes are available in all datasets. When calculating scores
+it is always good to check the availability of the genes. Otherwise this
+can make the score unstable, since too many of the genes are missing. 
+For example, 
+HALLMARK_PANCREAS_BETA_CELLS might have an unstable score, due to a lot 
+of genes missing. 
 
 ```{r}
 #| eval: false
@@ -416,7 +436,10 @@ gsva_scores <- mapply(
     USE.NAMES = TRUE
 )
 
-saveRDS(gsva_scores, "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds")
+saveRDS(
+    gsva_scores, 
+    "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds"
+)
 ```
 
 ```{r}
@@ -460,6 +483,13 @@ The next sections shows the results for each dataset individually.
 
 ```{r}
 plot_scores <- list()
+which_scores <- c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY",
+    "HALLMARK_ESTROGEN_RESPONSE_LATE",
+    "SET_ERPR",
+    "random_200",
+    "random_18"
+)
 ```
 
 ::: {.panel-tabset}
@@ -470,8 +500,8 @@ plot_scores <- list()
 which_dataset <- "tcga"
 plot_scores[[which_dataset]] <- mapply(
     plot_scores_vs_clinics,
-    which_score = rownames(gsva_scores[[which_dataset]]),
-    title = rownames(gsva_scores[[which_dataset]]),
+    which_score = which_scores,
+    title = which_scores,
     MoreArgs = list(
         sum_exp = datasets[[which_dataset]],
         clinical_variable = "er_status", 
@@ -494,8 +524,8 @@ cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 which_dataset <- "metabric"
 plot_scores[[which_dataset]] <- mapply(
     plot_scores_vs_clinics,
-    which_score = rownames(gsva_scores[[which_dataset]]),
-    title = rownames(gsva_scores[[which_dataset]]),
+    which_score = which_scores,
+    title = which_scores,
     MoreArgs = list(
         sum_exp = datasets[[which_dataset]],
         clinical_variable = "er_status", 
@@ -518,8 +548,8 @@ cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 which_dataset <- "scanb"
 plot_scores[[which_dataset]] <- mapply(
     plot_scores_vs_clinics,
-    which_score = rownames(gsva_scores[[which_dataset]]),
-    title = rownames(gsva_scores[[which_dataset]]),
+    which_score = which_scores,
+    title = which_scores,
     MoreArgs = list(
         sum_exp = datasets[[which_dataset]],
         clinical_variable = "er_status", 
@@ -560,8 +590,8 @@ color_by <- "er_status"
 which_dataset <- "tcga"
 plot_scores[[which_dataset]] <- mapply(
     plot_scores_vs_clinics,
-    which_score = rownames(gsva_scores[[which_dataset]]),
-    title = rownames(gsva_scores[[which_dataset]]),
+    which_score = which_scores,
+    title = which_scores,
     MoreArgs = list(
         sum_exp = datasets[[which_dataset]],
         clinical_variable = clinical_variable, 
@@ -584,8 +614,8 @@ cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 which_dataset <- "metabric"
 plot_scores[[which_dataset]] <- mapply(
     plot_scores_vs_clinics,
-    which_score = rownames(gsva_scores[[which_dataset]]),
-    title = rownames(gsva_scores[[which_dataset]]),
+    which_score = which_scores,
+    title = which_scores,
     MoreArgs = list(
         sum_exp = datasets[[which_dataset]],
         clinical_variable = clinical_variable, 
@@ -608,8 +638,8 @@ cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 which_dataset <- "scanb"
 plot_scores[[which_dataset]] <- mapply(
     plot_scores_vs_clinics,
-    which_score = rownames(gsva_scores[[which_dataset]]),
-    title = rownames(gsva_scores[[which_dataset]]),
+    which_score = which_scores,
+    title = which_scores,
     MoreArgs = list(
         sum_exp = datasets[[which_dataset]],
         clinical_variable = clinical_variable, 
@@ -754,7 +784,13 @@ formulas_survival <- c(
 )
 
 type_survival <- c("os", "rfs")
-
+which_scores <- c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY",
+    "HALLMARK_ESTROGEN_RESPONSE_LATE",
+    "SET_ERPR",
+    "random_200",
+    "random_18"
+)
 survival_results <- sapply(
     c("os", "rfs"),
     function(type_analysis, datasets, name_scores, formulas){
@@ -809,7 +845,7 @@ survival_results <- sapply(
         USE.NAMES = TRUE,
         SIMPLIFY = FALSE
     ),
-    name_scores = rownames(gsva_scores[[1]]),
+    name_scores = which_scores,
     formulas = formulas_survival,
     USE.NAMES = TRUE,
     simplify = FALSE
@@ -887,7 +923,7 @@ forest_plots <- mapply(
                         names_coefficients = names_coefficients,
                         type_survival = toupper(type_analysis),
                         patients = patients[[name_cohort]],
-                        clip = c(0.1, 2),
+                        #clip = c(0.1, 2),
                         width = 6.5, 
                         height = 3, 
                         path_to_save = paste0(
@@ -981,10 +1017,14 @@ the score, the less likely the patient is to suffer the event in a specific
 timepoint. This indicates that ER signaling is actually something continuous
 and not dichotomous.
 
-The plot below shows the forest plot of $SET_{ER/PR}$ for all 
+@fig-forest-plot shows the forest plot of $SET_{ER/PR}$ for all 
 three cohorts. 
 
 ```{r, fig.height=10, fig.width = 7}
+#| label: fig-forest-plot
+#| fig-cap: Forest plots of the different cohorts and their hazard ratios.
+#|     The bars correspond to 95% confidence interval.
+
 # we use the workaround described here:
 # https://stackoverflow.com/questions/71266791/combine-several-forestplot-object-in-one-graph-in-r
 # we convert the forest plots to grob and then used gridExtra to 

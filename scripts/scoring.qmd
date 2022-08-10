@@ -1,1 +1,677 @@
-# Scores strategies
+# Pathway activity in a personalized context
+
+This chapter we present a new way to think about the personalized medicine,
+by incorporating patient molecular information and its context. 
+We saw previously that by using different cohorts, we can embed new patients
+into a point cloud. The idea is that the neighborhood of the patients 
+are similar in the molecular level, and we can draw conclusions based on
+this. 
+
+Each patient can be assigned a score. Scores represent a biological
+pathway, or in other words, a biological activity. Given a biological
+process, there is usually a set of genes that represent it. We
+can then use these set of genes to calculate scores that are 
+proxies of this biological activity.
+
+For example, in the previous chapters we used the ER signaling
+scores to motivate the continuity of ER signaling. This is not
+restricted to this specific pathway, we could have used any
+other list of genes representing a process. 
+
+By combining a score and the neighborhood of a patient, we 
+can make direct comparisons and questions. Given a patient,
+how different is its score for a pathway compared to its
+neighbors? Is there also an alternative pathway that could
+be target and has a higher signaling? In this case 
+specifically, is ER signaling more or less expressed compared
+to its neighbors? 
+
+The POETIC trial [@Gao2019] 
+is a breast cancer trial that had as hypothesis
+neoadjuvant therapy could improve overall and recurrence free
+survival. They gave aromatase inhibitors (AIs) for ER+ BC patients
+for 2 weeks prior to surgery and then 2 weeks after surgery.
+Moreover, they collected a needle biopsy before the
+treatment started and a biopsy in the surgery. They
+also measured the Ki67 levels, therefore we have a proxy
+on how well these patients responded in the short term to 
+AIs. Also, they sent the tissues for sequencing, so 
+microarray data is available. This is a unique 
+cohort, in the sense that we can understand what are the
+responders or not, in terms of Ki67 levels, and use
+the molecular data to try to understand the responsiveness. 
+The definition of responders are those patients that have a 
+reduction of at least 60\%
+in Ki67 levels when comparing pre-treatment versus surgery. 
+
+Here we use this cohort to draw conclusions on responders
+and non responders and how the molecular landscape can be 
+used. We show that some patients that are close to each
+other in the molecular landscape can have different
+pathway scores and therefore have different responses.
+
+```{r setup}
+library(tidyverse)
+
+library(ggplot2)
+library(PCAtools)
+library(tidybayes)
+
+library(GSVA)
+library(SummarizedExperiment)
+
+library(rstanarm)
+
+source("utils.R")
+
+# the following script load all data necessary to run the chunks.
+# the data is generated from this quarto document itself, therefore
+# if you are running this documents the first time and don't have the
+# files, comment the following lines. Moreover, if this is your first
+# time running the document, you should run all chunks, to generate 
+# all the necessary files, if you don't have them. Once all files 
+# are saved and available in the respective folder, the following
+# lines can be executed. 
+load_at_setup <- TRUE
+if (load_at_setup){
+    name_document <- "scoring"
+    source("load_rds_files.R")
+}
+
+# by setting the dev to png and pdf, this saves the figures in a specific
+# folder in both formats. moreover, since png is coming first, it shows
+# this figure when rendering the html. What is nice about this is that it
+# inherits the properties from the chunk to save the figure, so no need
+# to use ggplot2::ggsave to save the plots. this also works 
+knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+```
+
+## Calculating scores in neighborhoods
+
+> Add here the code to make the video when calculating the average
+scores. try to use the same code as the poetic, if not, change it 
+so it can be used in both cases. Idea is to show how the scores change
+as you move across the molecular landscape.
+
+## POETIC embedding
+
+In this section we show the embedding of the POETIC trial samples.
+But first we analyse some basic properties of the dataset.
+The data for this dataset was downloaded and processed
+as described at [chronchi.github.io/transcriptomics](https://chronchi.github.io/transcriptomics/) in
+the chapter AI - GSE105777. 
+
+```{r}
+#| eval: false
+datasets <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/datasets_with_scores.rds"
+)
+poetic <- readRDS("../data/poetic.rds")
+df_pca_coordinates <- readRDS(
+    "../results/rds_files/pca_merging/df_pca_coordinates.rds"
+)
+
+datasets$poetic <- poetic
+
+saveRDS(
+    datasets,
+    "../results/rds_files/scoring/datasets_with_poetic.rds"
+)
+
+# get the normalization performed 
+poetic_normalized <- get_final_ranking_values(
+    sum_exp = poetic,
+    assay_to_use = "normalized_intensity",
+    stable_genes = stable_genes,
+    most_variable_genes = setdiff(rownames(pca_fit$loadings), stable_genes)
+)
+
+# calculate the embedding
+poetic_df_pca <- get_pca_coordinates(poetic_normalized, pca_fit) %>%
+    data.frame %>% 
+    dplyr::bind_cols(
+        ., 
+        colData(poetic_normalized) %>% data.frame %>% 
+            dplyr::mutate(
+                er_status = ifelse(
+                    er_status == "Positive", 
+                    "pos", 
+                    "neg"
+                )
+            ) %>% 
+            dplyr::mutate(cohort = "poetic") %>% 
+            dplyr::rename(is_responder =
+                r_or_no_r_change_ki67_60_and_baseline_ki67_5_percent
+            ) %>% 
+            dplyr::mutate(
+                sample_name = colnames(poetic_normalized)
+            )
+    ) %>% 
+    dplyr::bind_rows(., df_pca_coordinates)
+
+# save all the results
+saveRDS(
+    poetic_df_pca %>% data.frame,
+    "../results/rds_files/scoring/poetic_df_pca.rds"
+)
+
+saveRDS(
+    poetic_normalized,
+    "../results/rds_files/scoring/poetic_normalized.rds"
+)
+```
+
+### Number of samples
+
+In this dataset there are matched samples from patients that 
+are treated and untreated. @tbl-pt-poetic-nb
+
+```{r}
+#| label: tbl-pt-poetic-nb
+#| tbl-cap: Table showing the number of samples for treated and untreated
+#|     patients
+colData(poetic_normalized) %>% data.frame %>%
+    janitor::tabyl(group) %>% 
+    dplyr::mutate(n = n/2) %>%
+    dplyr::mutate(percent = round(n/sum(n) * 100)) %>%
+    kableExtra::kbl() %>%
+    kableExtra::kable_classic()
+```
+
+In this cohort, there is the PAM50 molecular subtype available
+for the untreated. @tbl-pt-poetic-pam50 shows the
+number of patients for each subtype.
+
+```{r}
+#| label: tbl-pt-poetic-pam50
+#| tbl-cap: Table showing the number of molecular subtypes for each 
+#|     group.
+colData(poetic_normalized) %>% data.frame %>%
+    janitor::tabyl(pam50) %>% 
+    dplyr::mutate(percent = round(n/sum(n) * 100, digits = 3)) %>%
+    kableExtra::kbl() %>%
+    kableExtra::kable_classic()
+```
+
+The numbers differ from previously, since the molecular subtype is 
+calculated for each sample, so two molecular subtypes for each patient. 
+
+### Proportion of top loadings
+
+```{r}
+nb_genes <- 200
+proportions <- seq(0, 1, by = 0.05)
+gene_names <- rownames(pca_fit$loadings)
+which_pcs <- 3:4
+top_loadings_genes <- sapply(
+    which_pcs,
+    function(pc, gene_names, pca_fit, nb_genes){
+        gene_names[order(
+            abs(pca_fit$loadings[, paste0("PC", pc)]), 
+            decreasing = TRUE
+        )[1:nb_genes]]   
+    },
+    gene_names = gene_names,
+    pca_fit = pca_fit,
+    nb_genes = nb_genes
+) %>% data.frame %>% 
+    `colnames<-`(paste0("PC", which_pcs))
+
+missing_genes_pcx <- setdiff(
+    top_loadings_genes$PC3,
+    rownames(poetic_normalized)
+)
+
+missing_genes_pcy <- setdiff(
+    top_loadings_genes$PC4,
+    rownames(poetic_normalized)
+)
+```
+
+There are in total `r nrow(poetic_normalized)` genes available out
+of the `r nrow(datasets_normalized)`. Among them, 
+`r length(intersect(rownames(poetic_normalized), stable_genes))` are
+the housekeeping genes. Out of the
+`r nrow(pca_fit$loadings) - nrow(poetic_normalized)` genes missing,
+a total number of `r length(missing_genes_pcx)` are missing from the
+top `r nb_genes` PC3 loadings, a proportion of 
+`r format(length(missing_genes_pcx)/nb_genes * 100, digits = 1)`\%. 
+A total number of `r length(missing_genes_pcy)` are missing from the
+top `r nb_genes` PC4 loadings, a proportion of 
+`r format(length(missing_genes_pcy)/nb_genes * 100, digits = 1)`\%. These
+are very small proportions, and we have seen from the last chapter that
+they will not affect the position of the patients in the embedding.
+
+### Embedding 
+
+@fig-pca-poetic-er-pam50 shows a good mixing of the POETIC sample and how
+all the patients are scattered across the whole landscape. Here all samples
+are plotted, meaning that every two dots correspond to a single patient.
+
+```{r, fig.width=18, fig.height=11}
+#| label: fig-pca-poetic-er-pam50
+#| fig-cap: PCA embedding of all samples from TCGA, SCANB and METABRIC including
+#|     the POETIC samples on top.
+#|     (A) Colored by cohort,
+#|     (B) colored by ER status, (C) colored by PAM50 molecular subtype.
+plots_poetic <- sapply(
+    c("cohort", "er_status", "pam50"), 
+    get_plot_new_samples,
+    name_cohort = "poetic",
+    df_pca = poetic_df_pca,
+    USE.NAMES = TRUE, 
+    simplify = FALSE,
+    x = "PC3",
+    y = "PC4"
+)
+
+cowplot::plot_grid(plotlist = plots_poetic, labels = "AUTO")
+```
+
+@fig-pca-responders-baseline shows the embedding of baseline samples
+from patients that received endocrine therapy prior to surgery. 
+Patients on the left part of the molecular landscape are considered to
+be non responders, this coincides with the fact this region corresponds
+to the ER- BC patients.
+
+```{r, fig.width=10, fig.height=6}
+#| label: fig-pca-responders-baseline
+#| fig-cap: PCA embedding of all samples from TCGA, SCANB and METABRIC including
+#|     the POETIC samples on top. POETIC samples correspond to only baseline
+#|     treated patients.
+poetic_df_pca_baseline <- poetic_df_pca %>% 
+    dplyr::filter(!(cohort == "poetic" & group == "untreated")) %>%
+    dplyr::mutate(
+        timepoint = ifelse(is.na(timepoint), "baseline", timepoint)
+    ) %>%
+    dplyr::filter(timepoint == "baseline")
+    
+plots_poetic <- sapply(
+    c("is_responder"), 
+    get_plot_new_samples,
+    name_cohort = "poetic",
+    df_pca = poetic_df_pca_baseline,
+    x = "PC3",
+    y = "PC4",
+    title = "POETIC baseline patients colored by response status",
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+plots_poetic$is_responder
+```
+
+And when checking the first two components, the POETIC data is closer to
+METABRIC, which makes sense since both are microarrays, as it can be seen
+in @fig-poetic-cohort.
+
+```{r}
+#| label: fig-poetic-cohort
+#| fig-cap: Biplot of first two PCA components from POETIC, TCGA, SCANB and 
+#|     METABRIC. POETIC is highlighted in the plot and has a bigger point.
+poetic_df_pca %>% 
+    ggplot2::ggplot(
+        aes(x = PC1, y = PC2, color = cohort)
+    ) +
+    ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+    ggplot2::scale_size_manual(values = c(
+        "poetic" = 2, 
+        "tcga" = 1,
+        "scanb" = 1,
+        "metabric" = 1
+    )) +
+    ggplot2::scale_alpha_manual(values = c(
+        "poetic" = 1, 
+        "tcga" = 0.1,
+        "scanb" = 0.1,
+        "metabric" = 0.1
+    )) +
+    ggplot2::labs(
+        color = "Cohort",
+        alpha = "Cohort",
+        size = "Cohort",
+        title = paste0(
+            "First two components of POETIC overlayed on all the three\n",
+            "big cohorts in the the molecular landscape"
+        ),
+        subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
+    ) + 
+    ggplot2::theme_bw(base_size = 10)
+```
+
+## Scoring all samples 
+
+In the last chapters scores were showed for TCGA, SCANB and 
+METABRIC. @fig-pca-seterpr shows how ER signaling changes as patients
+move across the molecular landscape. We intend to use the scores now for the
+POETIC samples. We first start by calculating using GSVA as well and include
+in the dataframe with the other cohorts. Before moving to the next chapter,
+we will analyse and compare the scores across the responders and non 
+responders. 
+
+@fig-scores-poetic-er shows that when using the scores, it looks like
+in average at baseline $SET_{ER/PR}$ is lower in non responders than
+in responders. For the other scores there is no clear difference.
+
+```{r}
+#| eval: false
+# before we calculate the scores we filter the poetic dataset
+keep_genes <- rowMeans(assay(datasets$poetic, "normalized_intensity") > 6.4)
+keep_genes <- keep_genes > 0.7
+
+gene_sets <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/gene_sets.rds"
+)
+
+gene_sets <- sapply(
+    gene_sets$gs_name %>% unique,
+    function(x, gene_sets) gene_sets %>% dplyr::filter(gs_name == x) %>% 
+        dplyr::pull(gene_symbol),
+    gene_sets = gene_sets,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+gsva_scores <- mapply(
+    function(sum_exp, which_assay, gene_sets){
+        GSVA::gsva(
+            expr = as.matrix(assay(sum_exp, which_assay)),
+            gset.idx.list = gene_sets, 
+            parallel.sz = 20
+        )
+    },
+    sum_exp = list(poetic = datasets$poetic[keep_genes, ]),
+    which_assay = list(poetic = "normalized_intensity"),
+    MoreArgs = list(gene_sets = gene_sets),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+)
+
+poetic_df_pca[
+    colnames(gsva_scores$poetic), 
+    rownames(gsva_scores$poetic)
+] <- gsva_scores$poetic %>% t
+
+saveRDS(
+    poetic_df_pca,
+    "../results/rds_files/scoring/poetic_df_pca_with_scores.rds"
+)
+
+df_pca_coordinates <- poetic_df_pca
+```
+
+```{r}
+if (!load_at_setup){
+    df_pca_coordinates <- readRDS(
+        "../results/rds_files/scoring/poetic_df_pca_with_scores.rds"
+    )
+}
+```
+
+```{r}
+#| label: fig-scores-poetic-er
+#| fig-cap: Baseline scores for all treated patients in the POETIC trial. 
+#|     G2M corresponds to a proliferation score, EMT to epithelial to 
+#|     mesenchymal transition score and the others are related to ER 
+#|     signaling. 
+gene_sets <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/gene_sets.rds"
+)
+
+which_scores <- c(
+    "SET_ERPR" = "SET ER/PR",
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early",
+    "HALLMARK_ESTROGEN_RESPONSE_LATE" = "Estrogen Late",
+    "HALLMARK_G2M_CHECKPOINT" = "G2M",
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" = "EMT"
+)
+df_pca_coordinates %>% 
+    dplyr::filter(cohort == "poetic" & timepoint == "baseline") %>%
+    tidyr::pivot_longer(
+        gene_sets$gs_name %>% unique,
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    dplyr::filter(
+        pathway %in% names(which_scores)
+    ) %>%
+    dplyr::mutate(
+        pathway = which_scores[pathway]
+    ) %>%
+    ggplot2::ggplot(aes(x = is_responder, y = score, fill = is_responder)) +
+    ggplot2::geom_violin(color = "black") +
+    ggplot2::geom_jitter(size = 0.5) + 
+    ggplot2::facet_wrap(~pathway) +
+    ggplot2::theme_bw() + 
+    ggplot2::labs(
+        x = "Is responder?", y = "Score", fill = "Is responder?",
+        title = "Distribution of some scores for samples at baseline timepoint"
+    ) +
+    ggplot2::theme(
+        axis.text.x = element_blank(),
+        legend.position = c(0.85, 0.3)
+    )
+```
+
+## Analysing patient neighborhoods
+
+There are two ways to interpret the embedding. If the patient has
+ER+ BC and its embedding is close to the ER- BC patients, we can
+infer that the endocrine response might not work so well, as 
+it was shown in @fig-pca-responders-baseline. The other option
+is to compare the patient's score to the average score of 
+its neighborhood.
+
+What is a neighborhood? When performing the embedding, global
+structures are not preserved usually. In this sense we only
+compare patients that are close to each other in an euclidean 
+neighborhood, i.e., we calculate a radius around each sample and
+see what other samples are within this ball given the euclidean
+distance.
+
+Given a neighborhood, one can calculate the posterior average score
+of all samples from METABRIC, SCANB and TCGA and use that as an 
+indication of average score that we can compare other patients to.
+The concept is that if an ER+ BC patient has a much lower ER signaling
+score, it means the patients will not respond so well to endocrine 
+therapy, as they are very different from their neighboors.
+
+To showcase the ability to use the scores and infer results, we 
+use the POETIC trial patients to compare the scores. This cohort
+is special in the sense that the patients are filtered based on
+selection criterias, meaning that the patients are clinically
+similar. 
+
+Two random patients in very close neighborhoods were selected
+to showcase the ability of the molecular landscape.
+The id of the patients are 63 and 236.
+@tbl-pt63-236 shows the clinical features of these patients. One
+of them is HER2+. Patient 63 had a higher Ki67 baseline level but
+a very good response to endocrine therapy. Patient 236 did not 
+respond to endocrine therapy in terms of reduction of Ki67 levels.
+
+```{r}
+#| label: tbl-pt63-236
+#| tbl-cap: Clinical features from patients 63 and 236. 
+
+patients <- c("treated_nb63_baseline", "treated_nb236_baseline")
+poetic_df_pca %>% 
+    data.frame %>%
+    dplyr::filter(sample_name %in% patients) %>%
+    dplyr::select(
+        patient_nb, er_status, her2_status, ki67, change_ki67, 
+        ccca_surgery_ki67_2_7
+    ) %>%
+    kableExtra::kbl(row.names = FALSE) %>%
+    kableExtra::kable_classic()
+```
+
+@fig-pt63-236 shows the embedding of two distinct patients 
+in a similar neighborhood.
+
+```{r, fig.width=16, fig.height=10}
+#| label: fig-pt63-236
+#| fig-cap: Plot of two selected patients in the molecular landscape. One
+#|     is a responder and the other is a non responder. The patient id numbers
+#|     are 63 and 236.
+
+patients <- c("treated_nb63_baseline", "treated_nb236_baseline")
+remove_patients <- setdiff(datasets$poetic %>% colnames, patients)
+poetic_df_pca_baseline <- poetic_df_pca %>% 
+    dplyr::filter(!(sample_name %in% remove_patients))
+
+base_plot <- get_base_plot(
+    poetic_df_pca %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")),
+    size_dots = 2,
+    alpha_val = 0.1,
+    size_legend = 4,
+    base_size = 10
+)    
+df <- poetic_df_pca_baseline %>% dplyr::filter(cohort == "poetic")
+
+plot_patients <- base_plot + 
+    ggplot2::geom_point(
+        data = df,
+        mapping = aes(
+            shape = timepoint,
+            color = NA,
+            fill = is_responder
+        ),
+        size = 7,
+        shape = 22
+    ) + 
+    ggplot2::scale_fill_viridis_d() +
+    ggrepel::geom_label_repel(
+        data = df %>% dplyr::mutate(patient_nb = paste0("#", patient_nb)),
+        mapping = aes(x = PC3, y = PC4, label = patient_nb),
+        inherit.aes = FALSE,
+        size = 10,
+        box.padding = 0.5
+    ) +
+    ggplot2::labs(
+        fill = "Is responder?",
+        title = paste0(
+            "Responder status for each patient in the baseline\n",
+            "and treated group"
+        ),
+        caption = paste0(
+            "Responder is defined as having at least 5% baseline Ki67 and",
+            " reduction of at least 60% in Ki67 levels"
+        )
+    ) + 
+    ggplot2::theme_bw(base_size = 25)
+
+plot_patients
+```
+
+
+And now we calculate the average scores for each patient neighborhoods. We 
+start by defining a radius value. After that we select the patients in the
+neighborhood and use `rstanarm` to get the posterior distribution of the
+average score in the neighborhood. For this we use the function
+`stan_glm` to calculate the average. This is effective because it can
+be paired with the package `tidybayes` for plotting. It makes extremely easy
+to deal with posterior data. For the average we use a 
+normal prior centered at 0 with 1 standard deviation, 
+since all scores are between -1 and 1.
+
+```{r}
+#| eval: false
+patients <- c("treated_nb63_baseline", "treated_nb236_baseline")
+scores_to_use <- c(
+    "Estrogen response early",
+    "E2F targets",
+    "P53 pathway",
+    "EMT",
+    "Androgen response",
+    "TGFb signaling"
+) %>% `names<-`(c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY",
+    "HALLMARK_E2F_TARGETS",
+    "HALLMARK_P53_PATHWAY",
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION",
+    "HALLMARK_ANDROGEN_RESPONSE",
+    "HALLMARK_TGF_BETA_SIGNALING"
+))
+
+pipeline_scores_plots <- sapply(
+    patients, 
+    get_patient_scores_distributions,
+    df_pca = poetic_df_pca,
+    scores_to_use = scores_to_use,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+
+saveRDS(
+    pipeline_scores_plots,
+    "../results/rds_files/scoring/pipeline_scores_plots.rds"
+)
+```
+
+Patient 63 @fig-pt63 is considered a responder. According to 
+the scores, when comparing the estrogen early signature to its average 
+distribution in the neighborhood, the score is higher.
+
+```{r, fig.height=8, fig.width=14}
+#| label: fig-pt63
+#| fig-cap: Posterior distribution of the average scores in the neighborhood
+#|     of patient 236 from POETIC trial. Each dot corresponds to a 1% quantile.
+pipeline_scores_plots$treated_nb63_baseline$plot
+```
+
+Patient 236 @fig-pt236 was considered a non responder. According to 
+the scores, when comparing the estrogen early signature to its average 
+distribution in the neighborhood, the score is lower, being in the
+5% quantile.
+
+```{r, fig.height=8, fig.width=14}
+#| label: fig-pt236
+#| fig-cap: Posterior distribution of the average scores in the neighborhood
+#|     of patient 236 from POETIC trial. Each dot corresponds to a 1% quantile.
+pipeline_scores_plots$treated_nb236_baseline$plot
+```
+
+When comparing these two patients, there is also a difference in the androgen
+response score, which could be a reflection of different estrogen signaling.
+
+```{r, fig.width = 14, fig.height=10}
+# pathway <- "HALLMARK_ESTROGEN_RESPONSE_EARLY"
+# pathway <- "HALLMARK_G2M_CHECKPOINT"
+# pathway <- "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION"
+# #pathway <- "SET_ERPR"
+# poetic_df_pca %>% dplyr::filter(cohort != "poetic") %>%
+#     ggplot2::ggplot(aes_string(x = pathway, fill = "cohort")) + 
+#     ggplot2::geom_histogram(
+#         aes(y = stat(density*width)),
+#         position = "identity", alpha = 0.4,
+#         bins = 30
+#     ) +
+#     ggplot2::labs(title = pathway, x = "GSVA score") + 
+#     ggplot2::facet_wrap(~cohort + er_status, ncol = 2) +
+#     ggplot2::theme_bw(base_size = 20)
+
+# poetic_df_pca %>% dplyr::filter(sample_name %in% patients) %>%
+#     dplyr::select(all_of(scores_to_use)) %>% t
+# 
+# a <- poetic_df_pca %>% 
+#     dplyr::filter(sample_name %in% samples_and_distance_neighborhood$samples) %>%
+#     dplyr::select(all_of(scores_to_use)) 
+# hist(a$SET_ERPR)
+# 
+# posterior_interval(average_scores_neighborhood$HALLMARK_ESTROGEN_RESPONSE_LATE)
+
+# poetic_df_pca %>% dplyr::filter(cohort == "poetic") %>%
+#     dplyr::mutate(is_patient = ifelse(sample_name %in% patients, "yes", "no")) %>%
+#     ggplot(aes(x = HALLMARK_ESTROGEN_RESPONSE_LATE, y = SET_ERPR)) + 
+#     geom_point(aes(size = is_patient, color = is_patient)) + 
+#     scale_size_manual(values = c("yes" = 5, "no" = 1)) + 
+#     geom_smooth(method = "lm", color = "black", formula = "y~x") +
+#     geom_abline(slope = 1, intercept = 0, linetype = "dashed")
+```
+
+
+
+

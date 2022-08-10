@@ -129,6 +129,7 @@ forest_plot_fits <- function(
     name_signature, path_to_save, 
     width = 6, height = 3, ...
 ){
+    cat(cohort, type_survival, name_signature, "\n")
     
     coefs_surv <- exp(coef(fit))
     confint_surv <- exp(confint(fit))
@@ -558,7 +559,7 @@ plot_pca_coordinates <- function(
   
     ggplot2::ggplot(
         df_pca,
-        aes_string(x = x, y = y, colour = color)
+        aes_string(x = x, y = y, color = color)
     ) + 
         ggplot2::geom_point(size = size) +
         ggplot2::labs(title = title) + 
@@ -615,7 +616,9 @@ get_new_pca <- function(
                 }
             ),
             .id = "cohort"
-        ) %>% .[colnames(training_set), ]
+        ) %>% .[colnames(training_set), ],
+        center = FALSE, 
+        scale = FALSE
     )
 
     datasets_pca_coordinates <- lapply(
@@ -640,7 +643,7 @@ get_new_pca <- function(
 get_fuzziness_score <- function(
     genes_to_remove,
     pca_fit,
-    which_pcs = 2:3
+    which_pcs = 3:4
 ){
     
     
@@ -660,19 +663,22 @@ get_fuzziness_score <- function(
 #' @param pca_random_genes_patients A list. PCA coordinates from 
 #'     patients with missing genes
 #' @param patient A string. Name of the patient
+#' @param df_pca_coordinates A dataframe. Contains the principal
+#'     components from TCGA, METABRIC and SCANB
 #' @return A plot showing where points would be if genes were
 #'     missing.
 plot_pca_random_genes <- function(
     pca_random_genes_patients,
-    patient
+    patient,
+    df_pca_coordinates
 ){
     df <- pca_random_genes_patients[[patient]]
     
     df %>%
     ggplot2::ggplot(
         aes(
-            x = PC2, 
-            y = PC3, 
+            x = PC3, 
+            y = PC4, 
             color = proportion, 
             shape = embedding, 
             size = embedding,
@@ -681,15 +687,15 @@ plot_pca_random_genes <- function(
     ) +
     ggplot2::geom_line(
         data = df %>% dplyr::filter(embedding == "original") %>%
-            dplyr::bind_rows(., data.frame("PC2" = c(0), "PC3" = c(0))),
-        aes(x = PC2, y = PC3), 
+            dplyr::bind_rows(., data.frame("PC3" = c(0), "PC4" = c(0))),
+        aes(x = PC3, y = PC4), 
         inherit.aes = FALSE,
         alpha = 0.4,
         linetype = "dashed"
     ) +
     ggplot2::geom_point(
         data = df_pca_coordinates %>% dplyr::filter(cohort == "tcga"), 
-        aes(x = PC2, y = PC3),
+        aes(x = PC3, y = PC4),
         alpha = 0.2, 
         color = "gray",
         inherit.aes = FALSE
@@ -704,4 +710,322 @@ plot_pca_random_genes <- function(
         title = patient
     ) +
     ggplot2::theme_bw()
+}
+
+#' Plot PCA embedding of the dataframe using new samples
+#'
+#' @param df_pca A dataframe. PCA coordinates from 
+#'     patients, including the SCANB, METABRIC and TCGA
+#'     cohorts.
+#' @param color A string. Which column to use when coloring
+#'     the dots.
+#' @param name_cohort A string. Name of the cohort that 
+#'     is being used in the embedding
+#' @param x A string. X-axis PC component
+#' @param y A string. Y-axis PC component
+#' @param title A string. Title for the plot
+#' @return A plot of the embedding for new samples with the 
+#'     TCGA, SCANB and METABRIC in the background.
+get_plot_new_samples <- function(
+    df_pca, 
+    color, 
+    name_cohort = "smc",
+    x = "PC2",
+    y = "PC3",
+    title = "SMC samples overlayed on the molecular landscape"
+){
+    
+    df_pca %>% 
+        dplyr::filter(pam50 %in% 
+            c("basal", "her2", "lumb", "luma", "normal", "not_available")
+        ) %>%
+        ggplot2::ggplot(
+            aes_string(x = x, y = y, color = color)
+        ) +
+        ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+        ggplot2::scale_size_manual(
+            values = c(3, 1, 1, 1) %>% 
+                `names<-`(c(
+                    name_cohort, 
+                    "tcga", 
+                    "scanb", 
+                    "metabric"
+                ))
+        ) +
+        ggplot2::scale_alpha_manual(
+            values = c(1, .1, .1, .1) %>% 
+                `names<-`(c(
+                    name_cohort, 
+                    "tcga", 
+                    "scanb", 
+                    "metabric"
+                ))
+        ) +
+        ggplot2::labs(
+            alpha = "Cohort",
+            size = "Cohort",
+            title = title,
+            subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
+        ) + 
+        ggplot2::theme_bw(base_size = 20)
+}
+
+#' Plot PCA embedding of the 3 big cohorts to serve as a base plot
+#'
+#' @param df_pca A dataframe. PCA coordinates from 
+#'     patients, including the SCANB, METABRIC and TCGA
+#'     cohorts.
+#' @param x A string. PC for x-axis
+#' @param y A string. PC for y-axis
+#' @param color A string. Which column to use when coloring
+#'     the dots.
+#' @param size_dots An integer. Size of the points in the plot
+#' @param alpha_val A number. Alpha value of the points
+#' @param size_legend An integer. Size of the color legend
+#' @param base_size An integer. Parameter for ggplot2::theme_bw
+#' @return A plot of the TCGA, SCANB and METABRIC embedding
+get_base_plot <- function(
+    df_pca,
+    x = "PC3",
+    y = "PC4",
+    color = "pam50",
+    size_dots = 2,
+    alpha_val = 0.1,
+    size_legend = 4,
+    base_size = 10
+){
+    
+    df_pca %>%
+        ggplot2::ggplot(aes_string(x = x, y = y, color = color)) + 
+        ggplot2::geom_point(size = size_dots, alpha = alpha_val) +
+        ggplot2::scale_alpha(guide = 'none') +
+        ggplot2::labs(
+            color = "PAM50"
+        ) + 
+        ggplot2::guides(
+            colour = ggplot2::guide_legend(
+                override.aes = list(size = size_legend, alpha = 1)
+            )
+        ) + 
+        ggplot2::theme_bw(base_size = base_size)
+}
+
+
+#' Get list of samples that are in the radius of another sample
+#'
+#' @param df_pca A dataframe. PCA coordinates from 
+#'     patients, including the SCANB, METABRIC and TCGA
+#'     cohorts.
+#' @param components_sample A vector containing the PC values from the 
+#'     center sample.
+#' @param sample_name A string. Name of the sample, it is used to remove it
+#'     from the list of samples in the neighborhood.
+#' @param radius A number. Size of the ball
+#' @param which_components A character vector. Name of the components used to
+#'     to calculate the distance. Length should match the components_sample.
+#' @param column_patients A string. name of the column from df_pca where the
+#'     patient_names are stored.
+#' @return A list containing two vectors, one with the names from the 
+#'     samples and another with the distance to the center
+get_samples_neighborhood <- function(
+    components_sample, 
+    sample_name,
+    radius,
+    df_pca,
+    which_components = c("PC3", "PC4"),
+    column_patients = "sample_name"
+){
+    
+    distance_to_center <- (df_pca[, which_components] - components_sample)^2 %>%
+        rowSums(.) %>% unname
+    
+    samples_to_select <- (distance_to_center < radius^2)
+    samples_in_neighborhood <- df_pca[samples_to_select, ] %>% 
+        dplyr::pull(!!sym(column_patients)) %>%
+        setdiff(., sample_name)
+    
+    list(
+        samples = samples_in_neighborhood,
+        distances = sqrt(distance_to_center[samples_to_select])
+    )
+    
+}
+
+#' Get formatted dataframe to calculate the average scores
+#'
+#' @param df_pca A dataframe. PCA coordinates from 
+#'     patients, including the SCANB, METABRIC and TCGA
+#'     cohorts.
+#' @param samples_to_use A character vector. Vector with all samples in
+#'     the neighborhood of a specific sample
+#' @param scores_to_use A character vector. List with scores to be 
+#'     returned.
+#' @param column_patients A string. name of the column from df_pca where the
+#'     patient_names are stored.
+#' @return A long dataframe containing the scores and pathways along with
+#'     with the patient names.
+get_scores_for_average <- function(
+    df_pca, 
+    samples_to_use, 
+    scores_to_use,
+    column_patients = "sample_name"
+){
+    df_pca %>% 
+        dplyr::filter(!!sym(column_patients) %in% samples_to_use) %>%
+        dplyr::select(all_of(c(scores_to_use, column_patients))) %>%
+        tidyr::pivot_longer(
+            cols = all_of(scores_to_use),
+            names_to = "pathway",
+            values_to = "score"
+        )
+}
+
+#' Get fitted models for all pathways selected in get_scores_for_average
+#'
+#' @param scores_for_average A dataframe. Output from get_scores_for_average
+#' @return A list with the fitted models from rstanarm for each pathway
+#'     individually
+get_average_neighboorhood <- function(scores_for_average){
+    
+    sapply(
+        unique(scores_for_average$pathway),
+        function(pathway_name, scores_for_average){
+            
+            print(pathway_name)
+            
+            rstanarm::stan_glm(
+                data = scores_for_average %>% 
+                    dplyr::filter(pathway == pathway_name),
+                formula = "score ~ 1", 
+                chains = 4,
+                prior_intercept = rstanarm::normal(
+                    location = 0, 
+                    scale = 1
+                ),
+                refresh = 0
+            )   
+            
+        },
+        scores_for_average = scores_for_average,
+        USE.NAMES = TRUE,
+        simplify = FALSE
+    )
+}
+
+
+
+plots_estimates <- function(
+    models, 
+    sample_name, 
+    scores_to_use, 
+    scores_patient,
+    base_size
+){
+    
+    tidy_draws <- lapply(
+        models, 
+        function(x) x %>% tidybayes::spread_draws(`(Intercept)`)
+    ) %>% dplyr::bind_rows(
+        .id = "pathway"
+    ) 
+    
+    tidy_draws$pathway <- scores_to_use[tidy_draws$pathway] %>% as.character
+    
+    tidy_draws %>% 
+    ggplot2::ggplot(
+        aes(x = `(Intercept)`)
+    ) + 
+        ggplot2::geom_vline(
+            data = scores_patient,
+            mapping = aes(xintercept = score),
+            linetype = "dashed",
+            color = "red"
+        ) +
+        ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
+        tidybayes::stat_dotsinterval(
+            quantiles = 100,
+            size = 3
+        ) + 
+        ggplot2::facet_wrap(~pathway, ncol = 3) +
+        ggplot2::labs(
+            title = paste0(
+                "Distribution of average scores\n",
+                "in ", sample_name, " neighborhood"
+            ),
+            y = "",
+            x = "Average score",
+            caption = paste0(
+                "Red dashed line is patient score\n",
+                "Black dashed line is centered at 0"
+            )
+        ) + 
+        ggplot2::theme_bw(base_size = base_size)
+}
+
+
+get_patient_scores_distributions <- function(
+    patient_name,
+    df_pca,
+    scores_to_use,
+    radius = 0.3,
+    base_size = 20,
+    components = c("PC3", "PC4"),
+    column_patients = "sample_name"
+){
+
+    components_sample <- df_pca %>% 
+        dplyr::filter(sample_name == patient_name) %>%
+        dplyr::select(all_of(components)) %>%
+        dplyr::slice(1) %>%
+        unlist
+
+    samples_and_distance_neighborhood <- get_samples_neighborhood(
+        components_sample = components_sample, 
+        sample_name = patient_name, 
+        radius = radius, 
+        df_pca = df_pca %>% 
+            dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")), 
+        which_components = components, 
+        column_patients = column_patients
+    )
+
+
+    scores_avg <- get_scores_for_average(
+        df_pca = df_pca %>%
+            dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")), 
+        samples_to_use = samples_and_distance_neighborhood$samples,
+        scores_to_use = names(scores_to_use),
+        column_patients = column_patients
+    )
+
+    average_scores_neighborhood <- get_average_neighboorhood(scores_avg)
+
+    scores_patient <- df_pca %>% 
+        dplyr::filter(sample_name == patient_name) %>%
+        dplyr::select(all_of(names(scores_to_use))) %>%
+        tidyr::pivot_longer(
+            cols = all_of(names(scores_to_use)),
+            names_to = "pathway",
+            values_to = "score"
+        ) %>% 
+        dplyr::mutate(
+            pathway = scores_to_use[pathway]
+        )
+    
+    print(scores_patient)
+    
+    
+    p <- plots_estimates(
+        average_scores_neighborhood, 
+        patient_name, 
+        scores_to_use, 
+        scores_patient, 
+        base_size = base_size
+    )
+    
+    list(
+        average_scores_neighborhood = average_scores_neighborhood,
+        samples_distance = samples_and_distance_neighborhood,
+        plot = p
+    )
 }
