@@ -223,7 +223,7 @@ plots_scores_for_movie <- mapply(
 plots_molecular_landscape <- plot_selected_samples(
     df_pca,
     pca_values,
-    scores_plots_movie = scores_plots_movie,
+    scores_plots_movie = plots_scores_for_movie,
     size_line = 0.5,
     radius = 1,
     size_points = 3,

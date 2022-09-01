@@ -918,7 +918,15 @@ get_average_neighboorhood <- function(scores_for_average){
 }
 
 
-
+#' Plot the posterior distribution for the selected scores
+#'
+#' @param models A list. List of rstanarm models
+#' @param sample_name Name of the sample to draw the score line
+#' @param scores_to_use A character vector with the names of the scores
+#'      to be used
+#' @param scores_patient a dataframe with the scores from the patient
+#' @param base_size An integer. passed to ggplot2::theme_bw()
+#' @return A plot with the faceted scores 
 plots_estimates <- function(
     models, 
     sample_name, 
@@ -968,6 +976,22 @@ plots_estimates <- function(
 }
 
 
+#' Plot the posterior distribution for the selected scores and
+#' the selected neighborhoods
+#'
+#' @param models A list. List of rstanarm models
+#' @param sample_name Name of the sample to draw the score line
+#' @param scores_to_use A character vector with the names of the scores
+#'      to be used
+#' @param scores_patient a dataframe with the scores from the patient
+#' @param base_size An integer. passed to ggplot2::theme_bw()
+#' @param which_direction A string specifying if the estimates
+#'     are calculated from the path going from bottom to top
+#'     or left to right. Options: "top_down" and "left_right". 
+#'     Default is "top_down"
+#' @param color_title A named vector with the possible colors
+#'     for which_direction.
+#' @return A plot with the faceted scores 
 plots_estimates_without_patient <- function(
     models, 
     sample_name, 
@@ -1032,6 +1056,28 @@ plots_estimates_without_patient <- function(
         )
 }
 
+
+#' Gets the patient scores given a radius of its neighborhood.
+#'
+#' @param patient_name String. Name of the patient to look at the
+#'     neighborhood.
+#' @param df_pca A dataframe containing the PCA embedding for all patients
+#' @param scores_to_use A character vector with the names of the scores
+#'      to be used
+#' @param radius Size of the neighbourhood. Default is 0.3
+#' @param components Name of the components to calculate the neighborhood.
+#'      Default is c("PC3", "PC4")
+#' @param column_patients Which column of df_pca you have the name of
+#'      samples. Default is "sample_name"
+#' @param which_direction A string specifying if the estimates
+#'     are calculated from the path going from bottom to top
+#'     or left to right. Options: "top_down" and "left_right". 
+#'     Default is "top_down"
+#' @param scores_patient a dataframe with the scores from the patient
+#' @param base_size An integer. passed to ggplot2::theme_bw()
+#' @return A list with the name of the patients in the neighborhood,
+#'     the scores of the patients and models containing the posterior
+#'     distribution of the average scores in the neighborhood.
 get_patient_scores_distributions <- function(
     patient_name,
     df_pca,
@@ -1089,6 +1135,28 @@ get_patient_scores_distributions <- function(
     )
 }
 
+#' Gets the patient scores given a radius of its neighborhood.
+#'
+#' @param patient_name String. Name of the patient to look at the
+#'     neighborhood.
+#' @param df_pca A dataframe containing the PCA embedding for all patients
+#' @param scores_to_use A character vector with the names of the scores
+#'      to be used
+#' @param radius Size of the neighbourhood. Default is 0.3
+#' @param components Name of the components to calculate the neighborhood.
+#'      Default is c("PC3", "PC4")
+#' @param column_patients Which column of df_pca you have the name of
+#'      samples. Default is "sample_name"
+#' @param which_direction A string specifying if the estimates
+#'     are calculated from the path going from bottom to top
+#'     or left to right. Options: "top_down" and "left_right". 
+#'     Default is NULL
+#' @param scores_patient a dataframe with the scores from the patient
+#' @param base_size An integer. passed to ggplot2::theme_bw()
+#' @return A list with the name of the patients in the neighborhood,
+#'     the scores of the patients and models containing the posterior
+#'     distribution of the average scores in the neighborhood and a 
+#'     plot with the distributions.
 get_patient_scores_distributions_all <- function(
     patient_name,
     df_pca,
@@ -1156,6 +1224,20 @@ get_patient_scores_distributions_all <- function(
     )
 }
 
+#' Get the plot given the model with or without the patient line
+#'
+#' @param avg_rstan_samples List returned from get_patient_scores_distributions
+#' @param scores_to_use A character vector with the names of the scores
+#'      to be used
+#' @param radius Size of the neighbourhood. Default is 0.3
+#' @param which_direction A string specifying if the estimates
+#'     are calculated from the path going from bottom to top
+#'     or left to right. Options: "top_down", "left_right" and NULL
+#' @param scores_patient a dataframe with the scores from the patient
+#' @param base_size An integer passed to ggplot2::theme_bw()
+#' @param size_dots An integer passed to ggplot2::geom_point(). Size 
+#'     of the dots
+#' @return A plot of the estimates for each model
 get_plot_patient_distribution <- function(
     avg_rstan_samples,
     scores_to_use,
@@ -1186,6 +1268,15 @@ get_plot_patient_distribution <- function(
 
 }
 
+#' Get the sample name that is closest to the given PCA
+#' 
+#' @param pca_values a dataframe containing two columns
+#' @param df_pca a dataframe containing all the PCA embeddings 
+#'     (should include PC3 and PC4)
+#' @param sample_name column from df_pca where sample names are. Default
+#'     is "sample_name"
+#'
+#' @return A string
 get_closest_sample <- function(
     pca_values,
     df_pca,
@@ -1203,6 +1294,22 @@ get_closest_sample <- function(
      
 }
 
+#' Get the plot given the model with or without the patient line
+#'
+#' @param df_pca List returned from get_patient_scores_distributions
+#' @param pca_values A character vector with the names of the scores
+#'      to be used
+#' @param scores_plots_movie List with the outputs from 
+#'      get_plot_patient_distribution
+#' @param radius Size of the neighbourhood. Default is 0.3
+#' @param title_plot Title of the plot. Default is ""
+#' @param base_size An integer passed to ggplot2::theme_bw()
+#' @param size_points An integer passed to ggplot2::geom_point(). Size 
+#'     of the points
+#' @param size_line An integer passed to ggplot2::geom_vline(). Size 
+#'     of the line
+#' @return A list of plots for all neighborhoods highlighting the points
+#'     and showing the scores.
 plot_selected_samples <- function(
     df_pca, 
     pca_values, 
