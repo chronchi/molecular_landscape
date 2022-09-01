@@ -266,6 +266,10 @@ umap_projections <- readRDS(
 ```
 
 ```{r, fig.width=10, fig.height=20}
+#| label: fig-surv-umap-all
+#| fig-cap: UMAP projections of all three cohorts in the following order":" 
+#|     TCGA, SCANB and METABRIC. They are colored by the PAM50
+#|     molecular subtype.
 plots_umap <- mapply(
     plot_umap,
     sum_exp = datasets,
@@ -515,6 +519,8 @@ plot_scores[[which_dataset]] <- mapply(
 ```
 
 ```{r, fig.width=10, fig.height=8}
+#| label: fig-scores-tcga
+#| fig-cap: Scores for TCGA patients
 cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 ```
 
@@ -539,6 +545,8 @@ plot_scores[[which_dataset]] <- mapply(
 ```
 
 ```{r, fig.width=10, fig.height=8}
+#| label: fig-scores-metabric
+#| fig-cap: Scores for METABRIC patients
 cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 ```
 
@@ -563,6 +571,8 @@ plot_scores[[which_dataset]] <- mapply(
 ```
 
 ```{r, fig.width=10, fig.height=8}
+#| label: fig-scores-scanb
+#| fig-cap: Scores for SCANB patients
 cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 ```
 
@@ -577,6 +587,8 @@ Below is a combined image for TCGA, SCANB and METABRIC using the $SET_{ER/PR}$
 signature.
 
 ```{r, fig.height=10, fig.width = 6}
+#| label: fig-scores-metabric-tcga-scanb
+#| fig-cap: SET ER/PR scores for all three cohorts.
 pathway_to_get <- c("SET_ERPR" = "SET ER/PR")
 seterpr_plots <- purrr::map(plot_scores, names(pathway_to_get)[1])
 seterpr_plots <- seterpr_plots[c("tcga", "scanb", "metabric")]
@@ -630,6 +642,8 @@ plot_scores[[which_dataset]] <- mapply(
 ```
 
 ```{r, fig.width=10, fig.height=8}
+#| label: fig-scores-tcga-pam50
+#| fig-cap: Scores for TCGA patients stratified by PAM50 molecular subtype
 cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 ```
 
@@ -654,6 +668,8 @@ plot_scores[[which_dataset]] <- mapply(
 ```
 
 ```{r, fig.width=10, fig.height=8}
+#| label: fig-scores-metabric-pam50
+#| fig-cap: Scores for METABRIC patients stratified by PAM50 molecular subtype
 cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 ```
 
@@ -678,6 +694,8 @@ plot_scores[[which_dataset]] <- mapply(
 ```
 
 ```{r, fig.width=10, fig.height=8}
+#| label: fig-scores-scanb-pam50
+#| fig-cap: Scores for SCANB patients stratified by PAM50 molecular subtype
 cowplot::plot_grid(plotlist = plot_scores[[which_dataset]], ncol = 2)
 ```
 
@@ -789,6 +807,20 @@ data.frame(
         length(tcga_samples),
         length(scanb_samples),
         length(metabric_samples)
+    ),
+    nb_events = c(
+        datasets$tcga %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% tcga_samples & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n),
+       datasets$scanb %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% scanb_samples & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n),
+       datasets$metabric %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% metabric_samples & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n)
     )
 ) %>% kableExtra::kbl() %>%
     kableExtra::kable_classic(full_width = FALSE)
