@@ -7,6 +7,34 @@
     "text": "These are the scripts and prose used to generate the analysis and images for the manuscript."
   },
   {
+    "objectID": "intro.html#what-is-currently-know",
+    "href": "intro.html#what-is-currently-know",
+    "title": "Introduction",
+    "section": "What is currently know",
+    "text": "What is currently know"
+  },
+  {
+    "objectID": "intro.html#problems",
+    "href": "intro.html#problems",
+    "title": "Introduction",
+    "section": "Problems",
+    "text": "Problems"
+  },
+  {
+    "objectID": "intro.html#how-we-will-tackle-the-problem",
+    "href": "intro.html#how-we-will-tackle-the-problem",
+    "title": "Introduction",
+    "section": "How we will tackle the problem",
+    "text": "How we will tackle the problem"
+  },
+  {
+    "objectID": "intro.html#description-of-the-cohorts",
+    "href": "intro.html#description-of-the-cohorts",
+    "title": "Introduction",
+    "section": "Description of the cohorts",
+    "text": "Description of the cohorts"
+  },
+  {
     "objectID": "surv_analysis_estrogen.html",
     "href": "surv_analysis_estrogen.html",
     "title": "1  Estrogen receptor status is continuous, not dichotomous",
@@ -123,7 +151,7 @@
     "href": "scoring.html#calculating-scores-in-neighborhoods",
     "title": "4  Pathway activity in a personalized context",
     "section": "4.1 Calculating scores in neighborhoods",
-    "text": "4.1 Calculating scores in neighborhoods\n\nAdd here the code to make the video when calculating the average scores. try to use the same code as the poetic, if not, change it so it can be used in both cases. Idea is to show how the scores change as you move across the molecular landscape."
+    "text": "4.1 Calculating scores in neighborhoods\n\nAdd here the code to make the video when calculating the average scores. try to use the same code as the poetic, if not, change it so it can be used in both cases. Idea is to show how the scores change as you move across the molecular landscape.\n\nPatients close to each other in the molecular landscape are somewhat molecularly close, due to how the embedding works. Therefore, we can look at patients in a neighborhood and calculate the average scores, to see what it means to be in a specific neighborhood.\nTo do this, we define a radius for a patient where all the patients within the euclidean ball with this radius will be selected and an average score distribution is calculated.\nTo calculate the average score distribution we use the rstanarm package. We set the prior distribution for the intercept to be a normal distribution centered at 0 with standard deviation of 1. All scores are in a range of -1 to 1, so this is a relatively flat prior for our use case.\nThe video below shows how scores change in average when comparing different neighborhoods.\n\n\n\n\n\nGoing from right to left it shows how ER signaling is decreased. From top to bottom there is a reduction of proliferation, E2F targets, and a change in EMT and TGFb signaling. These are representative scores, other pathways could be used as well."
   },
   {
     "objectID": "scoring.html#poetic-embedding",

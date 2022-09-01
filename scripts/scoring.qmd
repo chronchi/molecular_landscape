@@ -93,13 +93,205 @@ scores. try to use the same code as the poetic, if not, change it
 so it can be used in both cases. Idea is to show how the scores change
 as you move across the molecular landscape.
 
+Patients close to each other in the molecular landscape are somewhat
+molecularly close, due to how the embedding works. Therefore, we can 
+look at patients in a neighborhood and calculate the average scores,
+to see what it means to be in a specific neighborhood. 
+
+To do this, we define a radius for a patient where all the patients
+within the euclidean ball with this radius will be selected and an 
+average score distribution is calculated.
+
+To calculate the average score distribution we use the `rstanarm` package. 
+We set the prior distribution for the intercept to be a normal distribution
+centered at 0 with standard deviation of 1. All scores are in a range of
+-1 to 1, so this is a relatively flat prior for our use case.
+
+The video below shows how scores change in average when comparing different
+neighborhoods. 
+
+```{r}
+#| eval: false
+scores_to_use <- c(
+    "Estrogen response early",
+    "E2F targets",
+    "P53 pathway",
+    "EMT",
+    "Androgen response",
+    "TGFb signaling",
+    "SET ER/PR"
+) %>% `names<-`(c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY",
+    "HALLMARK_E2F_TARGETS",
+    "HALLMARK_P53_PATHWAY",
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION",
+    "HALLMARK_ANDROGEN_RESPONSE",
+    "HALLMARK_TGF_BETA_SIGNALING",
+    "SET_ERPR"
+))
+df_pca <- df_pca %>% 
+    dplyr::filter(
+        pam50 %in% c("normal", "luma", "lumb", "basal", "her2")
+    ) %>% 
+    `rownames<-`(.[, "sample_name"])
+
+# we first get random samples from the path determined below
+pc3_values <- 2.5 + rnorm(0, 0.1, n = 20)
+pc4_values <- seq(from = -4, to = 4, length.out = 20)
+pca_values <- data.frame(PC3 = pc3_values, PC4 = pc4_values) %>% as.matrix
+samples_top_down <- apply(pca_values, 1, get_closest_sample, df_pca = df_pca)
+
+pc3_values <- seq(from = -8.5, to = 1, length.out = 20)
+pc4_values <- rnorm(1, 0.1, n = 20)
+pca_values <- data.frame(PC3 = pc3_values, PC4 = pc4_values) %>% as.matrix
+samples_left_right <- apply(pca_values, 1, get_closest_sample, df_pca = df_pca)
+
+all_samples <- list(
+    top_down = samples_top_down,
+    left_right = rev(samples_left_right)
+)
+
+pca_values <- lapply(
+    all_samples, 
+    function(x, df_pca){
+        df_pca %>% 
+            dplyr::select(PC3, PC4) %>%
+            as.matrix %>%
+            .[x, ]
+    },
+    df_pca = df_pca
+) 
+
+scores_for_movie <- mapply(
+    function(
+        pca_value, 
+        which_direction, 
+        df_pca, 
+        scores_to_use,
+        radius,
+        base_size
+    ){
+        sapply(
+            rownames(pca_value), 
+            get_patient_scores_distributions,
+            df_pca = df_pca,
+            scores_to_use = scores_to_use,
+            which_direction = which_direction,
+            radius = radius,
+            USE.NAMES = TRUE, 
+            simplify = FALSE
+        )
+    },
+    pca_value = pca_values,
+    which_direction = names(pca_values),
+    MoreArgs = list(
+        df_pca = df_pca, 
+        scores_to_use = scores_to_use,
+        radius = 1
+    ),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+)
+
+plots_scores_for_movie <- mapply(
+    function(
+        avg_rstan_samples, 
+        which_direction,
+        ...
+    ){
+        sapply(
+            avg_rstan_samples, 
+            get_plot_patient_distribution,
+            which_direction = which_direction,
+            ...,
+            USE.NAMES = TRUE, 
+            simplify = FALSE
+        )
+    },
+    avg_rstan_samples = scores_for_movie,
+    which_direction = names(scores_for_movie),
+    MoreArgs = list(
+        scores_to_use = scores_to_use,
+        base_size = 15,
+        size_dots = 3
+    ),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+)
+
+
+plots_molecular_landscape <- plot_selected_samples(
+    df_pca,
+    pca_values,
+    scores_plots_movie = scores_plots_movie,
+    size_line = 0.5,
+    radius = 1,
+    size_points = 3,
+    title_plot = "Molecular landscape"
+)
+
+plots_estimates_tog <- mapply(
+    function(plot1, plot2){
+        cowplot::plot_grid(plot1, plot2, nrow=2)
+    },
+    plot1 = plots_scores_for_movie$top_down,
+    plot2 = plots_scores_for_movie$left_right,
+    USE.NAMES = FALSE,
+    SIMPLIFY = FALSE
+)
+
+final_plots <- lapply(
+    1:length(plots_estimates_tog),
+    function(i) {
+        cowplot::plot_grid(
+            plots_molecular_landscape[[i]],
+            plots_estimates_tog[[i]], 
+            ncol = 2, 
+            rel_widths = c(1.8, 1)
+        )
+    }
+)
+
+folder_to_save <- "../results/plots/scoring/movie"
+fig_width <- 22
+fig_height <- 10
+
+sapply(
+    1:length(final_plots),
+    function(i, final_plots){
+        ggsave(
+            filename = paste0(
+                folder_to_save, 
+                "/", 
+                ifelse(i < 10, paste0("0",i), i), ".png"
+            ),
+            plot = final_plots[[i]],
+            width = fig_width,
+            height = fig_height, 
+            dpi = 320
+        )
+    },
+    final_plots = final_plots
+)
+
+# ffmpeg -framerate 2 -pattern_type glob -i 'movie/*.png' mol_land.mp4
+```
+
+<iframe width="720" height="480" src="../plots/scoring/mol_land.mp4" align="middle" frameborder="0" allowfullscreen></iframe>
+
+Going from right to left it shows how ER signaling is decreased. From top to
+bottom there is a reduction of proliferation, E2F targets, and a change in
+EMT and TGFb signaling. These are representative scores, other pathways could
+be used as well. 
+
 ## POETIC embedding
 
 In this section we show the embedding of the POETIC trial samples.
 But first we analyse some basic properties of the dataset.
 The data for this dataset was downloaded and processed
-as described at [chronchi.github.io/transcriptomics](https://chronchi.github.io/transcriptomics/) in
-the chapter AI - GSE105777. 
+as described at 
+[chronchi.github.io/transcriptomics](https://chronchi.github.io/transcriptomics/)
+in the chapter AI - GSE105777. 
 
 ```{r}
 #| eval: false
@@ -248,7 +440,7 @@ they will not affect the position of the patients in the embedding.
 all the patients are scattered across the whole landscape. Here all samples
 are plotted, meaning that every two dots correspond to a single patient.
 
-```{r, fig.width=18, fig.height=11}
+```{r, fig.width=19, fig.height=12}
 #| label: fig-pca-poetic-er-pam50
 #| fig-cap: PCA embedding of all samples from TCGA, SCANB and METABRIC including
 #|     the POETIC samples on top.
@@ -259,6 +451,7 @@ plots_poetic <- sapply(
     get_plot_new_samples,
     name_cohort = "poetic",
     df_pca = poetic_df_pca,
+    title = "POETIC samples projected on the molecular landscape",
     USE.NAMES = TRUE, 
     simplify = FALSE,
     x = "PC3",
@@ -597,9 +790,10 @@ scores_to_use <- c(
 
 pipeline_scores_plots <- sapply(
     patients, 
-    get_patient_scores_distributions,
+    get_patient_scores_distributions_all,
     df_pca = poetic_df_pca,
     scores_to_use = scores_to_use,
+    base_size = 20,
     USE.NAMES = TRUE, 
     simplify = FALSE
 )
@@ -671,7 +865,3 @@ response score, which could be a reflection of different estrogen signaling.
 #     geom_smooth(method = "lm", color = "black", formula = "y~x") +
 #     geom_abline(slope = 1, intercept = 0, linetype = "dashed")
 ```
-
-
-
-

@@ -836,10 +836,16 @@ get_samples_neighborhood <- function(
     column_patients = "sample_name"
 ){
     
-    distance_to_center <- (df_pca[, which_components] - components_sample)^2 %>%
-        rowSums(.) %>% unname
+    x <- df_pca[, which_components[1]]
+    y <- df_pca[, which_components[2]]
     
-    samples_to_select <- (distance_to_center < radius^2)
+    distance_to_center <- (
+        (components_sample[1] - x)^2 + 
+            (components_sample[2] - y)^2
+    )
+    
+    samples_to_select <- distance_to_center < radius^2
+    
     samples_in_neighborhood <- df_pca[samples_to_select, ] %>% 
         dplyr::pull(!!sym(column_patients)) %>%
         setdiff(., sample_name)
@@ -890,8 +896,7 @@ get_average_neighboorhood <- function(scores_for_average){
     sapply(
         unique(scores_for_average$pathway),
         function(pathway_name, scores_for_average){
-            
-            print(pathway_name)
+
             
             rstanarm::stan_glm(
                 data = scores_for_average %>% 
@@ -963,14 +968,78 @@ plots_estimates <- function(
 }
 
 
+plots_estimates_without_patient <- function(
+    models, 
+    sample_name, 
+    scores_to_use, 
+    scores_patient,
+    base_size,
+    size_dots = 5,
+    which_direction = "top_down",
+    color_title = c("top_down" = "red", "left_right" = "black")
+){
+    
+    # specify names for the title depending on the direction
+    proper_path_name <- c(
+        "top_down" = "Path 1 (right)",
+        "left_right" = "Path 2 (left)"
+    )
+    
+    # get draws from the intercept as they are considered the
+    # averages
+    tidy_draws <- lapply(
+        models, 
+        function(x) x %>% tidybayes::spread_draws(`(Intercept)`)
+    ) %>% dplyr::bind_rows(
+        .id = "pathway"
+    ) 
+    
+    # change to better names when plotting
+    tidy_draws$pathway <- scores_to_use[tidy_draws$pathway] %>% as.character
+    
+    tidy_draws %>% 
+    ggplot2::ggplot(
+        aes(x = `(Intercept)`)
+    ) + 
+        ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
+        tidybayes::stat_dotsinterval(
+            quantiles = 100,
+            fill = color_title[which_direction],
+            alpha = 0.5,
+            show.legend = FALSE,
+            size = size_dots
+        ) + 
+        ggplot2::facet_wrap(~pathway, ncol = 3) +
+        ggplot2::labs(
+            title = paste0(
+                proper_path_name[which_direction], 
+                "\nDistribution of average scores"
+            ),
+            y = "",
+            x = "Average score",
+            caption = ifelse(
+                which_direction == "top_down",
+                "",
+                "Black dashed line is centered at 0"
+            )
+        ) + 
+        ggplot2::theme_bw(base_size = base_size) +
+        ggplot2::coord_cartesian(xlim = c(-0.6, 0.6)) +
+        ggplot2::theme(
+            plot.title = element_text(
+                colour = color_title[which_direction]
+            )
+        )
+}
+
 get_patient_scores_distributions <- function(
     patient_name,
     df_pca,
     scores_to_use,
     radius = 0.3,
-    base_size = 20,
     components = c("PC3", "PC4"),
-    column_patients = "sample_name"
+    column_patients = "sample_name",
+    which_direction = NULL
 ){
 
     components_sample <- df_pca %>% 
@@ -997,7 +1066,8 @@ get_patient_scores_distributions <- function(
         scores_to_use = names(scores_to_use),
         column_patients = column_patients
     )
-
+    
+    
     average_scores_neighborhood <- get_average_neighboorhood(scores_avg)
 
     scores_patient <- df_pca %>% 
@@ -1011,21 +1081,223 @@ get_patient_scores_distributions <- function(
         dplyr::mutate(
             pathway = scores_to_use[pathway]
         )
+
+    list(
+        average_scores_neighborhood = average_scores_neighborhood,
+        samples_distance = samples_and_distance_neighborhood,
+        scores_patient = scores_patient
+    )
+}
+
+get_patient_scores_distributions_all <- function(
+    patient_name,
+    df_pca,
+    scores_to_use,
+    radius = 1,
+    components = c("PC3", "PC4"),
+    column_patients = "sample_name",
+    which_direction = NULL,
+    base_size = 15
+){
+
+    components_sample <- df_pca %>% 
+        dplyr::filter(sample_name == patient_name) %>%
+        dplyr::select(all_of(components)) %>%
+        dplyr::slice(1) %>%
+        unlist
+
+    samples_and_distance_neighborhood <- get_samples_neighborhood(
+        components_sample = components_sample, 
+        sample_name = patient_name, 
+        radius = radius, 
+        df_pca = df_pca %>% 
+            dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")), 
+        which_components = components, 
+        column_patients = column_patients
+    )
+
+
+    scores_avg <- get_scores_for_average(
+        df_pca = df_pca %>%
+            dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")), 
+        samples_to_use = samples_and_distance_neighborhood$samples,
+        scores_to_use = names(scores_to_use),
+        column_patients = column_patients
+    )
     
-    print(scores_patient)
     
-    
+    average_scores_neighborhood <- get_average_neighboorhood(scores_avg)
+
+    scores_patient <- df_pca %>% 
+        dplyr::filter(sample_name == patient_name) %>%
+        dplyr::select(all_of(names(scores_to_use))) %>%
+        tidyr::pivot_longer(
+            cols = all_of(names(scores_to_use)),
+            names_to = "pathway",
+            values_to = "score"
+        ) %>% 
+        dplyr::mutate(
+            pathway = scores_to_use[pathway]
+        )
+
     p <- plots_estimates(
-        average_scores_neighborhood, 
+        average_scores_neighborhood,
         patient_name, 
         scores_to_use, 
-        scores_patient, 
-        base_size = base_size
+        scores_patient,
+        base_size
     )
     
     list(
         average_scores_neighborhood = average_scores_neighborhood,
         samples_distance = samples_and_distance_neighborhood,
+        scores_patient = scores_patient,
         plot = p
     )
 }
+
+get_plot_patient_distribution <- function(
+    avg_rstan_samples,
+    scores_to_use,
+    which_direction,
+    radius = 1,
+    base_size = 10,
+    size_dots = 5
+){
+
+    average_scores_neighborhood <- avg_rstan_samples$average_scores_neighborhood
+    scores_patient <- avg_rstan_samples$scores_patient
+    
+    if (is.null(which_direction)){
+        plots_estimates(
+            average_scores_neighborhood,
+            scores_to_use, 
+            base_size = base_size
+        )   
+    } else {
+        plots_estimates_without_patient(
+            average_scores_neighborhood, 
+            scores_to_use = scores_to_use, 
+            scores_patient = scores_patient, 
+            base_size = base_size,
+            which_direction = which_direction
+        )
+    }
+
+}
+
+get_closest_sample <- function(
+    pca_values,
+    df_pca,
+    sample_name = "sample_name"
+){
+    
+    df_pca %>% 
+        dplyr::rowwise() %>%
+        dplyr::mutate(
+            distance = norm(as.matrix(c(PC3, PC4) - pca_values))
+        ) %>%
+        dplyr::ungroup() %>%
+        dplyr::slice_min(order_by = distance, n = 1) %>%
+        dplyr::pull(!!sym(sample_name))
+     
+}
+
+plot_selected_samples <- function(
+    df_pca, 
+    pca_values, 
+    scores_plots_movie,
+    radius = 0.3,
+    title_plot = "",
+    base_size = 20,
+    size_points = 3,
+    size_line = 3
+){
+
+
+    lapply(
+        1:length(scores_plots_movie$top_down),
+        function(i, pca_values, scores_plots_movie, df_pca, ...){
+            
+            
+            samples_to_highlight <- lapply(
+                scores_plots_movie,
+                function(x, i = i) x[[i]]$samples_distance$samples,
+                i = i
+            ) %>% unlist %>% unique
+            
+            ggplot2::ggplot(
+                df_pca,
+                aes(
+                    x = PC3, 
+                    y = PC4, 
+                    color = pam50, 
+                    shape = cohort, 
+                    alpha = ifelse(
+                        sample_name %in% samples_to_highlight, 
+                        1, 
+                        0.2
+                    )
+                )
+            ) +
+                ggplot2::geom_path(
+                    inherit.aes = FALSE,
+                    data = pca_values[["top_down"]] %>% data.frame,
+                    aes(x = PC3, y = PC4),
+                    color = "red", 
+                    show.legend = FALSE, 
+                    size = size_line
+                ) + 
+                ggplot2::geom_path(
+                    inherit.aes = FALSE,
+                    data = pca_values[["left_right"]] %>% data.frame,
+                    aes(x = PC3, y = PC4),
+                    color = "black",
+                    show.legend = FALSE,
+                    size = size_line
+                ) + 
+                ggplot2::geom_point(size = size_points) +
+                ggforce::geom_circle(
+                    data = data.frame(
+                        x_center = pca_values[["top_down"]][i, 1], 
+                        y_center = pca_values[["top_down"]][i, 2], 
+                        radius = radius
+                    ),
+                    mapping = aes(
+                        x0 = x_center, 
+                        y0 = y_center, 
+                        r = radius*1.1
+                    ),
+                    alpha = 0.7,
+                    inherit.aes = FALSE,
+                    color = "red"
+                ) + 
+                ggforce::geom_circle(
+                    data = data.frame(
+                        x_center = pca_values[["left_right"]][i, 1], 
+                        y_center = pca_values[["left_right"]][i, 2], 
+                        radius = radius
+                    ),
+                    mapping = aes(
+                        x0 = x_center, 
+                        y0 = y_center, 
+                        r = radius*1.1
+                    ),
+                    alpha = 0.7,
+                    inherit.aes = FALSE,
+                    color = "black"
+                ) + 
+                ggplot2::scale_alpha(guide = 'none') +
+                ggplot2::labs(title = title_plot) +
+                ggplot2::theme_bw(base_size = base_size)
+        },
+        pca_values = pca_values, 
+        scores_plots_movie = scores_plots_movie, 
+        df_pca = df_pca,
+        title_plot = title_plot,
+        base_size = base_size,
+        size_points = size_points,
+        size_line = size_line
+    )
+}
+

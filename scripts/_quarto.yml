@@ -10,10 +10,12 @@ book:
   date: "2022.07.21"
   chapters:
     - index.qmd
+    - intro.qmd
     - surv_analysis_estrogen.qmd
     - pca_merging.qmd
     - validation.qmd
     - scoring.qmd
+    - discussion.qmd
     - references.qmd
   page-footer: 
     right: 
@@ -21,8 +23,8 @@ book:
         href: https://github.com/chronchi
       - icon: twitter 
         href: https://twitter.com/chronchi
-  repo-url: https://github.com/chronchi/molecular_landscape/
-  repo-actions: [issue, source]
+  repo-url: https://github.com/chronchi/molecular_landscape
+  repo-actions: [issue]
   sharing: [twitter]
 
 bibliography: references.bib

@@ -755,7 +755,7 @@ are used to color the projection.
 
 ```{r}
 #| label: fig-pca-age
-#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#| fig-cap: PC3 and PC4 of samples from TCGA and METABRIC
 #|     colored by age.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
@@ -767,8 +767,7 @@ plot_pca_coordinates(
     base_size = 10,
     title = paste0(
         "Embedding of all samples from TCGA",
-        " and METABRIC\n",
-        "Corrected METABRIC samples"
+        " and METABRIC"
     )
 ) + ggplot2::scale_color_viridis_c() +
     ggplot2::labs(color = "Age")
@@ -779,7 +778,7 @@ PCA colored by ER status.
 
 ```{r}
 #| label: fig-pca-er-status
-#| fig-cap: Corrected PC2 and PC3 of samples from TCGA and METABRIC
+#| fig-cap: PC3 and PC4 of samples from TCGA and METABRIC
 #|     colored by ER status.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
@@ -791,8 +790,7 @@ plot_pca_coordinates(
     base_size = 10,
     title = paste0(
         "Embedding of all samples from TCGA",
-        " and METABRIC\n",
-        "Corrected METABRIC samples"
+        " and METABRIC"
     )
 ) + ggplot2::scale_color_viridis_d() +
     ggplot2::labs(color = "ER status")
@@ -804,7 +802,7 @@ have this information.
 
 ```{r}
 #| label: fig-pca-npi
-#| fig-cap: Corrected PC2 and PC3 of samples from METABRIC only
+#| fig-cap: PC3 and PC4 of samples from METABRIC only
 #|     colored by NPI.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
@@ -815,7 +813,7 @@ plot_pca_coordinates(
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from corrected METABRIC"
+        "Embedding of all samples from TCGA and METABRIC"
     )
 ) + ggplot2::scale_color_viridis_c(na.value = 0) +
     ggplot2::labs(color = "NPI")
@@ -1279,7 +1277,7 @@ plot_no_norm <- plot_pca_coordinates(
 
 ```{r pca-norm-no-norm, fig.width=10, fig.height=4}
 #| label: fig-pca-norm-no-norm
-#| fig-cap: PC2 and PC3 from all METABRIC and TCGA samples. (A) Embedding
+#| fig-cap: PC3 and PC4 from all METABRIC and TCGA samples. (A) Embedding
 #|     using the qPCR-like normalization. (B) Embedding using the original
 #|     normalization from each dataset.
 

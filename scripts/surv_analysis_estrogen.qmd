@@ -573,6 +573,31 @@ capture the differences between ER status and also molecular subtypes.
 There are two plots with random genes for control and we can see that
 there is no difference between the ER status when using those gene sets.
 
+Below is a combined image for TCGA, SCANB and METABRIC using the $SET_{ER/PR}$
+signature.
+
+```{r, fig.height=10, fig.width = 6}
+pathway_to_get <- c("SET_ERPR" = "SET ER/PR")
+seterpr_plots <- purrr::map(plot_scores, names(pathway_to_get)[1])
+seterpr_plots <- seterpr_plots[c("tcga", "scanb", "metabric")]
+seterpr_plots <- mapply(
+    function(plot, cohort, pathway){
+        plot + 
+            ggplot2::labs(
+                title = paste0(toupper(cohort), " - ", pathway)
+            )
+    },
+    plot = seterpr_plots,
+    cohort = names(seterpr_plots),
+    MoreArgs = list(pathway = pathway_to_get[1]),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+)
+
+cowplot::plot_grid(plotlist = seterpr_plots, ncol = 1)
+```
+
+
 Another way to look at the data is to plot by molecular subtype instead
 of ER status.
 

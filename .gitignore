@@ -5,7 +5,6 @@
 data/*
 results/*
 *cache/
-*files/
 *rds
 *rdb
 *RData

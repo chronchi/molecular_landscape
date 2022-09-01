@@ -30,6 +30,7 @@ db_files <- list(
     ),
     scoring = c(
         df_pca_coordinates = "poetic_df_pca_with_scores",
+        df_pca = "df_pca_coordinates",
         pca_fit = "pca_fit",
         datasets = "datasets_with_poetic",
         stable_genes = "stable_genes",
