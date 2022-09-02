@@ -108,7 +108,7 @@ regarding the clinical factors, including the $SET_{ER/PR}$ signature.
 #| fig-cap: PCA embedding of all samples from TCGA, SCANB and METABRIC.
 #|     (A) Colored by cohort,
 #|     (B) colored by ER status, (C) colored by PAM50 molecular subtype,
-#|     (D) colored by the $SET_{ER/PR}$ signature
+#|     (D) colored by the $SET_{ER/PR}$ signature and only SCANB samples.
 size <- 2
 base_size <- 18
 
@@ -130,11 +130,20 @@ plots_with_scanb <- sapply(
     simplify = FALSE
 )
 
-plots_with_scanb$SET_ERPR <- plots_with_scanb$SET_ERPR +
-    ggplot2::labs(
-        color = expression(SET[ER/PR])
-    ) + 
-    ggplot2::scale_color_viridis_c() 
+plots_with_scanb$er_status <-  plots_with_scanb$er_status +
+    ggplot2::scale_color_viridis_d() +
+    ggplot2::labs(color = "ER status")
+
+plots_with_scanb$SET_ERPR <- df_pca_coordinates %>% 
+    dplyr::filter(cohort %in% c("scanb")) %>%
+    ggplot2::ggplot(aes_string(x = "PC3", y = "PC4", z = "SET_ERPR")) + 
+        ggplot2::stat_summary_hex(bins = 25) +
+        ggplot2::scale_fill_viridis_c() +
+        ggplot2::labs(
+            title = "Embedding of SCANB only",
+            fill = expression(SET[ER/PR])
+        ) + 
+        ggplot2::theme_bw(base_size = base_size)
 
 cowplot::plot_grid(
     plotlist = plots_with_scanb,

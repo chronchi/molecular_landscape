@@ -38,8 +38,8 @@ plot_scores_vs_clinics <- function(
         ggplot2::ggplot(
             aes_string(x = clinical_variable, y = which_score, color = color_by)
         ) + 
-        ggplot2::geom_violin(color = "black") + 
-        ggplot2::geom_jitter(size = point_size) +
+        ggplot2::geom_jitter(size = point_size, alpha = 0.5) + #, shape = 1) +
+        ggplot2::geom_violin(color = "black", alpha = 0.4) + 
         ggplot2::labs(title = title_plot, y = "Score") +
         ggplot2::theme_bw(base_size = base_size)
     

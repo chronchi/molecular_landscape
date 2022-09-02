@@ -1011,8 +1011,8 @@ plot_pcas_together <- function(
     which_seed, 
     test_og_pca, 
     seed_nb,
-    x = "PC2",
-    y = "PC3",
+    x = "PC3",
+    y = "PC4",
     size_point = 3,
     base_size = 30,
     nb_samples = 50
@@ -1024,10 +1024,10 @@ plot_pcas_together <- function(
         do.call(rbind, .)
     
     a <- list(
-        "og_pca" = test_og_pca[random_samples, c("PC2", "PC3")] %>% 
+        "og_pca" = test_og_pca[random_samples, c("PC3", "PC4")] %>% 
             data.frame %>%
             tibble::rownames_to_column(var = "sample_name"),
-        "new_pca" = new_pca_results[random_samples, c("PC2", "PC3")] %>%
+        "new_pca" = new_pca_results[random_samples, c("PC3", "PC4")] %>%
             data.frame %>%
             tibble::rownames_to_column(var = "sample_name")
     ) %>% dplyr::bind_rows(
@@ -1292,3 +1292,57 @@ qPCR-like normalization and when not using. The left plot is using the qPCR
 normalization and shows how well the mixing gets, putting samples in the same
 scale. If the scaling in a sample level is not performed, samples do not mix
 well.
+
+## Molecular landscape is characterized by several pathways
+
+Among the 1000 genes that are used when calculating the molecular landscape,
+several might be involved in biological process. @fig-pca-mol-land-pathways
+shows that several pathways are associated with the position in the 
+molecular landscape. Something that is particularly remarkable here is the 
+association of the epithelial mesenchymal transition and DNA repair
+pathways with PC4. 
+
+```{r, fig.width = 16, fig.height=10}
+#| label: fig-pca-mol-land-pathways
+#| fig-cap: Hex biplots colored by different pathways. Each hex is colored
+#|     based on the average score in the hex.
+plots_pathways <- sapply(
+    c(
+        "HALLMARK_ESTROGEN_RESPONSE_EARLY", 
+        "HALLMARK_G2M_CHECKPOINT",
+        "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION",
+        "SET_ERPR",
+        "HALLMARK_DNA_REPAIR",
+        "HALLMARK_ANDROGEN_RESPONSE",
+        "random_200",
+        "random_18"
+    ), 
+    function(pathway, df_pca_coordinates){
+        color <- pathway
+        x <- "PC3"
+        y <- "PC4"
+        size <- 1
+        base_size <- 10
+        
+        p1 <- df_pca_coordinates %>% 
+            ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
+                ggplot2::stat_summary_hex(bins = 35) +
+                ggplot2::scale_fill_viridis_c() +
+                ggplot2::labs(
+                    title = color,
+                    fill = "Score"
+                ) + 
+                ggplot2::theme_bw(base_size = base_size)
+    }, 
+    df_pca_coordinates = df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("tcga", "metabric")),
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+cowplot::plot_grid(
+    plotlist = plots_pathways,
+    ncol = 3,
+    labels = "AUTO"
+)
+```
