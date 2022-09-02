@@ -1,0 +1,14 @@
+project:
+    output-dir: docx
+    render:
+        - main.qmd
+
+format: docx
+
+bibliography: references.bib
+csl: csl/aacr.csl
+
+execute: 
+  echo: false
+  warning: false
+  error: false

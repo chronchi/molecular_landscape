@@ -1,0 +1,29 @@
+# Abstract
+
+# Introduction
+
+Test citation [@Kan2018]
+
+# Methods
+
+# Results
+
+## Estrogen receptor is a clinical continuous variable
+
+```{r}
+#| label: fig-01
+#| fig-cap: "Scores and survival analysis results from TCGA, SCANB and METABRIC
+#|     cohorts. (a) GSVA scores for the SET ER/PR signature for each cohort.
+#|     Each point corresponds to a patient sample and they are divided by
+#|     estrogen receptor status. (b) Forest plot of the survival analysis
+#|     for each cohort separately. NPI: Nottingham prognostic index. 
+#|     Ti: i-th stage of tumor. Ni: i lymph nodes with breast cancer cells."
+knitr::include_graphics("images/png/figure01.png")
+```
+
+# Discussion
+
+# References
+
+::: {#refs}
+:::
