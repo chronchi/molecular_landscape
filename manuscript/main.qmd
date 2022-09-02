@@ -21,6 +21,57 @@ Test citation [@Kan2018]
 knitr::include_graphics("images/png/figure01.png")
 ```
 
+## Single sample integration preserves relevant breast cancer properties
+
+```{r}
+#| label: fig-02
+#| fig-cap: > 
+#|     (a) Biplot using the third and fourth components on TCGA and METABRIC
+#|     samples. Colored by cohort. (b) Same as **a**, colored by ER status.
+#|     (c) Same as **a**, colored by PAM50 molecular subtype. (d) Hex grid
+#|     calculated on the biplot of the fourth and third component. Each hex 
+#|     is colored based on its average value of the SET ER/PR signature.
+knitr::include_graphics("images/png/figure02.png")
+```
+
+## Embedding is robust to missing genes and generalized to a validation cohort
+
+```{r}
+#| label: fig-03
+#| fig-cap: > 
+#|     Validation of the molecular landscape with an external cohort
+#|     (a) Biplot using the third and fourth components and now including
+#|     all samples from the three cohorts: TCGA, METABRIC and SCANB.
+#|     (b) Same as **a**, colored by ER status. 
+#|     (c) Same as **a**, colored by PAM50 molecular subtype.
+#|     (d) Same as **a**, colored by the SET ER/PR score.
+#|     (e) Biplot using the first and second component of TCGA, METABRIC and
+#|     SCANB. (f) Biplot of all possible embeddings of sample given a certain
+#|     proportion of top loadings missing in the dataset.
+knitr::include_graphics("images/png/figure03.png")
+```
+
+## Molecular landscape is a tool to understand and reveal patient heterogeneity
+
+```{r}
+#| label: fig-04
+#| fig-cap: > 
+#|     Embedding of the POETIC cohort into the molecular landscape and
+#|     pathway analysis for patient samples. (a) Biplots of the 
+#|     POETIC samples (baseline and surgery) into the molecular landscape.
+#|     Left plot is colored by ER status and right plot is colored by
+#|     molecular subtype PAM50 when available. 
+#|     (b) Biplot highlighting two patients with similar embedding and 
+#|     different response status.
+#|     (c) Posterior distributions of the average scores in the neighborhood
+#|     of the responder patient. Red line corresponds to the patient score.
+#|     (d) Posterior distributions of the average scores in the neighborhood
+#|     of the **non**-responder patient. 
+#|     Red line corresponds to the patient score.
+
+knitr::include_graphics("images/png/figure04.png")
+```
+
 # Discussion
 
 # References
