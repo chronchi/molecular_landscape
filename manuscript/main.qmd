@@ -53,7 +53,8 @@ subgroups as ER+ and ER-. Therefore, it is important to consider each
 patient individually. We developed a single sample
 batch effect removal method
 (See methods section for the step by step)
-to integrate microarray and bulk RNA-seq. The advantage of the method is that
+to integrate microarray and bulk RNA-seq and create a molecular landscape.
+The advantage of the method is that
 given a new sample, it can easily be integrated with all the other previous
 samples without any retraining. 
 
@@ -87,6 +88,31 @@ knitr::include_graphics("images/png/figure02.png")
 
 ## Embedding is robust to missing genes and generalized to a validation cohort
 
+METABRIC and TCGA were used to train and validate the projections. SCANB was
+used as an external validation cohort. SCANB is well mixed with both
+METABRIC and TCGA samples (@fig-03 (a)). ER+ and ER- BC patients are well
+separated (@fig-03 (b)) and the procedure can also distinguish the 
+molecular subtypes (@fig-03 (c)). As an RNA-seq cohort, it is expected that
+SCANB samples will be closer to TCGA than to METABRIC when removing batch
+effects, due to platform biases and initial scale of the genes. Biplot of
+PC1 and PC2 (@fig-03 (d)) shows that SCANB is closer to TCGA than to METABRIC.
+It is also in between the two cohorts.
+
+In order to check the robustness of the procedure, we redid all the 
+pipeline 10 times with 10 random sets of patient samples from TCGA and
+METABRIC, simulating a cross validation process.
+The PCA embedding is invariant to rotation, translation and reflection 
+(@fig-03 (e)). Another problem that arises with publicly available 
+datasets, is the fact that there are missing genes. We try to understand
+the effect of missing genes in the embedding based on their loading values. 
+Ideally if a low amount of genes with high loadings are missing, this should
+not affect very much the embedding. On the other hand, the more genes missing
+with high loadings, the more it will impact the embedding. We removed 200
+genes in total with a varying proportion of top loading genes
+(ranging from 0 to 100% in a 5% step). The number of top loading genes 
+missing from the dataset is key for the embedding (@fig-03 (f)). The
+higher the proportion the less precise the embedding is. 
+
 ```{r}
 #| label: fig-03
 #| fig-cap: > 
@@ -98,7 +124,8 @@ knitr::include_graphics("images/png/figure02.png")
 #|     (d) Biplot using the first and second component of TCGA, METABRIC and
 #|     SCANB. 
 #|     (e) Embedding of random samples given different training sets for 
-#|     PCA.
+#|     PCA. Blue dots correspond to the original embedding of a sample and
+#|     red dots correspond to the new embedding given the new training set.
 #|     (f) Biplot of all possible embeddings of sample given a certain
 #|     proportion of top loadings missing in the dataset.
 knitr::include_graphics("images/png/figure03.png")
