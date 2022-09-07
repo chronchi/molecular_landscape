@@ -8,6 +8,32 @@
 
 ## Estrogen receptor is a clinical continuous variable
 
+We used three independent breast cancer molecular datasets 
+[@Saal2015; @tcgabrca; @Curtis2012] to calculate estrogen signaling scores. 
+The estrogen signatures HALLMARK_ESTROGEN_RESPONSE_EARLY and 
+HALLMARK_ESTROGEN_RESPONSE_LATE were extracted from the molecular signature
+database [@Subramanian2005] and $SET_{ER/PR}$ from [@Sinn2019]. The individual
+scores for each patient sample
+are shown in @fig-01 (a) for each cohort stratified by
+estrogen receptor status. It shows the scores capture the differences
+between the two breast cancer subtypes as expected. Moreover, there is a 
+wide range of values in the estrogen receptor positive (ER+) subgroup. 
+
+Cox regression was used to determine the hazard ratio of the estrogen signaling
+in overall survival (OS) for TCGA, SCANB and METABRIC and
+recurrence free survival (RFS) for METABRIC. Each survival analysis was done
+independently and adjusted for available clinical variables. Tumor size and
+number of lymph nodes were used for TCGA and SCANB cohorts. The Nottingham 
+prognostic index (NPI) was used for METABRIC. Age was used in all cohorts 
+as a clinical variable for adjustment. Only ER+ BC patients were used and 
+when possible only those that received endocrine therapy. 
+@fig-01 (b) shows the forest plots for each cohort individually 
+when calculating the hazard ratio for the
+$SET_{ER/PR}$ estrogen signaling signature. In all the three cases, the 
+hazard ratio for $SET_{ER/PR}$ was below 1, with values ranging from 
+0.23 to 0.61. There is moderate variability for each hazard ratio. 
+This shows the continuous aspect of estrogen receptor status.
+
 ```{r}
 #| label: fig-01
 #| fig-cap: "Scores and survival analysis results from TCGA, SCANB and METABRIC
@@ -20,6 +46,33 @@ knitr::include_graphics("images/png/figure01.png")
 ```
 
 ## Single sample integration preserves relevant breast cancer properties
+
+Since each patient has a different ER signaling score, we assumed that 
+patients should be treated individually, not just binned in two big
+subgroups as ER+ and ER-. Therefore, it is important to consider each
+patient individually. We developed a single sample
+batch effect removal method
+(See methods section for the step by step)
+to integrate microarray and bulk RNA-seq. The advantage of the method is that
+given a new sample, it can easily be integrated with all the other previous
+samples without any retraining. 
+
+The biplot in @fig-02 (a) with the third and fourth
+components from TCGA and METABRIC samples shows that the samples are well
+integrated. All samples, including those using for training
+and validation, are plotted. The third components corresponds
+to the separation between ER+ and ER- BC patients in
+both cohorts (@fig-02 (b)). A combination of the third and fourth components
+shows a good distinction among the PAM50 molecular subtypes (@fig-02 (c)).
+The fourth component is mostly dividing the luminal A and luminal B subtypes,
+whereas the normal-like subtype is spread across the third and fourth 
+component. This also highlights the fact that one cannot interpret the 
+PCA locations globally, rather when comparing samples one should consider
+only its neighborhood. As pointed out before, ER status should be considered
+continuous and not dichotomous, @fig-02 (d) shows a gradient of the 
+ER signaling score $SET_{ER/PR}$. The higher values are on the far right
+of the third component, going to negative values as one goes from right
+to left, i.e., moving from a more ER+ status to the ER-. 
 
 ```{r}
 #| label: fig-02
