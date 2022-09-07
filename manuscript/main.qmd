@@ -131,7 +131,28 @@ higher the proportion the less precise the embedding is.
 knitr::include_graphics("images/png/figure03.png")
 ```
 
-## Molecular landscape is a tool to understand and reveal patient heterogeneity
+## Molecular landscape is a tool to understand and explore patient heterogeneity
+
+Since the molecular landscape relies in a single sample embedding, we can 
+add samples from any cohort with relative good data. The POETIC trial 
+[@Dowsett2011] was a trial that evaluated the use of perioperative
+aromatase inhibitors in ER+, postmenopausal BC patients. Its primary 
+endpoint was time to recurrence. 
+They sent for microarray hybridization matched samples from baseline
+(before treatment) and at surgery (after an average of 14 days of treatment)
+[@Gao2019]. There are also untreated patients, used to control for sample
+processing artefacts. Moreover, the patients have matched Ki67 percentage levels, 
+which can be considered an indication of how well a patient responded to 
+the endocrine therapy. Patients with more than 5% of baseline Ki67 and a 
+reduction of 60% upon endocrine therapy are considered responders, otherwise
+they are called non responders.
+
+The molecular landscape can help shed light on responders and non responders.
+We can embed the POETIC trial samples using the procedure (@fig-04 (a) left). 
+Moreover, there are patients across the whole molecular landscape. 
+They are 
+
+
 
 ```{r}
 #| label: fig-04
