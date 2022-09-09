@@ -147,11 +147,24 @@ the endocrine therapy. Patients with more than 5% of baseline Ki67 and a
 reduction of 60% upon endocrine therapy are considered responders, otherwise
 they are called non responders.
 
-The molecular landscape can help shed light on responders and non responders.
-We can embed the POETIC trial samples using the procedure (@fig-04 (a) left). 
-Moreover, there are patients across the whole molecular landscape. 
-They are 
-
+The molecular landscape can shed light on the differences between
+responders and non responders.
+We embedded the POETIC trial samples using the procedure (@fig-04 (a) left). 
+The samples are spread across the whole molecular landscape, showing that 
+patients indeed have different molecular biological properties. Moreover,
+given the available information, the patients that are ER+ and in the
+left part of the landscape (ER- patients), are all non responders 
+(@fig-04 (a) right). 
+This highlights the importance to look more carefully to ER+ patients.
+We selected two patients, a responder and non responder that are close
+in the embedding (@fig-04 (b)) to highlight their molecular
+differences and see what is their context. @fig-04 (c) shows the average 
+posterior distribution of the neighborhood for the responder patient. The 
+responder patient has a ER signaling score higher than the average. 
+On the other hand, the non responder has a smaller ER signaling score
+than the average (@fig-04 (d)) and also a higher androgen signaling
+score (Androgen response). Other pathways and their average posterior
+distributions are shown for both patients.
 
 
 ```{r}
