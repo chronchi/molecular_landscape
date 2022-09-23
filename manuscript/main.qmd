@@ -4,6 +4,72 @@
 
 # Methods
 
+## Cohorts
+
+The breast cancer cohorts TCGA, SCANB, METABRIC and POETIC 
+[@tcgabrca; @Saal2015; @Curtis2012; @Gao2019]
+were used to calculate the PCA embeddings and scores. The samples are of 
+primary breast cancer samples from different molecular subtypes and age 
+distribution. TCGA was download from Firebrowse, SCANB data was downloaded
+from GEO (accession code GSE96058)
+using the package GEOquery [@geoquery] in R along the clinical data from the 
+https://oncogenomics.bmc.lu.se/MutationExplorer/ website. METABRIC 
+was downloaded directly from cBioPortal. POETIC data was downloaded 
+from GEO (accession code GSE105777) using the R package GEOquery. 
+More details about the download and preprocessing steps are described in 
+https://chronchi.github.io/transcriptomics. 
+
+## Selection of highly variable genes
+
+In order to perform the PCA, we sub selected 1000 common and 
+highly variable genes
+in the TCGA and METABRIC cohorts. For each gene and in each cohort
+separately, the standard deviation of that gene was calculated. Then an
+average standard deviation was calculated using the formula below.
+
+$$
+\text{average sd} = \sqrt{\frac{(sd_{TCGA}^2 + sd_{METABRIC}^2)}{k}}
+$$
+
+## qPCR-like normalization
+
+Since samples are coming from different platforms, they need to be
+scaled in a way that they are comparable. For this we developed a new way
+to scale the data based on the ranking of the samples. Given a list of 44
+stable genes across different cancers [@Bhuva2020] and the 1000
+genes selected previously, all genes were ranked from lowest to highest
+expression for each sample separately and the rankings were divided by 
+the average ranking of the stable genes. Stable genes are considered
+the housekeeping genes. 
+
+## PCA embedding
+
+Using the normalized data, a total of 1000 random samples
+coming from TCGA and METABRIC were selected to perform the initial PCA. 
+This is an unsupervised learning method, therefore there is no need to label
+the samples with respect to some category. The package PCAtools 
+[@Blighe2022] in R was used to perform the PCA and to obtain the loadings for 
+downstream analysis. The embedding for new individual samples is obtained
+by multiplying the loadings matrix with the normalized data for that sample.
+Since the normalization procedure is performed sample-wise, this step is
+independent of the number of samples. If there are missing genes in a sample,
+the normalization is performed and the missing genes are padded with 0. 
+
+## Scoring strategies
+
+For the 4 big cohorts, TCGA, SCANB, METABRIC and POETIC, GSVA 
+[@Hnzelmann2013] was applied along with the $SET_{ER/PR}$ signature 
+[@Sinn2019] and the hallmark collection from the molecular signature
+database [@Subramanian2005; @Mootha2003]. Default parameters were used
+in the `gsva` function from the GSVA package. 
+
+## Code availability
+
+The code used to generate all the analysis is available on
+https://github.com/chronchi/molecular_landscape. Descriptions for 
+a docker image to reproduce the analysis are available on the github
+repository.
+
 # Results
 
 ## Estrogen receptor is a clinical continuous variable
