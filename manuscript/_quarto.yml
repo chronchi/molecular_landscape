@@ -3,7 +3,7 @@ project:
     render:
         - main.qmd
 
-format: docx
+format: pdf
 
 bibliography: references.bib
 csl: csl/aacr.csl

@@ -4,9 +4,101 @@
 
 # Methods
 
+## Cohorts
+
+The breast cancer cohorts TCGA, SCANB, METABRIC and POETIC 
+[@tcgabrca; @Saal2015; @Curtis2012; @Gao2019]
+were used to calculate the PCA embeddings and scores. The samples are of 
+primary breast cancer samples from different molecular subtypes and age 
+distribution. TCGA was download from Firebrowse, SCANB data was downloaded
+from GEO (accession code GSE96058)
+using the package GEOquery [@geoquery] in R along the clinical data from the 
+https://oncogenomics.bmc.lu.se/MutationExplorer/ website. METABRIC 
+was downloaded directly from cBioPortal. POETIC data was downloaded 
+from GEO (accession code GSE105777) using the R package GEOquery. 
+More details about the download and preprocessing steps are described in 
+https://chronchi.github.io/transcriptomics. 
+
+## Selection of highly variable genes
+
+In order to perform the PCA, we sub selected 1000 common and 
+highly variable genes
+in the TCGA and METABRIC cohorts. For each gene and in each cohort
+separately, the standard deviation of that gene was calculated. Then an
+average standard deviation was calculated using the formula below.
+
+$$
+\text{average sd} = \sqrt{\frac{(sd_{TCGA}^2 + sd_{METABRIC}^2)}{k}}
+$$
+
+## qPCR-like normalization
+
+Since samples are coming from different platforms, they need to be
+scaled in a way that they are comparable. For this we developed a new way
+to scale the data based on the ranking of the samples. Given a list of 44
+stable genes across different cancers [@Bhuva2020] and the 1000
+genes selected previously, all genes were ranked from lowest to highest
+expression for each sample separately and the rankings were divided by 
+the average ranking of the stable genes. Stable genes are considered
+the housekeeping genes. 
+
+## PCA embedding
+
+Using the normalized data, a total of 1000 random samples
+coming from TCGA and METABRIC were selected to perform the initial PCA. 
+This is an unsupervised learning method, therefore there is no need to label
+the samples with respect to some category. The package PCAtools 
+[@Blighe2022] in R was used to perform the PCA and to obtain the loadings for 
+downstream analysis. The embedding for new individual samples is obtained
+by multiplying the loadings matrix with the normalized data for that sample.
+Since the normalization procedure is performed sample-wise, this step is
+independent of the number of samples. If there are missing genes in a sample,
+the normalization is performed and the missing genes are padded with 0. 
+
+## Scoring strategies
+
+For the 4 big cohorts, TCGA, SCANB, METABRIC and POETIC, GSVA 
+[@Hnzelmann2013] was applied along with the $SET_{ER/PR}$ signature 
+[@Sinn2019] and the hallmark collection from the molecular signature
+database [@Subramanian2005; @Mootha2003]. Default parameters were used
+in the `gsva` function from the GSVA package. 
+
+## Code availability
+
+The code used to generate all the analysis is available on
+https://github.com/chronchi/molecular_landscape. Descriptions for 
+a docker image to reproduce the analysis are available on the github
+repository.
+
 # Results
 
 ## Estrogen receptor is a clinical continuous variable
+
+We used three independent breast cancer molecular datasets 
+[@Saal2015; @tcgabrca; @Curtis2012] to calculate estrogen signaling scores. 
+The estrogen signatures HALLMARK_ESTROGEN_RESPONSE_EARLY and 
+HALLMARK_ESTROGEN_RESPONSE_LATE were extracted from the molecular signature
+database [@Subramanian2005] and $SET_{ER/PR}$ from [@Sinn2019]. The individual
+scores for each patient sample
+are shown in @fig-01 (a) for each cohort stratified by
+estrogen receptor status. It shows the scores capture the differences
+between the two breast cancer subtypes as expected. Moreover, there is a 
+wide range of values in the estrogen receptor positive (ER+) subgroup. 
+
+Cox regression was used to determine the hazard ratio of the estrogen signaling
+in overall survival (OS) for TCGA, SCANB and METABRIC and
+recurrence free survival (RFS) for METABRIC. Each survival analysis was done
+independently and adjusted for available clinical variables. Tumor size and
+number of lymph nodes were used for TCGA and SCANB cohorts. The Nottingham 
+prognostic index (NPI) was used for METABRIC. Age was used in all cohorts 
+as a clinical variable for adjustment. Only ER+ BC patients were used and 
+when possible only those that received endocrine therapy. 
+@fig-01 (b) shows the forest plots for each cohort individually 
+when calculating the hazard ratio for the
+$SET_{ER/PR}$ estrogen signaling signature. In all the three cases, the 
+hazard ratio for $SET_{ER/PR}$ was below 1, with values ranging from 
+0.23 to 0.61. There is moderate variability for each hazard ratio. 
+This shows the continuous aspect of estrogen receptor status.
 
 ```{r}
 #| label: fig-01
@@ -21,6 +113,34 @@ knitr::include_graphics("images/png/figure01.png")
 
 ## Single sample integration preserves relevant breast cancer properties
 
+Since each patient has a different ER signaling score, we assumed that 
+patients should be treated individually, not just binned in two big
+subgroups as ER+ and ER-. Therefore, it is important to consider each
+patient individually. We developed a single sample
+batch effect removal method
+(See methods section for the step by step)
+to integrate microarray and bulk RNA-seq and create a molecular landscape.
+The advantage of the method is that
+given a new sample, it can easily be integrated with all the other previous
+samples without any retraining. 
+
+The biplot in @fig-02 (a) with the third and fourth
+components from TCGA and METABRIC samples shows that the samples are well
+integrated. All samples, including those using for training
+and validation, are plotted. The third components corresponds
+to the separation between ER+ and ER- BC patients in
+both cohorts (@fig-02 (b)). A combination of the third and fourth components
+shows a good distinction among the PAM50 molecular subtypes (@fig-02 (c)).
+The fourth component is mostly dividing the luminal A and luminal B subtypes,
+whereas the normal-like subtype is spread across the third and fourth 
+component. This also highlights the fact that one cannot interpret the 
+PCA locations globally, rather when comparing samples one should consider
+only its neighborhood. As pointed out before, ER status should be considered
+continuous and not dichotomous, @fig-02 (d) shows a gradient of the 
+ER signaling score $SET_{ER/PR}$. The higher values are on the far right
+of the third component, going to negative values as one goes from right
+to left, i.e., moving from a more ER+ status to the ER-. 
+
 ```{r}
 #| label: fig-02
 #| fig-cap: > 
@@ -34,6 +154,31 @@ knitr::include_graphics("images/png/figure02.png")
 
 ## Embedding is robust to missing genes and generalized to a validation cohort
 
+METABRIC and TCGA were used to train and validate the projections. SCANB was
+used as an external validation cohort. SCANB is well mixed with both
+METABRIC and TCGA samples (@fig-03 (a)). ER+ and ER- BC patients are well
+separated (@fig-03 (b)) and the procedure can also distinguish the 
+molecular subtypes (@fig-03 (c)). As an RNA-seq cohort, it is expected that
+SCANB samples will be closer to TCGA than to METABRIC when removing batch
+effects, due to platform biases and initial scale of the genes. Biplot of
+PC1 and PC2 (@fig-03 (d)) shows that SCANB is closer to TCGA than to METABRIC.
+It is also in between the two cohorts.
+
+In order to check the robustness of the procedure, we redid all the 
+pipeline 10 times with 10 random sets of patient samples from TCGA and
+METABRIC, simulating a cross validation process.
+The PCA embedding is invariant to rotation, translation and reflection 
+(@fig-03 (e)). Another problem that arises with publicly available 
+datasets, is the fact that there are missing genes. We try to understand
+the effect of missing genes in the embedding based on their loading values. 
+Ideally if a low amount of genes with high loadings are missing, this should
+not affect very much the embedding. On the other hand, the more genes missing
+with high loadings, the more it will impact the embedding. We removed 200
+genes in total with a varying proportion of top loading genes
+(ranging from 0 to 100% in a 5% step). The number of top loading genes 
+missing from the dataset is key for the embedding (@fig-03 (f)). The
+higher the proportion the less precise the embedding is. 
+
 ```{r}
 #| label: fig-03
 #| fig-cap: > 
@@ -45,13 +190,48 @@ knitr::include_graphics("images/png/figure02.png")
 #|     (d) Biplot using the first and second component of TCGA, METABRIC and
 #|     SCANB. 
 #|     (e) Embedding of random samples given different training sets for 
-#|     PCA.
+#|     PCA. Blue dots correspond to the original embedding of a sample and
+#|     red dots correspond to the new embedding given the new training set.
 #|     (f) Biplot of all possible embeddings of sample given a certain
 #|     proportion of top loadings missing in the dataset.
 knitr::include_graphics("images/png/figure03.png")
 ```
 
-## Molecular landscape is a tool to understand and reveal patient heterogeneity
+## Molecular landscape is a tool to understand and explore patient heterogeneity
+
+Since the molecular landscape relies in a single sample embedding, we can 
+add samples from any cohort with relative good data. The POETIC trial 
+[@Dowsett2011] was a trial that evaluated the use of perioperative
+aromatase inhibitors in ER+, postmenopausal BC patients. Its primary 
+endpoint was time to recurrence. 
+They sent for microarray hybridization matched samples from baseline
+(before treatment) and at surgery (after an average of 14 days of treatment)
+[@Gao2019]. There are also untreated patients, used to control for sample
+processing artefacts. Moreover, the patients have matched Ki67 percentage levels, 
+which can be considered an indication of how well a patient responded to 
+the endocrine therapy. Patients with more than 5% of baseline Ki67 and a 
+reduction of 60% upon endocrine therapy are considered responders, otherwise
+they are called non responders.
+
+The molecular landscape can shed light on the differences between
+responders and non responders.
+We embedded the POETIC trial samples using the procedure (@fig-04 (a) left). 
+The samples are spread across the whole molecular landscape, showing that 
+patients indeed have different molecular biological properties. Moreover,
+given the available information, the patients that are ER+ and in the
+left part of the landscape (ER- patients), are all non responders 
+(@fig-04 (a) right). 
+This highlights the importance to look more carefully to ER+ patients.
+We selected two patients, a responder and non responder that are close
+in the embedding (@fig-04 (b)) to highlight their molecular
+differences and see what is their context. @fig-04 (c) shows the average 
+posterior distribution of the neighborhood for the responder patient. The 
+responder patient has a ER signaling score higher than the average. 
+On the other hand, the non responder has a smaller ER signaling score
+than the average (@fig-04 (d)) and also a higher androgen signaling
+score (Androgen response). Other pathways and their average posterior
+distributions are shown for both patients.
+
 
 ```{r}
 #| label: fig-04
