@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.175">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>main</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+
+<script src="main_files/libs/clipboard/clipboard.min.js"></script>
+<script src="main_files/libs/quarto-html/quarto.js"></script>
+<script src="main_files/libs/quarto-html/popper.min.js"></script>
+<script src="main_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="main_files/libs/quarto-html/anchor.min.js"></script>
+<link href="main_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="main_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="main_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="main_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="main_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+
+
+<section id="abstract" class="level1">
+<h1>Abstract</h1>
+</section>
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+</section>
+<section id="methods" class="level1">
+<h1>Methods</h1>
+<section id="cohorts" class="level2">
+<h2 class="anchored" data-anchor-id="cohorts">Cohorts</h2>
+<p>The breast cancer cohorts TCGA, SCANB, METABRIC and POETIC <span class="citation" data-cites="tcgabrca Saal2015 Curtis2012 Gao2019">(<a href="#ref-tcgabrca" role="doc-biblioref">1</a>–<a href="#ref-Gao2019" role="doc-biblioref">4</a>)</span> were used to calculate the PCA embeddings and scores. The samples are of primary breast cancer samples from different molecular subtypes and age distribution. TCGA was download from Firebrowse, SCANB data was downloaded from GEO (accession code GSE96058) using the package GEOquery <span class="citation" data-cites="geoquery">(<a href="#ref-geoquery" role="doc-biblioref">5</a>)</span> in R along the clinical data from the https://oncogenomics.bmc.lu.se/MutationExplorer/ website. METABRIC was downloaded directly from cBioPortal. POETIC data was downloaded from GEO (accession code GSE105777) using the R package GEOquery. More details about the download and preprocessing steps are described in https://chronchi.github.io/transcriptomics.</p>
+</section>
+<section id="selection-of-highly-variable-genes" class="level2">
+<h2 class="anchored" data-anchor-id="selection-of-highly-variable-genes">Selection of highly variable genes</h2>
+<p>In order to perform the PCA, we sub selected 1000 common and highly variable genes in the TCGA and METABRIC cohorts. For each gene and in each cohort separately, the standard deviation of that gene was calculated. Then an average standard deviation was calculated using the formula below.</p>
+<p><span class="math display">\[
+\text{average sd} = \sqrt{\frac{(sd_{TCGA}^2 + sd_{METABRIC}^2)}{k}}
+\]</span></p>
+</section>
+<section id="qpcr-like-normalization" class="level2">
+<h2 class="anchored" data-anchor-id="qpcr-like-normalization">qPCR-like normalization</h2>
+<p>Since samples are coming from different platforms, they need to be scaled in a way that they are comparable. For this we developed a new way to scale the data based on the ranking of the samples. Given a list of 44 stable genes across different cancers <span class="citation" data-cites="Bhuva2020">(<a href="#ref-Bhuva2020" role="doc-biblioref">6</a>)</span> and the 1000 genes selected previously, all genes were ranked from lowest to highest expression for each sample separately and the rankings were divided by the average ranking of the stable genes. Stable genes are considered the housekeeping genes.</p>
+</section>
+<section id="pca-embedding" class="level2">
+<h2 class="anchored" data-anchor-id="pca-embedding">PCA embedding</h2>
+<p>Using the normalized data, a total of 1000 random samples coming from TCGA and METABRIC were selected to perform the initial PCA. This is an unsupervised learning method, therefore there is no need to label the samples with respect to some category. The package PCAtools <span class="citation" data-cites="Blighe2022">(<a href="#ref-Blighe2022" role="doc-biblioref">7</a>)</span> in R was used to perform the PCA and to obtain the loadings for downstream analysis. The embedding for new individual samples is obtained by multiplying the loadings matrix with the normalized data for that sample. Since the normalization procedure is performed sample-wise, this step is independent of the number of samples. If there are missing genes in a sample, the normalization is performed and the missing genes are padded with 0.</p>
+</section>
+<section id="scoring-strategies" class="level2">
+<h2 class="anchored" data-anchor-id="scoring-strategies">Scoring strategies</h2>
+<p>For the 4 big cohorts, TCGA, SCANB, METABRIC and POETIC, GSVA <span class="citation" data-cites="Hnzelmann2013">(<a href="#ref-Hnzelmann2013" role="doc-biblioref">8</a>)</span> was applied along with the <span class="math inline">\(SET_{ER/PR}\)</span> signature <span class="citation" data-cites="Sinn2019">(<a href="#ref-Sinn2019" role="doc-biblioref">9</a>)</span> and the hallmark collection from the molecular signature database <span class="citation" data-cites="Subramanian2005 Mootha2003">(<a href="#ref-Subramanian2005" role="doc-biblioref">10</a>,<a href="#ref-Mootha2003" role="doc-biblioref">11</a>)</span>. Default parameters were used in the <code>gsva</code> function from the GSVA package.</p>
+</section>
+<section id="average-neighborhood-scores" class="level2">
+<h2 class="anchored" data-anchor-id="average-neighborhood-scores">Average neighborhood scores</h2>
+<p>In order to calculate the posterior distribution of the average scores in each neighborhood, a linear regression witho only intercept was fit using <code>rstanarm</code> <span class="citation" data-cites="Goodrich2022">(<a href="#ref-Goodrich2022" role="doc-biblioref">12</a>)</span>. The package <code>tidybayes</code> <span class="citation" data-cites="Kay2022">(<a href="#ref-Kay2022" role="doc-biblioref">13</a>)</span> was used to extract the draws and put them in a tidy format.</p>
+</section>
+<section id="code-availability" class="level2">
+<h2 class="anchored" data-anchor-id="code-availability">Code availability</h2>
+<p>The code used to generate all the analysis is available on https://github.com/chronchi/molecular_landscape. Descriptions for a docker image to reproduce the analysis are available on the github repository.</p>
+</section>
+</section>
+<section id="results" class="level1">
+<h1>Results</h1>
+<section id="estrogen-receptor-is-a-clinical-continuous-variable" class="level2">
+<h2 class="anchored" data-anchor-id="estrogen-receptor-is-a-clinical-continuous-variable">Estrogen receptor is a clinical continuous variable</h2>
+<p>We used three independent breast cancer molecular datasets <span class="citation" data-cites="Saal2015 tcgabrca Curtis2012">(<a href="#ref-tcgabrca" role="doc-biblioref">1</a>–<a href="#ref-Curtis2012" role="doc-biblioref">3</a>)</span> to calculate estrogen signaling scores. The estrogen signatures HALLMARK_ESTROGEN_RESPONSE_EARLY and HALLMARK_ESTROGEN_RESPONSE_LATE were extracted from the molecular signature database <span class="citation" data-cites="Subramanian2005">(<a href="#ref-Subramanian2005" role="doc-biblioref">10</a>)</span> and <span class="math inline">\(SET_{ER/PR}\)</span> from <span class="citation" data-cites="Sinn2019">(<a href="#ref-Sinn2019" role="doc-biblioref">9</a>)</span>. The individual scores for each patient sample are shown in <a href="#fig-01">Figure&nbsp;1</a> (a) for each cohort stratified by estrogen receptor status. It shows the scores capture the differences between the two breast cancer subtypes as expected. Moreover, there is a wide range of values in the estrogen receptor positive (ER+) subgroup.</p>
+<p>Cox regression was used to determine the hazard ratio of the estrogen signaling in overall survival (OS) for TCGA, SCANB and METABRIC and recurrence free survival (RFS) for METABRIC. Each survival analysis was done independently and adjusted for available clinical variables. Tumor size and number of lymph nodes were used for TCGA and SCANB cohorts. The Nottingham prognostic index (NPI) was used for METABRIC. Age was used in all cohorts as a clinical variable for adjustment. Only ER+ BC patients were used and when possible only those that received endocrine therapy. <a href="#fig-01">Figure&nbsp;1</a> (b) shows the forest plots for each cohort individually when calculating the hazard ratio for the <span class="math inline">\(SET_{ER/PR}\)</span> estrogen signaling signature. In all the three cases, the hazard ratio for <span class="math inline">\(SET_{ER/PR}\)</span> was below 1, with values ranging from 0.23 to 0.61. There is moderate variability for each hazard ratio. This shows the continuous aspect of estrogen receptor status.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-01" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="images/png/figure01.png" class="img-fluid figure-img"></p>
+<p></p><figcaption class="figure-caption">Figure&nbsp;1: Scores and survival analysis results from TCGA, SCANB and METABRIC cohorts. (a) GSVA scores for the SET ER/PR signature for each cohort. Each point corresponds to a patient sample and they are divided by estrogen receptor status. (b) Forest plot of the survival analysis for each cohort separately. NPI: Nottingham prognostic index. Ti: i-th stage of tumor. Ni: i lymph nodes with breast cancer cells.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="single-sample-integration-preserves-relevant-breast-cancer-properties" class="level2">
+<h2 class="anchored" data-anchor-id="single-sample-integration-preserves-relevant-breast-cancer-properties">Single sample integration preserves relevant breast cancer properties</h2>
+<p>Since each patient has a different ER signaling score, we assumed that patients should be treated individually, not just binned in two big subgroups as ER+ and ER-. Therefore, it is important to consider each patient individually. We developed a single sample batch effect removal method (See methods section for the step by step) to integrate microarray and bulk RNA-seq and create a molecular landscape. The advantage of the method is that given a new sample, it can easily be integrated with all the other previous samples without any retraining.</p>
+<p>The biplot in <a href="#fig-02">Figure&nbsp;2</a> (a) with the third and fourth components from TCGA and METABRIC samples shows that the samples are well integrated. All samples, including those using for training and validation, are plotted. The third components corresponds to the separation between ER+ and ER- BC patients in both cohorts (<a href="#fig-02">Figure&nbsp;2</a> (b)). A combination of the third and fourth components shows a good distinction among the PAM50 molecular subtypes (<a href="#fig-02">Figure&nbsp;2</a> (c)). The fourth component is mostly dividing the luminal A and luminal B subtypes, whereas the normal-like subtype is spread across the third and fourth component. This also highlights the fact that one cannot interpret the PCA locations globally, rather when comparing samples one should consider only its neighborhood. As pointed out before, ER status should be considered continuous and not dichotomous, <a href="#fig-02">Figure&nbsp;2</a> (d) shows a gradient of the ER signaling score <span class="math inline">\(SET_{ER/PR}\)</span>. The higher values are on the far right of the third component, going to negative values as one goes from right to left, i.e., moving from a more ER+ status to the ER-.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-02" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="images/png/figure02.png" class="img-fluid figure-img"></p>
+<p></p><figcaption class="figure-caption">Figure&nbsp;2: (a) Biplot using the third and fourth components on TCGA and METABRIC samples. Colored by cohort. (b) Same as <strong>a</strong>, colored by ER status. (c) Same as <strong>a</strong>, colored by PAM50 molecular subtype. (d) Hex grid calculated on the biplot of the fourth and third component. Each hex is colored based on its average value of the SET ER/PR signature.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="embedding-is-robust-to-missing-genes-and-generalized-to-a-validation-cohort" class="level2">
+<h2 class="anchored" data-anchor-id="embedding-is-robust-to-missing-genes-and-generalized-to-a-validation-cohort">Embedding is robust to missing genes and generalized to a validation cohort</h2>
+<p>METABRIC and TCGA were used to train and validate the projections. SCANB was used as an external validation cohort. SCANB is well mixed with both METABRIC and TCGA samples (<a href="#fig-03">Figure&nbsp;3</a> (a)). ER+ and ER- BC patients are well separated (<a href="#fig-03">Figure&nbsp;3</a> (b)) and the procedure can also distinguish the molecular subtypes (<a href="#fig-03">Figure&nbsp;3</a> (c)). As an RNA-seq cohort, it is expected that SCANB samples will be closer to TCGA than to METABRIC when removing batch effects, due to platform biases and initial scale of the genes. Biplot of PC1 and PC2 (<a href="#fig-03">Figure&nbsp;3</a> (d)) shows that SCANB is closer to TCGA than to METABRIC. It is also in between the two cohorts.</p>
+<p>In order to check the robustness of the procedure, we redid all the pipeline 10 times with 10 random sets of patient samples from TCGA and METABRIC, simulating a cross validation process. The PCA embedding is invariant to rotation, translation and reflection (<a href="#fig-03">Figure&nbsp;3</a> (e)). Another problem that arises with publicly available datasets, is the fact that there are missing genes. We try to understand the effect of missing genes in the embedding based on their loading values. Ideally if a low amount of genes with high loadings are missing, this should not affect very much the embedding. On the other hand, the more genes missing with high loadings, the more it will impact the embedding. We removed 200 genes in total with a varying proportion of top loading genes (ranging from 0 to 100% in a 5% step). The number of top loading genes missing from the dataset is key for the embedding (<a href="#fig-03">Figure&nbsp;3</a> (f)). The higher the proportion the less precise the embedding is.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-03" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="images/png/figure03.png" class="img-fluid figure-img"></p>
+<p></p><figcaption class="figure-caption">Figure&nbsp;3: Validation of the molecular landscape with an external cohort (a) Biplot using the third and fourth components and now including all samples from the three cohorts: TCGA, METABRIC and SCANB. (b) Same as <strong>a</strong>, colored by ER status. (c) Same as <strong>a</strong>, colored by PAM50 molecular subtype. (d) Biplot using the first and second component of TCGA, METABRIC and SCANB. (e) Embedding of random samples given different training sets for PCA. Blue dots correspond to the original embedding of a sample and red dots correspond to the new embedding given the new training set. (f) Biplot of all possible embeddings of sample given a certain proportion of top loadings missing in the dataset.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="molecular-landscape-is-a-tool-to-understand-and-explore-patient-heterogeneity" class="level2">
+<h2 class="anchored" data-anchor-id="molecular-landscape-is-a-tool-to-understand-and-explore-patient-heterogeneity">Molecular landscape is a tool to understand and explore patient heterogeneity</h2>
+<p>Since the molecular landscape relies in a single sample embedding, we can add samples from any cohort with relative good data. The POETIC trial <span class="citation" data-cites="Dowsett2011">(<a href="#ref-Dowsett2011" role="doc-biblioref">14</a>)</span> was a trial that evaluated the use of perioperative aromatase inhibitors in ER+, postmenopausal BC patients. Its primary endpoint was time to recurrence. They sent for microarray hybridization matched samples from baseline (before treatment) and at surgery (after an average of 14 days of treatment) <span class="citation" data-cites="Gao2019">(<a href="#ref-Gao2019" role="doc-biblioref">4</a>)</span>. There are also untreated patients, used to control for sample processing artefacts. Moreover, the patients have matched Ki67 percentage levels, which can be considered an indication of how well a patient responded to the endocrine therapy. Patients with more than 5% of baseline Ki67 and a reduction of 60% upon endocrine therapy are considered responders, otherwise they are called non responders.</p>
+<p>The molecular landscape can shed light on the differences between responders and non responders. We embedded the POETIC trial samples using the procedure (<a href="#fig-04">Figure&nbsp;4</a> (a) left). The samples are spread across the whole molecular landscape, showing that patients indeed have different molecular biological properties. Moreover, given the available information, the patients that are ER+ and in the left part of the landscape (ER- patients), are all non responders (<a href="#fig-04">Figure&nbsp;4</a> (a) right). This highlights the importance to look more carefully to ER+ patients. We selected two patients, a responder and non responder that are close in the embedding (<a href="#fig-04">Figure&nbsp;4</a> (b)) to highlight their molecular differences and see what is their context. <a href="#fig-04">Figure&nbsp;4</a> (c) shows the average posterior distribution of the neighborhood for the responder patient. The responder patient has a ER signaling score higher than the average. On the other hand, the non responder has a smaller ER signaling score than the average (<a href="#fig-04">Figure&nbsp;4</a> (d)) and also a higher androgen signaling score (Androgen response). Other pathways and their average posterior distributions are shown for both patients.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-04" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="images/png/figure04.png" class="img-fluid figure-img"></p>
+<p></p><figcaption class="figure-caption">Figure&nbsp;4: Embedding of the POETIC cohort into the molecular landscape and pathway analysis for patient samples. (a) Biplots of the POETIC samples (baseline and surgery) into the molecular landscape. Left plot is colored by ER status and right plot is colored by molecular subtype PAM50 when available. (b) Biplot highlighting two patients with similar embedding and different response status. (c) Posterior distributions of the average scores in the neighborhood of the responder patient. Red line corresponds to the patient score. (d) Posterior distributions of the average scores in the neighborhood of the <strong>non</strong>-responder patient. Red line corresponds to the patient score.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="discussion" class="level1">
+<h1>Discussion</h1>
+</section>
+<section id="references" class="level1">
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body" role="doc-bibliography">
+<div id="ref-tcgabrca" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">1. </div><div class="csl-right-inline">Comprehensive molecular portraits of human breast tumours. Nature [Internet]. Springer Science; Business Media <span>LLC</span>; 2012;490:61–70. Available from: <a href="https://doi.org/10.1038/nature11412">https://doi.org/10.1038/nature11412</a></div>
+</div>
+<div id="ref-Saal2015" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">2. </div><div class="csl-right-inline">Saal LH, Vallon-Christersson J, Häkkinen J, Hegardt C, Grabau D, Winter C, et al. The sweden cancerome analysis network - breast (<span>SCAN</span>-b) initiative: A large-scale multicenter infrastructure towards implementation of breast cancer genomic analyses in the clinical routine. Genome Medicine [Internet]. Springer Science; Business Media <span>LLC</span>; 2015;7:20. Available from: <a href="https://doi.org/10.1186/s13073-015-0131-9">https://doi.org/10.1186/s13073-015-0131-9</a></div>
+</div>
+<div id="ref-Curtis2012" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">3. </div><div class="csl-right-inline">Curtis C, Sohrab P. Shah and, Chin S-F, Turashvili G, Rueda OM, Dunning MJ, et al. The genomic and transcriptomic architecture of 2, 000 breast tumours reveals novel subgroups. Nature [Internet]. Springer Science; Business Media <span>LLC</span>; 2012;486:346–52. Available from: <a href="https://doi.org/10.1038/nature10983">https://doi.org/10.1038/nature10983</a></div>
+</div>
+<div id="ref-Gao2019" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">4. </div><div class="csl-right-inline">Gao Q, Elena López-Knowles and, Cheang MCU, Morden J, Ribas R, Sidhu K, et al. Impact of aromatase inhibitor treatment on global gene expression and its association with antiproliferative response in <span>ER</span><span class="math inline">\(\mathplus\)</span> breast cancer in postmenopausal patients. Breast Cancer Research [Internet]. Springer Science; Business Media <span>LLC</span>; 2019;22. Available from: <a href="https://doi.org/10.1186/s13058-019-1223-z">https://doi.org/10.1186/s13058-019-1223-z</a></div>
+</div>
+<div id="ref-geoquery" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">5. </div><div class="csl-right-inline">Davis S, Meltzer P. GEOquery: A bridge between the gene expression omnibus (GEO) and BioConductor. Bioinformatics. 2007;14:1846–7. </div>
+</div>
+<div id="ref-Bhuva2020" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">6. </div><div class="csl-right-inline">Bhuva DD, Cursons J, Davis MJ. Stable gene expression for normalisation and single-sample scoring. Nucleic Acids Research [Internet]. Oxford University Press (<span>OUP</span>); 2020;48:e113–3. Available from: <a href="https://doi.org/10.1093/nar/gkaa802">https://doi.org/10.1093/nar/gkaa802</a></div>
+</div>
+<div id="ref-Blighe2022" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">7. </div><div class="csl-right-inline">Blighe K, Lun A. PCAtools: PCAtools: Everything principal components analysis [Internet]. 2022. Available from: <a href="https://github.com/kevinblighe/PCAtools">https://github.com/kevinblighe/PCAtools</a></div>
+</div>
+<div id="ref-Hnzelmann2013" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">8. </div><div class="csl-right-inline">Hänzelmann S, Castelo R, Guinney J. <span>GSVA</span>: Gene set variation analysis for microarray and <span>RNA</span>-seq data. <span>BMC</span> Bioinformatics [Internet]. Springer Science; Business Media <span>LLC</span>; 2013;14. Available from: <a href="https://doi.org/10.1186/1471-2105-14-7">https://doi.org/10.1186/1471-2105-14-7</a></div>
+</div>
+<div id="ref-Sinn2019" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">9. </div><div class="csl-right-inline">Sinn BV, Fu C, Lau R, Litton J, Tsai T-H, Murthy R, et al. <span>SETER</span>/<span>PR</span>: A robust 18-gene predictor for sensitivity to endocrine therapy for metastatic breast cancer. npj Breast Cancer [Internet]. Springer Science; Business Media <span>LLC</span>; 2019;5. Available from: <a href="https://doi.org/10.1038/s41523-019-0111-0">https://doi.org/10.1038/s41523-019-0111-0</a></div>
+</div>
+<div id="ref-Subramanian2005" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">10. </div><div class="csl-right-inline">Subramanian A, Tamayo P, Mootha VK, Mukherjee S, Ebert BL, Gillette MA, et al. Gene set enrichment analysis: A knowledge-based approach for interpreting genome-wide expression profiles. Proceedings of the National Academy of Sciences [Internet]. Proceedings of the National Academy of Sciences; 2005;102:15545–50. Available from: <a href="https://doi.org/10.1073/pnas.0506580102">https://doi.org/10.1073/pnas.0506580102</a></div>
+</div>
+<div id="ref-Mootha2003" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">11. </div><div class="csl-right-inline">Mootha VK, Lindgren CM, Eriksson K-F, Subramanian A, Sihag S, Lehar J, et al. <span>PGC</span>-1<span class="math inline">\(\upalpha\)</span>-responsive genes involved in oxidative phosphorylation are coordinately downregulated in human diabetes. Nature Genetics [Internet]. Springer Science; Business Media <span>LLC</span>; 2003;34:267–73. Available from: <a href="https://doi.org/10.1038/ng1180">https://doi.org/10.1038/ng1180</a></div>
+</div>
+<div id="ref-Goodrich2022" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">12. </div><div class="csl-right-inline">Goodrich B, Gabry J, Ali I, Brilleman S. Rstanarm: <span>Bayesian</span> applied regression modeling via <span>Stan</span>. [Internet]. 2022. Available from: <a href="https://mc-stan.org/rstanarm/">https://mc-stan.org/rstanarm/</a></div>
+</div>
+<div id="ref-Kay2022" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">13. </div><div class="csl-right-inline">Kay M. <span class="nocase">tidybayes</span>: Tidy data and geoms for <span>Bayesian</span> models [Internet]. 2022. Available from: <a href="http://mjskay.github.io/tidybayes/">http://mjskay.github.io/tidybayes/</a></div>
+</div>
+<div id="ref-Dowsett2011" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">14. </div><div class="csl-right-inline">Dowsett M, Smith I, Robertson J, Robison L, Pinhel I, Johnson L, et al. Endocrine therapy, new biologicals, and new study designs for presurgical studies in breast cancer. <span>JNCI</span> Monographs [Internet]. Oxford University Press (<span>OUP</span>); 2011;2011:120–3. Available from: <a href="https://doi.org/10.1093/jncimonographs/lgr034">https://doi.org/10.1093/jncimonographs/lgr034</a></div>
+</div>
+</div></section></div></main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

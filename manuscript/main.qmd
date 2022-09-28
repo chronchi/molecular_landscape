@@ -63,6 +63,14 @@ For the 4 big cohorts, TCGA, SCANB, METABRIC and POETIC, GSVA
 database [@Subramanian2005; @Mootha2003]. Default parameters were used
 in the `gsva` function from the GSVA package. 
 
+## Average neighborhood scores
+
+In order to calculate the posterior distribution of the average scores
+in each neighborhood, a linear regression witho only intercept was
+fit using `rstanarm` [@Goodrich2022]. 
+The package `tidybayes` [@Kay2022] was used to extract
+the draws and put them in a tidy format. 
+
 ## Code availability
 
 The code used to generate all the analysis is available on

@@ -3,7 +3,10 @@ project:
     render:
         - main.qmd
 
-format: pdf
+format:
+  docx: default
+  pdf: default
+  html: default
 
 bibliography: references.bib
 csl: csl/aacr.csl
