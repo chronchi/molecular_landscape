@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="Carlos Ronchi, Cathrin Brisken">
 
-<title>main</title>
+<title>Molecular landscape: a new framework for personalized medicine in Breast Cancer</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -63,7 +64,27 @@ div.csl-indent {
 
 <main class="content" id="quarto-document-content">
 
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title"><p>Molecular landscape: a new framework for personalized medicine in Breast Cancer</p></h1>
+</div>
 
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Carlos Ronchi, Cathrin Brisken </p>
+          </div>
+  </div>
+    
+    
+  </div>
+  
+
+</header>
 
 <section id="abstract" class="level1">
 <h1>Abstract</h1>
@@ -102,7 +123,7 @@ div.csl-indent {
 </section>
 <section id="code-availability" class="level2">
 <h2 class="anchored" data-anchor-id="code-availability">Code availability</h2>
-<p>The code used to generate all the analysis is available on https://github.com/chronchi/molecular_landscape. Descriptions for a docker image to reproduce the analysis are available on the github repository.</p>
+<p>The code used to generate all the analysis is available on https://github.com/chronchi/molecular_landscape. Descriptions for a docker image to reproduce the analysis are available on the github repository. An online version with a website containing all the analysis can be found on <a href="https://chronchi.github.io/molecular_landscape">https://chronchi.github.io/molecular_landscape</a></p>
 </section>
 </section>
 <section id="results" class="level1">
@@ -170,6 +191,14 @@ div.csl-indent {
 </section>
 <section id="discussion" class="level1">
 <h1>Discussion</h1>
+<p>Personalized medicine is a key topic in medicine. The goal of better understanding the molecular underpinnings of the diseases leads to a better allocation of treatments and resources in the patient care. We have shown here a possible framework to deal with personalized medicine in breast cancer in general with a focus on ER+ BC patients.</p>
+<p>In general, estrogen receptor status is considered either a dichotomous or trichotomous state <span class="citation" data-cites="Allison2020">(<a href="#ref-Allison2020" role="doc-biblioref">15</a>)</span>. Breast cancers are classified either in ER+ or ER- based on their protein expression levels and IHC. For those tumors that are ER+, they can be subdivided into low ER positive (1% &lt; IHC% &lt; 10%) and simply ER positive. Those that are into the low ER positive do not usually benefit as much on endocrine therapy. Here we show using cox regression and multiple big study cohorts <span class="citation" data-cites="tcgabrca Curtis2012 Saal2015">(<a href="#ref-tcgabrca" role="doc-biblioref">1</a>–<a href="#ref-Curtis2012" role="doc-biblioref">3</a>)</span> with both RNA-seq and microarray data, that ER status is more of a continuous rather than a categorical state. This can aid in treatment decision when evaluating the breast cancer. Several gene signatures already are being used, such as OncotypeDX, Mammaprint and Prosigna to assign chemotherapy for those patients with higher risk of recurrence <span class="citation" data-cites="oncotypedx mammaprint pam50">(<a href="#ref-oncotypedx" role="doc-biblioref">16</a>–<a href="#ref-pam50" role="doc-biblioref">18</a>)</span>. This score might be associated with the commercial signatures, as it has been shown that OncotypeDX’s estrogen module is highly correlated with the signature itself <span class="citation" data-cites="Buus2021">(<a href="#ref-Buus2021" role="doc-biblioref">19</a>)</span>.</p>
+<p>Integrating molecular data steaming from different sources is a challenge. On one hand batch effect tools are usually able to remove the batch effects across the different sources of variability <span class="citation" data-cites="Zhang2020 Risso2014">(<a href="#ref-Zhang2020" role="doc-biblioref">20</a>,<a href="#ref-Risso2014" role="doc-biblioref">21</a>)</span>, on the other hand they are not single sample based, meaning each time a new sample comes the algorithm runs. It is also based on the fact one has enough data in the different datasets, otherwise it skews the possible integration towards one of the datasets. Here we show by using TCGA, METABRIC and SCANB that it is possible to integrate the samples from these cohorts in a single sample manner. The samples show good mixing when using test samples not seen during the training stage. The embeddings preserve key molecular features of breast cancer. PC3 is clearly driven by estrogen signaling where from right to left there is a gradient of ER positivity. On the other hand, PC4 is what makes a difference between the molecular subtypes luminal A and B, which in practice differ by proliferation status in terms of Ki67 levels <span class="citation" data-cites="Arima2018">(<a href="#ref-Arima2018" role="doc-biblioref">22</a>)</span>.</p>
+<p>Moreover, the embeddings in a validation set preserve the key features of breast cancer. Samples are projected by their different PAM50 molecular subtypes and there is a gradient of estrogen signaling pathway from ER+ BC towards ER- BC patients. The first two components are the batch effect removal components and SCANB is projected closer to TCGA, since both datasets are RNA-seq. On the other hand, part of the POETIC trial was sequenced using microarray dataset <span class="citation" data-cites="Dowsett2011 Gao2019">(<a href="#ref-Gao2019" role="doc-biblioref">4</a>,<a href="#ref-Dowsett2011" role="doc-biblioref">14</a>)</span>, and we show that it is projected closer to METABRIC as expected according to the first two components. We also show that the embedding is independent of the training set and that when changing the training set the embedding is only rotated or translated, thus not affecting the global structure of the projection.</p>
+<p>Sometimes when dealing with publicly available datasets, not all of the genes are available due to ethical <span class="citation" data-cites="Saal2015">(<a href="#ref-Saal2015" role="doc-biblioref">2</a>)</span>, pre-processing or technological reasons. Therefore we showed how robust the projection is to missing genes with high loadings in the projection. If less than 20% of the genes we can recover almost surely the position of the embedding if all the genes are available. The more genes that are missing, the closer the projection will be to the origin, i.e., the (0,0) coordinate in the plane.</p>
+<p>To show the clinical validity of the projection, we used a subset of patients from the POETIC trial with microarray and clinical information <span class="citation" data-cites="Gao2019">(<a href="#ref-Gao2019" role="doc-biblioref">4</a>)</span>. The samples are projected as expected and surprisingly the samples that are considered to be non responders upon 2 weeks of aromatase inhibition are projected among the ER- BC patients. When looking further upon two different patients that have similar embedding but different response to endocrine therapy, we see that the responder has a higher value of estrogen signaling than the average. On the other hand, the non responder patient has a smaller estrogen signaling score than the average, which suggests a possible explanation for the difference in response. Moreover, estrogen and androgen receptor signaling have been show to be tightly linked <span class="citation" data-cites="Hickey2021">(<a href="#ref-Hickey2021" role="doc-biblioref">23</a>)</span> and these two patients have different androgen signaling scores. The non responder has a higher score than the average compared to the responder, whose score is just the same as the average.</p>
+<p>Some weaknesses of the proposed method is that we rely on GSVA scores, which can be used and compared across different cohorts since they have a representation of all molecular subtypes. A possible way to circumvent this problem is by using singscore or stingscore <span class="citation" data-cites="Foroutan2018 Bhuva2020">(<a href="#ref-Bhuva2020" role="doc-biblioref">6</a>,<a href="#ref-Foroutan2018" role="doc-biblioref">24</a>)</span>, a single sample pathway scorer. There is still a cost barrier for using RNA-seq dataset in the clinical setting, but efforts are being made to reduce costs by using shallow sequencing of multiple samples at the same time, such as done by Alithea Genomics.</p>
+<p>In conclusion we provide some evidence that ER status should be considered a continuous marker rather than a categorical one. We also extend this notion to a framework for personalized medicine, where each patient is embedded in some context that can be used for the interpretation of its molecular underpinnings. In this paper we only discussed some pathways, but when analysing patient data, several pathways can be considered and should be taken into account when deciding tumor treatment.</p>
 </section>
 <section id="references" class="level1">
 
@@ -218,6 +247,36 @@ div.csl-indent {
 </div>
 <div id="ref-Dowsett2011" class="csl-entry" role="doc-biblioentry">
 <div class="csl-left-margin">14. </div><div class="csl-right-inline">Dowsett M, Smith I, Robertson J, Robison L, Pinhel I, Johnson L, et al. Endocrine therapy, new biologicals, and new study designs for presurgical studies in breast cancer. <span>JNCI</span> Monographs [Internet]. Oxford University Press (<span>OUP</span>); 2011;2011:120–3. Available from: <a href="https://doi.org/10.1093/jncimonographs/lgr034">https://doi.org/10.1093/jncimonographs/lgr034</a></div>
+</div>
+<div id="ref-Allison2020" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">15. </div><div class="csl-right-inline">Allison KH, Hammond MEH, Dowsett M, McKernin SE, Carey LA, Fitzgibbons PL, et al. Estrogen and progesterone receptor testing in breast cancer: <span>ASCO</span>/<span>CAP</span> guideline update. Journal of Clinical Oncology [Internet]. American Society of Clinical Oncology (<span>ASCO</span>); 2020;38:1346–66. Available from: <a href="https://doi.org/10.1200/jco.19.02309">https://doi.org/10.1200/jco.19.02309</a></div>
+</div>
+<div id="ref-oncotypedx" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">16. </div><div class="csl-right-inline">Sparano JA, Gray RJ, Makower DF, Pritchard KI, Albain KS, Hayes DF, et al. Adjuvant chemotherapy guided by a 21-gene expression assay in breast cancer. New England Journal of Medicine [Internet]. Massachusetts Medical Society; 2018;379:111–21. Available from: <a href="https://doi.org/10.1056/nejmoa1804710">https://doi.org/10.1056/nejmoa1804710</a></div>
+</div>
+<div id="ref-mammaprint" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">17. </div><div class="csl-right-inline">Cardoso F, Veer LJ van’t, Bogaerts J, Slaets L, Viale G, Delaloge S, et al. 70-gene signature as an aid to treatment decisions in early-stage breast cancer. New England Journal of Medicine [Internet]. Massachusetts Medical Society; 2016;375:717–29. Available from: <a href="https://doi.org/10.1056/nejmoa1602253">https://doi.org/10.1056/nejmoa1602253</a></div>
+</div>
+<div id="ref-pam50" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">18. </div><div class="csl-right-inline">Parker JS, Mullins M, Cheang MCU, Leung S, Voduc D, Vickery T, et al. Supervised risk predictor of breast cancer based on intrinsic subtypes. Journal of Clinical Oncology [Internet]. American Society of Clinical Oncology (<span>ASCO</span>); 2009;27:1160–7. Available from: <a href="https://doi.org/10.1200/jco.2008.18.1370">https://doi.org/10.1200/jco.2008.18.1370</a></div>
+</div>
+<div id="ref-Buus2021" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">19. </div><div class="csl-right-inline">Buus R, Sestak I, Kronenwett R, Ferree S, Schnabel CA, Baehner FL, et al. Molecular drivers of onco<span class="math inline">\(\less\)</span>i<span class="math inline">\(\greater\)</span>type<span class="math inline">\(\less\)</span>/i<span class="math inline">\(\greater\)</span> <span>DX</span>, prosigna, <span>EndoPredict</span>, and the breast cancer index: A <span>TransATAC</span> study. Journal of Clinical Oncology [Internet]. American Society of Clinical Oncology (<span>ASCO</span>); 2021;39:126–35. Available from: <a href="https://doi.org/10.1200/jco.20.00853">https://doi.org/10.1200/jco.20.00853</a></div>
+</div>
+<div id="ref-Zhang2020" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">20. </div><div class="csl-right-inline">Zhang Y, Parmigiani G, Johnson WE. <span>ComBat</span>-seq: Batch effect adjustment for <span>RNA</span>-seq count data. <span>NAR</span> Genomics and Bioinformatics [Internet]. Oxford University Press (<span>OUP</span>); 2020;2. Available from: <a href="https://doi.org/10.1093/nargab/lqaa078">https://doi.org/10.1093/nargab/lqaa078</a></div>
+</div>
+<div id="ref-Risso2014" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">21. </div><div class="csl-right-inline">Risso D, Ngai J, Speed TP, Dudoit S. Normalization of <span>RNA</span>-seq data using factor analysis of control genes or samples. Nature Biotechnology [Internet]. Springer Science; Business Media <span>LLC</span>; 2014;32:896–902. Available from: <a href="https://doi.org/10.1038/nbt.2931">https://doi.org/10.1038/nbt.2931</a></div>
+</div>
+<div id="ref-Arima2018" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">22. </div><div class="csl-right-inline">Arima N, Nishimura R, Osako T, Okumura Y, Nakano M, Fujisue M, et al. Ki‑67 index value and progesterone receptor status can predict prognosis and suitable treatment in node‑negative breast cancer patients with estrogen receptor‑positive and <span>HER</span>2‑negative tumors. Oncology Letters [Internet]. Spandidos Publications; 2018; Available from: <a href="https://doi.org/10.3892/ol.2018.9633">https://doi.org/10.3892/ol.2018.9633</a></div>
+</div>
+<div id="ref-Hickey2021" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">23. </div><div class="csl-right-inline">Hickey TE, Selth LA, Chia KM, Laven-Law G, Milioli HH, Roden D, et al. The androgen receptor is a tumor suppressor in estrogen receptor<span></span>positive breast cancer. Nature Medicine [Internet]. Springer Science; Business Media <span>LLC</span>; 2021;27:310–20. Available from: <a href="https://doi.org/10.1038/s41591-020-01168-7">https://doi.org/10.1038/s41591-020-01168-7</a></div>
+</div>
+<div id="ref-Foroutan2018" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">24. </div><div class="csl-right-inline">Foroutan M, Bhuva DD, Lyu R, Horan K, Cursons J, Davis MJ. Single sample scoring of molecular phenotypes. <span>BMC</span> Bioinformatics [Internet]. Springer Science; Business Media <span>LLC</span>; 2018;19. Available from: <a href="https://doi.org/10.1186/s12859-018-2435-4">https://doi.org/10.1186/s12859-018-2435-4</a></div>
 </div>
 </div></section></div></main>
 <!-- /main column -->

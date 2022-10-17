@@ -76,7 +76,9 @@ the draws and put them in a tidy format.
 The code used to generate all the analysis is available on
 https://github.com/chronchi/molecular_landscape. Descriptions for 
 a docker image to reproduce the analysis are available on the github
-repository.
+repository. An online version with a website containing all the analysis
+can be found on 
+[https://chronchi.github.io/molecular_landscape](https://chronchi.github.io/molecular_landscape)
 
 # Results
 
@@ -262,7 +264,105 @@ knitr::include_graphics("images/png/figure04.png")
 
 # Discussion
 
+Personalized medicine is a key topic in medicine. The goal of better 
+understanding the molecular underpinnings of the diseases leads to a better
+allocation of treatments and resources in the patient care. We have 
+shown here a possible framework to deal with personalized medicine in 
+breast cancer in general with a focus on ER+ BC patients. 
+
+In general, estrogen receptor status is considered either a dichotomous or
+trichotomous state [@Allison2020]. Breast cancers are classified either in
+ER+ or ER- based on their protein expression levels and IHC. For those tumors
+that are ER+, they can be subdivided into low ER positive (1\% < IHC\% < 10\%)
+and simply ER positive. Those that are into the low ER positive do not 
+usually benefit as much on endocrine therapy. Here we show using cox 
+regression and multiple
+big study cohorts [@tcgabrca; @Curtis2012; @Saal2015] 
+with both RNA-seq and microarray data, that ER status is more of a continuous
+rather than a categorical state. This can aid in treatment decision 
+when evaluating the breast cancer. Several gene signatures already are being
+used, such as OncotypeDX, Mammaprint and Prosigna to assign chemotherapy
+for those patients with higher risk of recurrence 
+[@oncotypedx; @mammaprint; @pam50]. This score might be 
+associated with the commercial signatures, as it has been shown that 
+OncotypeDX's estrogen module is highly correlated with the signature 
+itself [@Buus2021].
+
+Integrating molecular data steaming from different sources is a 
+challenge. On one hand batch effect tools are usually
+able to remove the batch effects across the different sources of
+variability [@Zhang2020; @Risso2014], on the other hand they are not 
+single sample based, meaning each time a new sample comes the algorithm runs. 
+It is also based on the fact one has enough data in the different datasets,
+otherwise it skews the possible integration towards one of the datasets. 
+Here we show by using TCGA, METABRIC and SCANB that it is 
+possible to integrate the samples from these cohorts in a single sample 
+manner. The samples show good mixing when using test samples not seen during
+the training stage. The embeddings preserve key molecular features of
+breast cancer. PC3 is clearly driven by estrogen signaling where from
+right to left there is a gradient of ER positivity. On the other hand,
+PC4 is what makes a difference between the molecular subtypes
+luminal A and B, which in practice differ by proliferation status in terms
+of Ki67 levels [@Arima2018]. 
+ 
+Moreover, the embeddings in a validation set 
+preserve the key features of breast cancer. 
+Samples are projected by their different PAM50 molecular subtypes and
+there is a gradient of estrogen signaling pathway from ER+ BC
+towards ER- BC patients. The first two components are the batch effect 
+removal components and SCANB is projected closer to TCGA, since both
+datasets are RNA-seq. On the other hand, part of the POETIC trial was sequenced
+using microarray dataset [@Dowsett2011; @Gao2019], 
+and we show that it is projected closer to METABRIC as expected
+according to the first two components. 
+We also show that the embedding is independent
+of the training set and that when changing the training set the embedding
+is only rotated or translated, thus not affecting the global
+structure of the projection.
+
+Sometimes when dealing with publicly available datasets, not all of the 
+genes are available due to ethical [@Saal2015], pre-processing or 
+technological reasons. Therefore we showed how robust the projection is to 
+missing genes with high loadings in the projection. If less than 20% of the
+genes we can recover almost surely the position of the embedding if all the
+genes are available. The more genes that are missing, the closer the 
+projection will be to the origin, i.e., the (0,0) coordinate in the plane. 
+
+To show the clinical validity of the projection, we used a subset
+of patients from the POETIC trial with microarray and clinical information 
+[@Gao2019]. The samples are projected as expected and surprisingly the 
+samples that are considered to be non responders upon 2 weeks of
+aromatase inhibition are projected among the ER- BC patients. When 
+looking further upon two different patients that have similar embedding 
+but different response to endocrine therapy, we see that the responder
+has a higher value of estrogen signaling than the average. On the other hand,
+the non responder patient has a smaller estrogen signaling score than
+the average, which suggests a possible explanation for the difference in 
+response. Moreover, estrogen and androgen receptor signaling have been show
+to be tightly linked [@Hickey2021] and these two patients have different
+androgen signaling scores. The non responder has a higher score than
+the average compared to the responder, whose score is just the same as the
+average.
+
+Some weaknesses of the proposed method is that we rely on GSVA scores,
+which can be used and compared across different cohorts since they have
+a representation of all molecular subtypes. A possible way to circumvent
+this problem is by using singscore or stingscore [@Foroutan2018; @Bhuva2020], 
+a single sample pathway scorer. There is still a cost barrier for using
+RNA-seq dataset in the clinical setting, but efforts are being made to 
+reduce costs by using shallow sequencing of multiple samples at the 
+same time, such as done by Alithea Genomics.
+
+In conclusion we provide some evidence that ER status should be considered
+a continuous marker rather than a categorical one. We also extend this notion
+to a framework for personalized medicine, where each patient is embedded in
+some context that can be used for the interpretation of its molecular 
+underpinnings. In this paper we only discussed some pathways, but when
+analysing patient data, several pathways can be considered and should be 
+taken into account when deciding tumor treatment. 
+
 # References
+
 
 ::: {#refs}
 :::

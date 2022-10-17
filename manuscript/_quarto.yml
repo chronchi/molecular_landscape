@@ -15,3 +15,10 @@ execute:
   echo: false
   warning: false
   error: false
+
+
+title: > 
+    Molecular landscape: a new framework for 
+    personalized medicine in Breast Cancer
+    
+author: Carlos Ronchi, Cathrin Brisken
