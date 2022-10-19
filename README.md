@@ -24,7 +24,13 @@ to get a higher quality version of the image.
 ## Files that are ignored
 
 Overall we are ignoring all the rds, rdb and RData files that are generated
-in the analysis. We also ignore the cache folders and the files folders. This folder
-will be served using a shiny server instead and therefore can be visualized
+in the analysis. We also ignore the cache folders and the files folders. 
+This folder will be served using a shiny server instead and therefore can be visualized
 in a website. The data folders and results folders are also ignored, they would
-make the repo too big. Check the gitignore files for a complete list. 
+make the repo too big. Check the gitignore files for a complete list. The only
+folder with its contents that is available from the `results` is the `book`,
+which contains the files to visualize the whole analysis.
+
+# TODO
+
+- [ ] Generate docker image to reproduce the whole analysis
