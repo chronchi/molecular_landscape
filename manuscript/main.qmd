@@ -2,6 +2,56 @@
 
 # Introduction
 
+Breast cancer is the most commonly diagnose tumor disease in the world [@whocancer].
+It is also a very heterogeneous disease that can be subdivided in 
+different subtypes. Patients that are diagnosed with 
+breast cancer are classified based on the expression of the estrogen,
+progesterone receptors and HER2 membrane protein. The 
+estrogen receptor positive (ER+) breast cancer subtype is the most
+frequent found in clinical practice [@Anderson2002]. 
+Tumor cells of this subtype contain the estrogen
+receptor whose main mechanism is the target of selective estrogen receptor
+modulator (SERM), selective estrogen receptor degrader (SERD) and 
+aromatase inhibitors (AI). The degree of the expression of the protein
+can range from 1% to 100% according to ASCO guidelines [@Allison2020]. It has been
+shown that the patients in the low spectrum of ER positivity, from 1% to 
+10%, do not benefit as much as patients with 10% to 100% of ER positive cells
+in the tumor [@Dieci2021].
+
+Transcriptomics and genomics have revolutionazed how cancer research is done. 
+The new related
+tools opened the option to better understand the molecular underpinnings
+of cancer biology. In breast cancer, microarray technologies and 
+RNA-sequencing have been used to develop gene signatures that are able to
+assign a risk score, usually for node-negative, post-menopausal and ER+ BC
+patients. The risk score is based on survival data found in the literature
+and the higher the risk score of a patient, the higher the benefit of 
+additional chemotherapy besides the first-line therapy, such as 
+aromatase inhibitors. Several of these signatures are already available
+to be used in hospitals [@mammaprint; @pam50; @oncotypedx; @endopredict; @bci].
+Moreover,
+some of the risk scores are already recommended in international guidelines
+[@Andre2022]. These signatures though do not provide a possible
+explanation on why a patient should receive additional therapy. These 
+signatures are composed of several submodules, they are in most of the cases
+related to estrogen, proliferation, HER2 and invasion. In some of the cases
+the risk score is more strongly associated with the estrogen module and in
+other cases to the proliferation module [@Buus2021]. There is still a lack of
+understanding of the patient's tumor molecular biology. 
+
+We propose here a framework for personalized medicine and the understanding
+of the signaling pathways in a patient level. By developing a normalization
+and projection technique, we show that it is possible to integrate
+publicly available molecular datasets, such as TCGA, SCAN-B, METABRIC and
+microarray data of some patients from the POETIC trial 
+[@tcgabrca; @Saal2015; @Curtis2012; @Gao2019], and that it is possible
+to compare patients in a neighborhood of the projected data, providing
+a context to compare patients and better understand the biology of the tumor.
+Moreover, we propose to use the different gene sets from the hallmarks
+collection of the Molecular Signature Database (MSigDB) 
+[@Subramanian2005; @Liberzon2011] to understand
+the biology of the tumors in patient and neighborhood levels. 
+
 # Methods
 
 ## Cohorts
