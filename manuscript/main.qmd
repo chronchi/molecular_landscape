@@ -37,7 +37,16 @@ signatures are composed of several submodules, they are in most of the cases
 related to estrogen, proliferation, HER2 and invasion. In some of the cases
 the risk score is more strongly associated with the estrogen module and in
 other cases to the proliferation module [@Buus2021]. There is still a lack of
-understanding of the patient's tumor molecular biology. 
+understanding of the patient's tumor molecular biology. There are 
+challenges to overcome in the pathway analysis for patients
+individually and how to compare patients molecularly when considering 
+complete transcriptomics data. There is no tool that
+allows to integrate patients in a continuous way. Usually integration is a one
+step procedure and cannot be updated. The usual tools are [@Risso2014;
+@Zhang2020; @Fei2018] and they do not provide batch effect removal for new
+samples. The only way is to re-run the procedure together with the new sample.
+The problem of doing this is usually you don't have enough samples to estimate
+batch effects across groups and therefore correct it.
 
 We propose here a framework for personalized medicine and the understanding
 of the signaling pathways in a patient level. By developing a normalization
@@ -99,7 +108,8 @@ coming from TCGA and METABRIC were selected to perform the initial PCA.
 This is an unsupervised learning method, therefore there is no need to label
 the samples with respect to some category. The package PCAtools 
 [@Blighe2022] in R was used to perform the PCA and to obtain the loadings for 
-downstream analysis. The embedding for new individual samples is obtained
+downstream analysis. PCA was used with centering and scaling set to 
+`FALSE`. The embedding for new individual samples is obtained
 by multiplying the loadings matrix with the normalized data for that sample.
 Since the normalization procedure is performed sample-wise, this step is
 independent of the number of samples. If there are missing genes in a sample,
@@ -124,10 +134,10 @@ the draws and put them in a tidy format.
 ## Code availability
 
 The code used to generate all the analysis is available on
-https://github.com/chronchi/molecular_landscape. Descriptions for 
-a docker image to reproduce the analysis are available on the github
-repository. An online version with a website containing all the analysis
-can be found on 
+[https://github.com/chronchi/molecular_landscape](https://github.com/chronchi/molecular_landscape). 
+Descriptions for a docker image to reproduce the analysis are available on 
+the github repository. An online version with a website containing all 
+the analysis can be found on
 [https://chronchi.github.io/molecular_landscape](https://chronchi.github.io/molecular_landscape)
 
 # Results
@@ -138,14 +148,16 @@ We used three independent breast cancer molecular datasets
 [@Saal2015; @tcgabrca; @Curtis2012] to calculate estrogen signaling scores. 
 The estrogen signatures HALLMARK_ESTROGEN_RESPONSE_EARLY and 
 HALLMARK_ESTROGEN_RESPONSE_LATE were extracted from the molecular signature
-database [@Subramanian2005] and $SET_{ER/PR}$ from [@Sinn2019]. The individual
+database [@Subramanian2005] and $SET_{ER/PR}$ from [@Sinn2019].
+The individual
 scores for each patient sample
 are shown in @fig-01 (a) for each cohort stratified by
 estrogen receptor status. It shows the scores capture the differences
 between the two breast cancer subtypes as expected. Moreover, there is a 
 wide range of values in the estrogen receptor positive (ER+) subgroup. 
 
-Cox regression was used to determine the hazard ratio of the estrogen signaling
+Cox regression was used to determine the hazard ratio of the 
+estrogen signaling
 in overall survival (OS) for TCGA, SCANB and METABRIC and
 recurrence free survival (RFS) for METABRIC. Each survival analysis was done
 independently and adjusted for available clinical variables. Tumor size and
@@ -158,7 +170,9 @@ when calculating the hazard ratio for the
 $SET_{ER/PR}$ estrogen signaling signature. In all the three cases, the 
 hazard ratio for $SET_{ER/PR}$ was below 1, with values ranging from 
 0.23 to 0.61. There is moderate variability for each hazard ratio. 
-This shows the continuous aspect of estrogen receptor status.
+This shows the continuous aspect of estrogen receptor status. For both
+estrogen pathways of the hallmark collection of gene sets, hazard ratios
+were below 1 in all cases (Table 1, supplementary material).
 
 ```{r}
 #| label: fig-01
@@ -177,12 +191,18 @@ Since each patient has a different ER signaling score, we assumed that
 patients should be treated individually, not just binned in two big
 subgroups as ER+ and ER-. Therefore, it is important to consider each
 patient individually. We developed a single sample
-batch effect removal method
-(See methods section for the step by step)
+batch effect removal method (see methods section)
 to integrate microarray and bulk RNA-seq and create a molecular landscape.
-The advantage of the method is that
-given a new sample, it can easily be integrated with all the other previous
+The advantage of the method is that given a new sample, 
+it can easily be integrated with all the other previous
 samples without any retraining. 
+
+The first step is to normalize the samples to the same scale.
+The average ranking of housekeeping genes distribution is similar among the
+two RNA-seq datasets, SCAN-B and TCGA and their mean values are higher
+than the mean of the distribution on METABRIC (Fig S1a). Moreover the
+normalization preserves essential characteristics of the breast cancer
+biology (Fig S1b).
 
 The biplot in @fig-02 (a) with the third and fourth
 components from TCGA and METABRIC samples shows that the samples are well
@@ -195,11 +215,17 @@ The fourth component is mostly dividing the luminal A and luminal B subtypes,
 whereas the normal-like subtype is spread across the third and fourth 
 component. This also highlights the fact that one cannot interpret the 
 PCA locations globally, rather when comparing samples one should consider
-only its neighborhood. As pointed out before, ER status should be considered
+only its neighborhood.
+
+As pointed out before, ER status should be considered
 continuous and not dichotomous, @fig-02 (d) shows a gradient of the 
 ER signaling score $SET_{ER/PR}$. The higher values are on the far right
 of the third component, going to negative values as one goes from right
-to left, i.e., moving from a more ER+ status to the ER-. 
+to left, i.e., moving from a more ER+ status to the ER-. There are
+other pathways driving the distinction between samples, such as
+G2M checkpoint, epithelial to mesenchymal transition, DNA
+repair and others (supplementary figure 2; 2.20 from book).
+
 
 ```{r}
 #| label: fig-02
@@ -221,8 +247,10 @@ separated (@fig-03 (b)) and the procedure can also distinguish the
 molecular subtypes (@fig-03 (c)). As an RNA-seq cohort, it is expected that
 SCANB samples will be closer to TCGA than to METABRIC when removing batch
 effects, due to platform biases and initial scale of the genes. Biplot of
-PC1 and PC2 (@fig-03 (d)) shows that SCANB is closer to TCGA than to METABRIC.
-It is also in between the two cohorts.
+PC1 and PC2 (@fig-03 (d)) shows that SCANB is closer to TCGA than to
+METABRIC. It is also in between the two cohorts. We also show
+that the embedding works for the SMC cohort [@Kan2018] 
+(supplementary figure 3; 3.14 from the book).
 
 In order to check the robustness of the procedure, we redid all the 
 pipeline 10 times with 10 random sets of patient samples from TCGA and
@@ -277,10 +305,12 @@ The molecular landscape can shed light on the differences between
 responders and non responders.
 We embedded the POETIC trial samples using the procedure (@fig-04 (a) left). 
 The samples are spread across the whole molecular landscape, showing that 
-patients indeed have different molecular biological properties. Moreover,
-given the available information, the patients that are ER+ and in the
+patients indeed have different molecular biological properties. 
+Furthermore, the POETIC samples are embedded closer to the
+METABRIC samples (supplementary figure 4; 4.3 from the book). Given
+the available information, the patients that are ER+ and in the
 left part of the landscape (ER- patients), are all non responders 
-(@fig-04 (a) right). 
+(@fig-04 (a) right).
 This highlights the importance to look more carefully to ER+ patients.
 We selected two patients, a responder and non responder that are close
 in the embedding (@fig-04 (b)) to highlight their molecular
