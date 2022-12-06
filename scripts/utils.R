@@ -1408,3 +1408,99 @@ plot_selected_samples <- function(
     )
 }
 
+
+#' Get tidy and bound tables with survival results
+#'
+#' @param results_cox List with cox survival elements where each element
+#'     comes from a pathway
+#' @param pathways_of_interest A character vector with the names of the 
+#'     pathways to be summarized in the final table
+#' @return A datafrane with the results of the cox regression for all 
+#'     pathways of interest
+get_df_survival <- function(results_cox, pathways_of_interest){
+    lapply(
+        results_cox, 
+        broom::tidy, conf.int = TRUE, exponentiate = TRUE
+    ) %>%
+        dplyr::bind_rows(.id = "pathway") %>%
+        dplyr::filter(term %in% pathways_of_interest) %>%
+        dplyr::select(!tidyselect::all_of("term"))
+}
+
+#' Get forest plot from only the pathways, not including the confounders
+#'
+#' @param tidy_results Dataframe returned from `get_df_survival`
+#' @param range_hr Maximum value to show the lines of the confidence interval.
+#'     Default is 6.5.
+#' @param cowplot_table Should you plot the table with hazard ratio and 
+#'     confidence intervals as well? Default is FALSE.
+#' @return A ggplot object with either only the 
+#'     forest plot of the pathways or both the forest plot and table 
+#'     with hazard ratio and confidence intervals. 
+plot_combined_scores <- function(tidy_results, range_hr = 6.5, cowplot_table = FALSE){
+    
+    tidy_results$pathway <- factor(
+        tidy_results$pathway, 
+        levels = tidy_results$pathway
+    )
+    
+    tidy_results <- tidy_results %>% dplyr::arrange(pathway)
+    
+    p <- tidy_results %>% dplyr::mutate(
+        out_range = ifelse(conf.high > range_hr, range_hr, NA)
+    ) %>%
+        ggplot2::ggplot(aes(
+            y = pathway, 
+            x = estimate, 
+            xmin = conf.low, 
+            xmax = ifelse(is.na(out_range), conf.high, out_range)
+        )) +
+        ggplot2::geom_pointrange() + 
+        ggplot2::geom_vline(xintercept = 1, lty = 2) + 
+        ggplot2::labs(
+            x = "Hazard ratio (95% CI)",
+            y = ""
+        ) +
+        ggplot2::coord_cartesian(xlim = c(0, range_hr)) + 
+        ggplot2::geom_segment(
+            aes(
+                x = ifelse(is.na(out_range), conf.high, out_range), 
+                y = pathway,
+                xend = out_range, 
+                yend = pathway
+            ),
+            arrow = arrow(length = unit(0.5, "cm"), ends = "last", angle = 150)
+        ) +
+        ggplot2::theme_bw()
+    
+    if (cowplot_table){
+    
+        cowplot::plot_grid(
+            p, 
+            gridExtra::tableGrob(
+                tidy_results %>% 
+                    dplyr::select(c(estimate, conf.low, conf.high)) %>%
+                    dplyr::mutate(across(.fns = format, digits = 2)) %>%
+                    dplyr::arrange(-dplyr::row_number()),
+                cols = c("HR", "2.5%", "97.5%"), 
+                vp = grid::viewport(
+                    width=0.90,
+                    height=1,
+                    #x=0.10,
+                    #y=0.80,
+                    clip="on"
+                ),
+                rows = NULL
+            ), 
+            ncol = 2,
+            rel_widths = c(2, 1) 
+        )
+            
+    } else {
+        
+        p
+    }
+    
+    
+}
+
