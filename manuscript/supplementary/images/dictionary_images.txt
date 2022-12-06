@@ -1,0 +1,6 @@
+The supplementary figures should contain the figure names in each section shown below. 
+The numbers correspond to the figure numbers in the quarto book available on github/website.
+
+# Figure 1
+
+2.3, 2.4
