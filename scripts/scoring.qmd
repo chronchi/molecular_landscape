@@ -88,11 +88,6 @@ knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
 
 ## Calculating scores in neighborhoods
 
-> Add here the code to make the video when calculating the average
-scores. try to use the same code as the poetic, if not, change it 
-so it can be used in both cases. Idea is to show how the scores change
-as you move across the molecular landscape.
-
 Patients close to each other in the molecular landscape are somewhat
 molecularly close, due to how the embedding works. Therefore, we can 
 look at patients in a neighborhood and calculate the average scores,

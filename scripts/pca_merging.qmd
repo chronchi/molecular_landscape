@@ -1314,6 +1314,7 @@ plots_pathways <- sapply(
         "SET_ERPR",
         "HALLMARK_DNA_REPAIR",
         "HALLMARK_ANDROGEN_RESPONSE",
+        "HALLMARK_PI3K_AKT_MTOR_SIGNALING",
         "random_200",
         "random_18"
     ), 
@@ -1346,3 +1347,273 @@ cowplot::plot_grid(
     labels = "AUTO"
 )
 ```
+
+We see that these pathways are somehow relevant to the embedding, but are they
+also prognostic of overall survival in the two cohorts? In the next chunks
+we evaluate this hypothesis. Mostly the focus is on ER+ BC patients that
+received some kind of hormonal therapy. As seen before, for the TCGA
+dataset we select ER+ BC patients that have the molecular subtype luminal
+A and B instead. 
+
+```{r}
+#| eval: false
+
+tcga_samples <- colData(datasets$tcga) %>% data.frame %>%
+    dplyr::filter(
+        pam50 %in% c("luma", "lumb") &
+        node_stage != "NX" &
+        !(tumor_stage %in% c("stage_iv", "na")) & 
+        er_status == "pos"
+    ) %>% 
+    dplyr::pull(sample_name)
+
+tcga_samples <- df_pca_coordinates %>% 
+    dplyr::filter(sample_name %in% tcga_samples & PC3 > 0) %>%
+    dplyr::pull(sample_name)
+
+scanb_samples <- colData(datasets$scanb) %>% data.frame %>%
+    dplyr::filter(
+        node_stage != "NX" &
+        !(tumor_stage %in% c("T4", "Tis", "TX")) & 
+        ER_10perc == "POS" & 
+        Adjuvant_Endo_only == 1
+    ) %>% 
+    dplyr::pull(sample_name)
+
+scanb_samples <- df_pca_coordinates %>% 
+    dplyr::filter(sample_name %in% scanb_samples & PC3 > 0) %>%
+    dplyr::pull(sample_name)
+
+metabric_samples <- colData(datasets$metabric) %>% data.frame %>%
+    dplyr::filter(
+        CHEMOTHERAPY == "NO" &
+        er_status == "pos" & 
+        HORMONE_THERAPY == "YES"
+    ) %>% 
+    dplyr::pull(sample_name)
+
+metabric_samples <- df_pca_coordinates %>% 
+    dplyr::filter(sample_name %in% metabric_samples & PC3 > 0) %>%
+    dplyr::pull(sample_name)
+
+
+formulas_survival <- c(
+    "os_tcga" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
+    "rfs_metabric" = "Surv(rfs_months, os_status) ~ age + npi"
+)
+
+type_survival <- c("os", "rfs")
+which_scores <- c(
+    "HALLMARK_G2M_CHECKPOINT",
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION",
+    "HALLMARK_DNA_REPAIR",
+    "HALLMARK_ANDROGEN_RESPONSE",
+    "HALLMARK_PI3K_AKT_MTOR_SIGNALING"
+)
+survival_results <- sapply(
+    c("os", "rfs"),
+    function(type_analysis, datasets, name_scores, formulas){
+        mapply(
+            function(
+                dataset, name_dataset, name_scores, formulas, type_analysis
+            ){
+                
+                if (type_analysis == "rfs" & name_dataset != "metabric"){
+                    return()
+                } else { 
+                
+                    sapply(
+                        name_scores,
+                        function(name_score, col_data, formula){
+                            
+                            survival::coxph(
+                                as.formula(
+                                    paste(formula, name_score, sep = "+")
+                                ),
+                                data = col_data, 
+                                y = FALSE,
+                                x = FALSE
+                            )
+                        },
+                        col_data = colData(dataset),
+                        formula = formulas[
+                            grepl(
+                                paste(type_analysis, name_dataset, sep = "_"),
+                                names(formulas)
+                            )
+                        ],
+                        USE.NAMES = TRUE,
+                        simplify = FALSE
+                    )
+                }
+            },
+            dataset = datasets,
+            name_dataset = names(datasets),
+            MoreArgs = list(
+                formulas = formulas, name_scores = name_scores,
+                type_analysis = type_analysis
+            ),
+            USE.NAMES = TRUE,
+            SIMPLIFY = FALSE
+        )
+    },
+    datasets = mapply(
+        function(dataset, patients) dataset[, patients],
+        dataset = datasets,
+        patients = list(tcga_samples, scanb_samples, metabric_samples),
+        USE.NAMES = TRUE,
+        SIMPLIFY = FALSE
+    ),
+    name_scores = which_scores,
+    formulas = formulas_survival,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+survival_results$rfs <- survival_results$rfs[
+    !sapply(survival_results$rfs, is.null)
+]
+
+# we cannot simply save the models as each model has some 
+# environment variables, which adds up to over 20GB. 
+# check this stack exchange thread to read more on it:
+# https://stackoverflow.com/questions/42230920/saverds-inflating-size-of-object/52372480
+# the solution is to basically clear the environment from the terms 
+# object. since it is pretty fast to run the survival analysis
+# we will not save the objects.
+
+
+# we now proceed to prepare the plots. since the survival result is 
+# actually a large file, it is best to do all the plottings, save
+# them in other rds/pdf files and then use on the quarto markdown.
+# otherwise it is too slow to render the book. 
+# the same is true for the statistics and coefficients available.
+names_signatures <- c(
+    "HALLMARK_G2M_CHECKPOINT" = "G2M checkpoint",
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" = "EMT",
+    "HALLMARK_DNA_REPAIR" = "DNA repair",
+    "HALLMARK_ANDROGEN_RESPONSE" = "Androgen response",
+    "HALLMARK_PI3K_AKT_MTOR_SIGNALING" = "PI3K AKT MTOR signaling"
+)
+
+names_coefficients <- list(
+    metabric = c(
+        "age" = "Age", 
+        "npi" = "NPI", 
+        names_signatures
+    ),
+    scanb = c(
+        "age" = "age",
+        names_signatures,
+        "node_stageN1" = "N1",
+        "node_stageN2and3" = "N2 and N3",
+        "tumor_stageT1" = "T1",
+        "tumor_stageT2" = "T2",
+        "tumor_stageT3" = "T3"
+    ),
+    tcga = c(
+        "age" = "age",
+        "tumor_stage" = "Tumor Stage",
+        names_signatures,
+        "node_stageN1" = "N1",
+        "node_stageN2" = "N2",
+        "node_stageN3" = "N3",
+        "tumor_stagestage_ii" = "T2",
+        "tumor_stagestage_iii" = "T3"
+    )
+)
+
+patients <- list(
+    tcga = "Lum A/B, ER+ BC",
+    scanb = "Endo Only, ER+ BC",
+    metabric = "Endo Only, ER+ BC"
+)
+
+analysis_code <- list(
+    os = "Overall survival",
+    rfs = "Recurrence free survival"
+)
+
+forest_plots <- mapply(
+    function(fits, type_analysis){
+        mapply(
+            function(cohort_fits, name_cohort, type_analysis){
+                
+                tidy_survival <- get_df_survival(
+                    cohort_fits,
+                    pathways_of_interest = names(names_signatures)
+                )
+                
+                plot_combined_scores(tidy_survival, range_hr = 3.5) + 
+                    ggplot2::labs(
+                        title = paste0(
+                            toupper(name_cohort), ", PC3 > 0\n", 
+                            patients[[name_cohort]], "\n",
+                            analysis_code[[type_analysis]]
+                        )
+                    )
+                
+            },
+            cohort_fits = fits,
+            name_cohort = names(fits),
+            MoreArgs = list(type_analysis = type_analysis),
+            USE.NAMES = TRUE,
+            SIMPLIFY = FALSE
+        )
+    },
+    survival_results,
+    names(survival_results),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+
+saveRDS(
+    forest_plots,
+    "../results/rds_files/pca_merging/forest_plots.rds"
+)
+
+# and now we fetch the tables that will be used later on including the
+# confidence intervals and other parameters from the fit
+tables_survival <- lapply(
+    survival_results, 
+    function(x) 
+        lapply(
+            x,
+            function(y)
+                lapply(
+                    y,
+                    function(z) broom::tidy(z)
+                ) %>% dplyr::bind_rows(.id = "score")
+        ) %>% dplyr::bind_rows(.id = "cohort")
+) %>% dplyr::bind_rows(.id = "type_analysis") %>%
+    dplyr::mutate(HR = exp(estimate))
+
+write.csv(
+    tables_survival,
+    "../results/tables/pca_merging/survival_results.csv",
+    row.names = FALSE
+)
+```
+
+```{r, fig.width = 6, fig.height=10}
+#| label: fig-pca-mol-land-survival
+#| fig-cap: Overall survival analysis from all the three big cohorts and their
+#|     scores. The formulas used were the same as for the estrogen
+#|     signaling analysis.
+
+forest_plots <- readRDS("../results/rds_files/pca_merging/forest_plots.rds")
+cowplot::plot_grid(plotlist = c(
+    forest_plots$os,
+    forest_plots$rfs
+), ncol = 1)
+```
+
+We see that G2M checkpoint and PI3K AKT MTOR signaling all have
+hazard ratios higher than 1. The other scores are a bit more
+variable and can change the sign (type S error). The 
+magnitude of the HRs for G2M and PI3K seem to be concordant
+across the different datasets, on TCGA the score is more variable,
+probably due to the number of events available, still the sign and 
+the magnitude make sense in this case.
