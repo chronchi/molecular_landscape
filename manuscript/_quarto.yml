@@ -8,6 +8,8 @@ format:
   pdf: default
   html: default
 
+self-contained: true
+
 bibliography: references.bib
 csl: csl/aacr.csl
 

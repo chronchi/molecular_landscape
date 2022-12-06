@@ -1,5 +1,35 @@
 # Abstract
 
+Estrogen receptor (ER) signaling is an important factor in breast 
+carcinogenesis. It drives different subtypes in breast cancer and
+treatment decisions. In most of the cases, if a patient is diagnosed
+with breast cancer and has immunohistochemistry (IHC) percentage of 1% for
+estrogen receptor, they will receive standard endocrine therapy. We show
+here that estrogen signaling is a continuous status rather than
+dichotomous. To further elucidate the effects of estrogen signaling and
+other molecular pathways, we propose a new framework for personalized
+medicine. First, we introduce a novel embedding technique based on
+RNA-seq and microarray data that integrates distinct cohorts, 
+such as TCGA, METABRIC and SCANB. We show that the embedding, also
+called molecular landscape, captures the true biology of breast cancer,
+dividing patients based on ER status and the different molecular subtypes
+(PAM50). We show that the embedding
+is not dependent of tumor purity, age and other clinical variables and
+other pathways, such as G2M Checkpoint, Epithelial to Mesenchymal Transition
+(EMT) and PI3K AKT MTOR signaling drives the embedding. 
+The embedding works in a way that the algorithm is able to project 
+new samples together within the three cohorts, allowing to compare
+them to what is publicly available and avoiding the
+need of specific reference sets. We demonstrate how to use the molecular
+landscape to ask specific questions about patients in terms of 
+estrogen signaling in the context of the POETIC trial and what could
+be possible reasons that explain the response to treatment. Lastly, 
+we analyse specific parts of the molecular landscape to look for
+potential subgroups and alternative therapies, more specifically, 
+we show that PI3K AKT
+MTOR signaling might be a potential target pathway to be considered
+in future treatments among specific subgroups on the embedding.
+
 # Introduction
 
 Breast cancer is the most commonly diagnose tumor disease in the world [@whocancer].
@@ -131,6 +161,19 @@ fit using `rstanarm` [@Goodrich2022].
 The package `tidybayes` [@Kay2022] was used to extract
 the draws and put them in a tidy format. 
 
+## Survival analysis
+
+Survival analysis was done using cox regression with the `survival` 
+package from R. The variables used for adjustment were age, tumor
+stage and number of lymph nodes for TCGA and SCANB. For METABRIC the
+variables used were Age and the Nottingham Prognostic Index (NPI). Overall
+survival was performed for all three cohorts and recurrence free 
+survival for METABRIC only. The
+causal model used here is that the confounders affect both the outcome
+and the pathway of interest. It could be that there are unmeasured
+confounders that are affecting the pathways and outcomes at the
+same time, leading to a biased result.
+
 ## Code availability
 
 The code used to generate all the analysis is available on
@@ -144,17 +187,26 @@ the analysis can be found on
 
 ## Estrogen receptor is a clinical continuous variable
 
-We used three independent breast cancer molecular datasets 
-[@Saal2015; @tcgabrca; @Curtis2012] to calculate estrogen signaling scores. 
+Estrogen signaling is an indicative of how well a patient will respond
+to endocrine therapy. There are several ways to represent the estrogen
+signaling, one of them is to calculate scores derived from gene
+expression levels of bulk RNA-sequencing.
+We used three independent breast cancer molecular bulk RNA-seq datasets,
+TCGA, SCANB and METABRIC, [@Saal2015; @tcgabrca; @Curtis2012] to 
+calculate estrogen signaling scores. They are cohorts with over 1000 
+patients each that cover the whole molecular spectrum of primary breast cancer
+samples.
 The estrogen signatures HALLMARK_ESTROGEN_RESPONSE_EARLY and 
 HALLMARK_ESTROGEN_RESPONSE_LATE were extracted from the molecular signature
-database [@Subramanian2005] and $SET_{ER/PR}$ from [@Sinn2019].
-The individual
-scores for each patient sample
+database [@Subramanian2005] (MSigDB) and $SET_{ER/PR}$ from [@Sinn2019]. The 
+two signatures from MSigDB contain 200 genes and the later signature has
+18 genes that are associated with estrogen and progesterone signaling.
+The individual scores for each patient sample
 are shown in @fig-01 (a) for each cohort stratified by
-estrogen receptor status. It shows the scores capture the differences
-between the two breast cancer subtypes as expected. Moreover, there is a 
-wide range of values in the estrogen receptor positive (ER+) subgroup. 
+estrogen receptor status. The scores capture the differences
+between estrogen receptor positive and negative breast cancer
+as expected. There is a wide range of values in 
+the estrogen receptor positive (ER+) subgroup. 
 
 Cox regression was used to determine the hazard ratio of the 
 estrogen signaling
@@ -163,8 +215,11 @@ recurrence free survival (RFS) for METABRIC. Each survival analysis was done
 independently and adjusted for available clinical variables. Tumor size and
 number of lymph nodes were used for TCGA and SCANB cohorts. The Nottingham 
 prognostic index (NPI) was used for METABRIC. Age was used in all cohorts 
-as a clinical variable for adjustment. Only ER+ BC patients were used and 
-when possible only those that received endocrine therapy. 
+as a clinical variable for adjustment. To better understand the effect
+of estrogen signaling in the clinics, only ER+ BC patients were used and 
+when possible only those that received endocrine therapy. The selected
+sub population represents patients that could benefit from 
+additional adjuvant therapies given unfavorable scores.
 @fig-01 (b) shows the forest plots for each cohort individually 
 when calculating the hazard ratio for the
 $SET_{ER/PR}$ estrogen signaling signature. In all the three cases, the 
@@ -172,7 +227,9 @@ hazard ratio for $SET_{ER/PR}$ was below 1, with values ranging from
 0.23 to 0.61. There is moderate variability for each hazard ratio. 
 This shows the continuous aspect of estrogen receptor status. For both
 estrogen pathways of the hallmark collection of gene sets, hazard ratios
-were below 1 in all cases (Table 1, supplementary material).
+were below 1 in all cases (Table 1, supplementary material), with a 
+HR below 1 meaning that the higher the score the better the chances
+of survival for a patient.
 
 ```{r}
 #| label: fig-01
@@ -206,12 +263,12 @@ biology (Fig S1b).
 
 The biplot in @fig-02 (a) with the third and fourth
 components from TCGA and METABRIC samples shows that the samples are well
-integrated. All samples, including those using for training
+integrated. All samples, including those used for training
 and validation, are plotted. The third components corresponds
 to the separation between ER+ and ER- BC patients in
 both cohorts (@fig-02 (b)). A combination of the third and fourth components
 shows a good distinction among the PAM50 molecular subtypes (@fig-02 (c)).
-The fourth component is mostly dividing the luminal A and luminal B subtypes,
+The fourth component mostly divides the luminal A and luminal B subtypes,
 whereas the normal-like subtype is spread across the third and fourth 
 component. This also highlights the fact that one cannot interpret the 
 PCA locations globally, rather when comparing samples one should consider
@@ -221,11 +278,22 @@ As pointed out before, ER status should be considered
 continuous and not dichotomous, @fig-02 (d) shows a gradient of the 
 ER signaling score $SET_{ER/PR}$. The higher values are on the far right
 of the third component, going to negative values as one goes from right
-to left, i.e., moving from a more ER+ status to the ER-. There are
-other pathways driving the distinction between samples, such as
-G2M checkpoint, epithelial to mesenchymal transition, DNA
-repair and others (supplementary figure 2; 2.20 from book).
+to left, i.e., moving from a more ER+ status to the ER-. 
 
+In order to check the robustness of the procedure, we redid all the 
+pipeline 10 times with 10 random sets of patient samples from TCGA and
+METABRIC, simulating a cross validation process.
+The PCA embedding is invariant to rotation, translation and reflection 
+(@fig-03 (e)). Another problem inherent to publicly available 
+datasets, is the fact that there are missing genes. We try to understand
+the effect of missing genes in the embedding based on their loading values. 
+Ideally if a low amount of genes with high loadings are missing, this should
+not affect very much the embedding. On the other hand, the more genes missing
+with high loadings, the more it will impact the embedding. We removed 200
+genes in total with a varying proportion of top loading genes
+(ranging from 0 to 100% in a 5% step). The number of top loading genes 
+missing from the dataset is key for the embedding (@fig-03 (f)). The
+higher the proportion the less precise the embedding is. 
 
 ```{r}
 #| label: fig-02
@@ -238,9 +306,10 @@ repair and others (supplementary figure 2; 2.20 from book).
 knitr::include_graphics("images/png/figure02.png")
 ```
 
-## Embedding is robust to missing genes and generalized to a validation cohort
+## Embedding generalizes to a validation cohort
 
-METABRIC and TCGA were used to train and validate the projections. SCANB was
+So far only samples from TCGA and METABRIC were used in the training and
+projection. An external validation cohort is needed. SCANB was
 used as an external validation cohort. SCANB is well mixed with both
 METABRIC and TCGA samples (@fig-03 (a)). ER+ and ER- BC patients are well
 separated (@fig-03 (b)) and the procedure can also distinguish the 
@@ -251,21 +320,6 @@ PC1 and PC2 (@fig-03 (d)) shows that SCANB is closer to TCGA than to
 METABRIC. It is also in between the two cohorts. We also show
 that the embedding works for the SMC cohort [@Kan2018] 
 (supplementary figure 3; 3.14 from the book).
-
-In order to check the robustness of the procedure, we redid all the 
-pipeline 10 times with 10 random sets of patient samples from TCGA and
-METABRIC, simulating a cross validation process.
-The PCA embedding is invariant to rotation, translation and reflection 
-(@fig-03 (e)). Another problem that arises with publicly available 
-datasets, is the fact that there are missing genes. We try to understand
-the effect of missing genes in the embedding based on their loading values. 
-Ideally if a low amount of genes with high loadings are missing, this should
-not affect very much the embedding. On the other hand, the more genes missing
-with high loadings, the more it will impact the embedding. We removed 200
-genes in total with a varying proportion of top loading genes
-(ranging from 0 to 100% in a 5% step). The number of top loading genes 
-missing from the dataset is key for the embedding (@fig-03 (f)). The
-higher the proportion the less precise the embedding is. 
 
 ```{r}
 #| label: fig-03
@@ -287,15 +341,16 @@ knitr::include_graphics("images/png/figure03.png")
 
 ## Molecular landscape is a tool to understand and explore patient heterogeneity
 
-Since the molecular landscape relies in a single sample embedding, we can 
-add samples from any cohort with relative good data. The POETIC trial 
+Since the molecular landscape relies in a single sample to obtain the
+embedding, we can add samples from any cohort. The POETIC trial 
 [@Dowsett2011] was a trial that evaluated the use of perioperative
 aromatase inhibitors in ER+, postmenopausal BC patients. Its primary 
 endpoint was time to recurrence. 
-They sent for microarray hybridization matched samples from baseline
-(before treatment) and at surgery (after an average of 14 days of treatment)
+The POETIC trial team sent for microarray hybridization
+matched samples from baseline
+(before treatment) and at surgery (after an average 14 days of treatment)
 [@Gao2019]. There are also untreated patients, used to control for sample
-processing artefacts. Moreover, the patients have matched Ki67 percentage levels, 
+processing artefacts. The patients have matched Ki67 percentage levels, 
 which can be considered an indication of how well a patient responded to 
 the endocrine therapy. Patients with more than 5% of baseline Ki67 and a 
 reduction of 60% upon endocrine therapy are considered responders, otherwise
@@ -322,7 +377,6 @@ than the average (@fig-04 (d)) and also a higher androgen signaling
 score (Androgen response). Other pathways and their average posterior
 distributions are shown for both patients.
 
-
 ```{r}
 #| label: fig-04
 #| fig-cap: > 
@@ -341,6 +395,32 @@ distributions are shown for both patients.
 
 knitr::include_graphics("images/png/figure04.png")
 ```
+
+## Generating hypothesis: subgroups and alternative treatments
+
+One key aspect of drug discovery is finding the right groups for 
+targeting with the proper drug. With the molecular landscape we can try
+to identify different subgroups, based on molecular pathway scores. 
+There are several driving the distinction between samples in the 
+embedding, such as G2M checkpoint, epithelial to mesenchymal transition, DNA
+repair and PI3K AKT MTOR signaling (@fig-05 (a)). The scores go from one
+direction to other across the two different principal components, indicating
+that they complement each other when capturing information. Not only 
+G2M checkpoint is differentiating luminal A and B patients, but also
+EMT. 
+
+Understanding a pathway and its clinical relevance is key
+for drug development and subtyping. The overall and recurrence
+free survival calculated from patients that have ER+ BC, received
+only endocrine therapy (METABRIC: OS/RFS and SCANB: OS) and have 
+$PC3 > 0$ show that G2M 
+checkpoint has a hazard ratio higher than 1 (@fig-05 (b)) and a tight
+confidence interval, which reflects the fact the higher the proliferation
+the worse the outcome, and reflects the subtyping differences between
+luminal A and B. The PI3K AKT MTOR signaling has a hazard ratio higher
+than 1 with a wider confidence interval, indicating a possible
+subgroup among all selected patients that could benefit from 
+aditional adjuvant therapy targeting this specific pathway.
 
 # Discussion
 
@@ -424,14 +504,20 @@ androgen signaling scores. The non responder has a higher score than
 the average compared to the responder, whose score is just the same as the
 average.
 
+Complementing the personalized approach, the molecular landscape
+can be used as a starting point to understand breast cancer molecular
+subgroups in a more intuititive way using pathways. Using survival
+analysis we show that some of the pathways that are important for the
+embedding can be used for subgrouping and hypothesis generation. 
+
 Some weaknesses of the proposed method is that we rely on GSVA scores,
 which can be used and compared across different cohorts since they have
 a representation of all molecular subtypes. A possible way to circumvent
 this problem is by using singscore or stingscore [@Foroutan2018; @Bhuva2020], 
 a single sample pathway scorer. There is still a cost barrier for using
-RNA-seq dataset in the clinical setting, but efforts are being made to 
-reduce costs by using shallow sequencing of multiple samples at the 
-same time, such as done by Alithea Genomics.
+RNA-seq dataset in the clinical setting, but efforts are being made 
+across the industry to reduce the sequencing costs and make it more 
+widespread.
 
 In conclusion we provide some evidence that ER status should be considered
 a continuous marker rather than a categorical one. We also extend this notion
@@ -442,7 +528,6 @@ analysing patient data, several pathways can be considered and should be
 taken into account when deciding tumor treatment. 
 
 # References
-
 
 ::: {#refs}
 :::
