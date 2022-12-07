@@ -806,21 +806,71 @@ have this information.
 #|     colored by NPI.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
-        dplyr::filter(cohort %in% c("tcga", "metabric")),
+        dplyr::filter(cohort %in% c("metabric")),
     color = "npi",
     x = "PC3",
     y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from TCGA and METABRIC"
+        "Embedding of all samples from METABRIC"
     )
 ) + ggplot2::scale_color_viridis_c(na.value = 0) +
     ggplot2::labs(color = "NPI")
 ```
 
-It looks good, ER+ BC patients have lower NPI, which makes sense.
+It looks good, ER+ BC patients have lower NPI, which makes sense. 
+@fig-pca-tumor-purity shows the biplot colored by tumor purity.
 
+```{r}
+#| label: fig-pca-tumor-purity
+#| fig-cap: PC3 and PC4 of samples from METABRIC only
+#|     colored by tumor purity.
+plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("metabric")) %>%
+        dplyr::filter(CELLULARITY != ""),
+    color = "CELLULARITY",
+    x = "PC3",
+    y = "PC4",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from METABRIC"
+    )
+) + ggplot2::scale_color_viridis_d(na.value = 0) +
+    ggplot2::labs(color = "Tumor purity")
+```
+
+The tumor purity is not a factor that is affecting the embedding as samples
+with low cellularity (< 40% of tumor cells) and high cellularity
+(> 70% of tumor cells) intermingle. 
+
+METABRIC has also inferred menopausal status for the patients, we use
+this information to check if there is any enrichment based on the 
+patient menopausal status (@fig-pca-men-status)
+
+```{r}
+#| label: fig-pca-men-status
+#| fig-cap: PC3 and PC4 of samples from METABRIC only
+#|     colored by menopausal status.
+plot_pca_coordinates(
+    df_pca_coordinates %>% 
+        dplyr::filter(cohort %in% c("metabric")),
+    color = "INFERRED_MENOPAUSAL_STATE",
+    x = "PC3",
+    y = "PC4",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from METABRIC"
+    )
+) + ggplot2::scale_color_viridis_d(na.value = 0) +
+    ggplot2::labs(color = "Menopausal\nstatus")
+```
+
+We don't see any difference between the two status. We proceed now with 
+the analysis using clinical factors from TCGA.
 
 ```{r, fig.width=12, fig.height=4}
 #| label: fig-pca-tumor-node
