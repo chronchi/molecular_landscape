@@ -2,5 +2,18 @@ The supplementary figures should contain the figure names in each section shown 
 The numbers correspond to the figure numbers in the quarto book available on github/website.
 
 # Figure 1
-
 2.3, 2.4
+
+figure caption names: 
+- pca_merging_files/fig-avg-ranking-hkg
+- pca_merging_files/fig-gene-bc-imp
+
+# Figure 2
+2.9, 2.11, 2.12, 2.13, 2.14
+
+figure caption names: 
+- pca_merging_files/fig-pca-age
+- pca_merging_files/fig-pca-npi
+- pca_merging_files/fig-pca-tumor-purity
+- pca_merging_files/fig-pca-men-status
+- pca_merging_files/fig-pca-tumor-node

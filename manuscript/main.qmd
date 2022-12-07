@@ -117,8 +117,10 @@ separately, the standard deviation of that gene was calculated. Then an
 average standard deviation was calculated using the formula below.
 
 $$
-\text{average sd} = \sqrt{\frac{(sd_{TCGA}^2 + sd_{METABRIC}^2)}{k}}
+\text{average sd} = \sqrt{\frac{(sd_{TCGA}^2 + sd_{METABRIC}^2)}{k}},
 $$
+
+where k corresopnds to the number of cohorts, in this case $k=2$.
 
 ## qPCR-like normalization
 
@@ -257,9 +259,10 @@ samples without any retraining.
 The first step is to normalize the samples to the same scale.
 The average ranking of housekeeping genes distribution is similar among the
 two RNA-seq datasets, SCAN-B and TCGA and their mean values are higher
-than the mean of the distribution on METABRIC (Fig S1a). Moreover the
-normalization preserves essential characteristics of the breast cancer
-biology (Fig S1b).
+than the mean of the distribution on METABRIC (Figure S1 (a)). 
+The normalization preserves the distinctions of gene expression 
+levels between ER+ and ER- breast cancer samples. Examples of genes 
+where see such differences are TFF1 and ESR1 (Figure S1 (b)).
 
 The biplot in @fig-02 (a) with the third and fourth
 components from TCGA and METABRIC samples shows that the samples are well
@@ -284,7 +287,7 @@ In order to check the robustness of the procedure, we redid all the
 pipeline 10 times with 10 random sets of patient samples from TCGA and
 METABRIC, simulating a cross validation process.
 The PCA embedding is invariant to rotation, translation and reflection 
-(@fig-03 (e)). Another problem inherent to publicly available 
+(@fig-02 (e)). Another problem inherent to publicly available 
 datasets, is the fact that there are missing genes. We try to understand
 the effect of missing genes in the embedding based on their loading values. 
 Ideally if a low amount of genes with high loadings are missing, this should
@@ -292,8 +295,11 @@ not affect very much the embedding. On the other hand, the more genes missing
 with high loadings, the more it will impact the embedding. We removed 200
 genes in total with a varying proportion of top loading genes
 (ranging from 0 to 100% in a 5% step). The number of top loading genes 
-missing from the dataset is key for the embedding (@fig-03 (f)). The
-higher the proportion the less precise the embedding is. 
+missing from the dataset is key for the embedding (@fig-02 (f)). The
+higher the proportion the less precise the embedding is. Other clinical
+factors, such as tumor stage, node stage, age, NPI and tumor purity
+show no influence in the embedding (Figure S2), besides the fact
+that ER- BC patients usually have higher stage in general.
 
 ```{r}
 #| label: fig-02
@@ -303,6 +309,11 @@ higher the proportion the less precise the embedding is.
 #|     (c) Same as **a**, colored by PAM50 molecular subtype. (d) Hex grid
 #|     calculated on the biplot of the fourth and third component. Each hex 
 #|     is colored based on its average value of the SET ER/PR signature.
+#|     (e) Embedding of random samples given different training sets for 
+#|     PCA. Blue dots correspond to the original embedding of a sample and
+#|     red dots correspond to the new embedding given the new training set.
+#|     (f) Biplot of all possible embeddings of sample given a certain
+#|     proportion of top loadings missing in the dataset.
 knitr::include_graphics("images/png/figure02.png")
 ```
 
@@ -331,11 +342,6 @@ that the embedding works for the SMC cohort [@Kan2018]
 #|     (c) Same as **a**, colored by PAM50 molecular subtype.
 #|     (d) Biplot using the first and second component of TCGA, METABRIC and
 #|     SCANB. 
-#|     (e) Embedding of random samples given different training sets for 
-#|     PCA. Blue dots correspond to the original embedding of a sample and
-#|     red dots correspond to the new embedding given the new training set.
-#|     (f) Biplot of all possible embeddings of sample given a certain
-#|     proportion of top loadings missing in the dataset.
 knitr::include_graphics("images/png/figure03.png")
 ```
 
@@ -421,6 +427,21 @@ luminal A and B. The PI3K AKT MTOR signaling has a hazard ratio higher
 than 1 with a wider confidence interval, indicating a possible
 subgroup among all selected patients that could benefit from 
 aditional adjuvant therapy targeting this specific pathway.
+
+```{r}
+#| label: fig-05
+#| fig-cap: > 
+#|     Average scores in hex regions using all three cohorts together and
+#|     survival analysis in each cohort individually.
+#|     (a) Biplots of all samples from TCGA, SCANB and METABRIC that were
+#|     grouped in small hex regions. Colors are depicted as the average 
+#|     score value in each hex region. Selected pathways are shown.
+#|     (b) Survival analysis results obtained for each pathway individually.
+#|     The pathways were adjusted as described in the methods section.
+#|     CI: confidence interval.
+
+knitr::include_graphics("images/png/figure05.png")
+```
 
 # Discussion
 
