@@ -229,7 +229,7 @@ hazard ratio for $SET_{ER/PR}$ was below 1, with values ranging from
 0.23 to 0.61. There is moderate variability for each hazard ratio. 
 This shows the continuous aspect of estrogen receptor status. For both
 estrogen pathways of the hallmark collection of gene sets, hazard ratios
-were below 1 in all cases (Table 1, supplementary material), with a 
+were below 1 in all cases (Table S1), with a 
 HR below 1 meaning that the higher the score the better the chances
 of survival for a patient.
 
