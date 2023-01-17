@@ -22,8 +22,9 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libpng-dev \
     pkg-config \
-    libfontconfig1-dev
-    
+    libfontconfig1-dev \
+    cmake \
+    libnlopt-dev
     
 RUN R -q -e 'renv::restore()'
 
