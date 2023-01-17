@@ -2,21 +2,26 @@
 
 Estrogen receptor (ER) signaling is an important factor in breast 
 carcinogenesis. It drives different subtypes in breast cancer and
-treatment decisions. In most of the cases, if a patient is diagnosed
-with breast cancer and has immunohistochemistry (IHC) percentage of 1% for
-estrogen receptor, they will receive standard endocrine therapy. We show
+treatment decisions. If a patient is diagnosed
+with breast cancer and has immunohistochemistry (IHC) percentage higher or equal
+than 1% for
+estrogen receptor, they will receive standard endocrine therapy. We 
+hypothesized that there are differences in endocrine therapy among estrogen
+receptor positive patients based on the molecular estrogen signaling. We show
 here that estrogen signaling is a continuous status rather than
-dichotomous. To further elucidate the effects of estrogen signaling and
-other molecular pathways, we propose a new framework for personalized
-medicine. First, we introduce a novel embedding technique based on
+dichotomous based on molecular signatures. Given the estrogen 
+signaling score continuity we propose
+a new framework for personalized medicine to better understand the 
+molecular biology of patients that have different scores. 
+We introduce a novel single sample embedding technique based on
 RNA-seq and microarray data that integrates distinct cohorts, 
 such as TCGA, METABRIC and SCANB. We show that the embedding, also
 called molecular landscape, captures the true biology of breast cancer,
 dividing patients based on ER status and the different molecular subtypes
-(PAM50). We show that the embedding
-is not dependent of tumor purity, age and other clinical variables and
-other pathways, such as G2M Checkpoint, Epithelial to Mesenchymal Transition
-(EMT) and PI3K AKT MTOR signaling drives the embedding. 
+(PAM50). The embedding
+is not dependent of tumor purity, age and other clinical variables but other
+pathways, such as G2M Checkpoint, Epithelial to Mesenchymal Transition
+(EMT) and PI3K AKT MTOR signaling drive the embedding. 
 The embedding works in a way that the algorithm is able to project 
 new samples together within the three cohorts, allowing to compare
 them to what is publicly available and avoiding the
@@ -32,23 +37,26 @@ in future treatments among specific subgroups on the embedding.
 
 # Introduction
 
-Breast cancer is the most commonly diagnose tumor disease in the world [@whocancer].
-It is also a very heterogeneous disease that can be subdivided in 
-different subtypes. Patients that are diagnosed with 
+Breast cancer is the most commonly diagnosed tumor worldwide [@whocancer].
+It is a very heterogeneous disease that can be subdivided in 
+different histological and molecular subtypes. Patients that are diagnosed with 
 breast cancer are classified based on the expression of the estrogen,
-progesterone receptors and HER2 membrane protein. The 
+progesterone receptors and HER2 membrane protein. 
+The 
 estrogen receptor positive (ER+) breast cancer subtype is the most
-frequent found in clinical practice [@Anderson2002]. 
+frequent found in clinical practice (more than 70% of the cases) 
+[@Anderson2002]. 
 Tumor cells of this subtype contain the estrogen
 receptor whose main mechanism is the target of selective estrogen receptor
 modulator (SERM), selective estrogen receptor degrader (SERD) and 
 aromatase inhibitors (AI). The degree of the expression of the protein
-can range from 1% to 100% according to ASCO guidelines [@Allison2020]. It has been
+can range from 1% to 100% positive cells 
+according to ASCO guidelines [@Allison2020]. It has been
 shown that the patients in the low spectrum of ER positivity, from 1% to 
 10%, do not benefit as much as patients with 10% to 100% of ER positive cells
 in the tumor [@Dieci2021].
 
-Transcriptomics and genomics have revolutionazed how cancer research is done. 
+Transcriptomics and genomics have revolutionized cancer research. 
 The new related
 tools opened the option to better understand the molecular underpinnings
 of cancer biology. In breast cancer, microarray technologies and 
@@ -57,8 +65,8 @@ assign a risk score, usually for node-negative, post-menopausal and ER+ BC
 patients. The risk score is based on survival data found in the literature
 and the higher the risk score of a patient, the higher the benefit of 
 additional chemotherapy besides the first-line therapy, such as 
-aromatase inhibitors. Several of these signatures are already available
-to be used in hospitals [@mammaprint; @pam50; @oncotypedx; @endopredict; @bci].
+aromatase inhibitors. Several of these signatures are already clinically used
+[@mammaprint; @pam50; @oncotypedx; @endopredict; @bci].
 Moreover,
 some of the risk scores are already recommended in international guidelines
 [@Andre2022]. These signatures though do not provide a possible
@@ -71,19 +79,22 @@ understanding of the patient's tumor molecular biology. There are
 challenges to overcome in the pathway analysis for patients
 individually and how to compare patients molecularly when considering 
 complete transcriptomics data. There is no tool that
-allows to integrate patients in a continuous way. Usually integration is a one
-step procedure and cannot be updated. The usual tools are [@Risso2014;
-@Zhang2020; @Fei2018] and they do not provide batch effect removal for new
-samples. The only way is to re-run the procedure together with the new sample.
-The problem of doing this is usually you don't have enough samples to estimate
-batch effects across groups and therefore correct it.
+allows to integrate patients in a single sample way. 
+Usually integration is a one
+step procedure and cannot be updated. The common tools used in the 
+RNA-seq community for batch effect removal are [@Risso2014;
+@Zhang2020; @Fei2018] and new samples cannot be integrated
+in a straight forward manner.
+The only way is to re-run the procedure together with the new sample.
+Such procedure is not usually feasible as there are not enough samples to
+estimate batch effects across groups and therefore correct them.
 
 We propose here a framework for personalized medicine and the understanding
 of the signaling pathways in a patient level. By developing a normalization
 and projection technique, we show that it is possible to integrate
 publicly available molecular datasets, such as TCGA, SCAN-B, METABRIC and
 microarray data of some patients from the POETIC trial 
-[@tcgabrca; @Saal2015; @Curtis2012; @Gao2019], and that it is possible
+[@tcgabrca; @Saal2015; @Curtis2012; @Gao2019]. It is possible
 to compare patients in a neighborhood of the projected data, providing
 a context to compare patients and better understand the biology of the tumor.
 Moreover, we propose to use the different gene sets from the hallmarks
@@ -97,15 +108,16 @@ the biology of the tumors in patient and neighborhood levels.
 
 The breast cancer cohorts TCGA, SCANB, METABRIC and POETIC 
 [@tcgabrca; @Saal2015; @Curtis2012; @Gao2019]
-were used to calculate the PCA embeddings and scores. The samples are of 
-primary breast cancer samples from different molecular subtypes and age 
-distribution. TCGA was download from Firebrowse, SCANB data was downloaded
+were used to calculate the principal component analysis 
+(PCA) embeddings and scores. The samples are of 
+primary breast cancer from different molecular subtypes and age 
+distribution. TCGA was downloaded from Firebrowse, SCANB data
 from GEO (accession code GSE96058)
 using the package GEOquery [@geoquery] in R along the clinical data from the 
 https://oncogenomics.bmc.lu.se/MutationExplorer/ website. METABRIC 
 was downloaded directly from cBioPortal. POETIC data was downloaded 
 from GEO (accession code GSE105777) using the R package GEOquery. 
-More details about the download and preprocessing steps are described in 
+Details about the download and preprocessing steps are described in 
 https://chronchi.github.io/transcriptomics. 
 
 ## Selection of highly variable genes
@@ -187,12 +199,15 @@ the analysis can be found on
 
 # Results
 
-## Estrogen receptor is a clinical continuous variable
+## Estrogen receptor signaling is a clinical continuous variable
 
-Estrogen signaling is an indicative of how well a patient will respond
-to endocrine therapy. There are several ways to represent the estrogen
-signaling, one of them is to calculate scores derived from gene
-expression levels of bulk RNA-sequencing.
+Estrogen receptor status determines if a patient will receive endocrine
+therapy or not. The status is not the only way to determine the estrogen
+signaling and have a clinical meaning. 
+One way to define estrogen signaling is to calculate scores derived from gene
+expression levels of bulk RNA-sequencing. This provides a continuous measure
+for estrogen signaling that can be used to understand the impact of 
+endocrine therapy.
 We used three independent breast cancer molecular bulk RNA-seq datasets,
 TCGA, SCANB and METABRIC, [@Saal2015; @tcgabrca; @Curtis2012] to 
 calculate estrogen signaling scores. They are cohorts with over 1000 
@@ -219,30 +234,20 @@ number of lymph nodes were used for TCGA and SCANB cohorts. The Nottingham
 prognostic index (NPI) was used for METABRIC. Age was used in all cohorts 
 as a clinical variable for adjustment. To better understand the effect
 of estrogen signaling in the clinics, only ER+ BC patients were used and 
-when possible only those that received endocrine therapy. The selected
-sub population represents patients that could benefit from 
-additional adjuvant therapies given unfavorable scores.
+when possible only those that received endocrine therapy. Such sampling
+may avoid a bias on the coefficients
+due to chemotherapy, as patients that receive chemotherapy tend to have
+a worst outcome in general compared to those that do not receive. 
 @fig-01 (b) shows the forest plots for each cohort individually 
 when calculating the hazard ratio for the
 $SET_{ER/PR}$ estrogen signaling signature. In all the three cases, the 
 hazard ratio for $SET_{ER/PR}$ was below 1, with values ranging from 
 0.23 to 0.61. There is moderate variability for each hazard ratio. 
-This shows the continuous aspect of estrogen receptor status. For both
+This shows the continuous aspect of estrogen receptor signaling. For both
 estrogen pathways of the hallmark collection of gene sets, hazard ratios
 were below 1 in all cases (Table S1), with a 
 HR below 1 meaning that the higher the score the better the chances
 of survival for a patient.
-
-```{r}
-#| label: fig-01
-#| fig-cap: "Scores and survival analysis results from TCGA, SCANB and METABRIC
-#|     cohorts. (a) GSVA scores for the SET ER/PR signature for each cohort.
-#|     Each point corresponds to a patient sample and they are divided by
-#|     estrogen receptor status. (b) Forest plot of the survival analysis
-#|     for each cohort separately. NPI: Nottingham prognostic index. 
-#|     Ti: i-th stage of tumor. Ni: i lymph nodes with breast cancer cells."
-knitr::include_graphics("images/png/figure01.png")
-```
 
 ## Single sample integration preserves relevant breast cancer properties
 
@@ -251,7 +256,9 @@ patients should be treated individually, not just binned in two big
 subgroups as ER+ and ER-. Therefore, it is important to consider each
 patient individually. We developed a single sample
 batch effect removal method (see methods section)
-to integrate microarray and bulk RNA-seq and create a molecular landscape.
+to integrate microarray and bulk RNA-seq and create a molecular landscape,
+which is an embedding of the molecular data into a common space for all 
+samples.
 The advantage of the method is that given a new sample, 
 it can easily be integrated with all the other previous
 samples without any retraining. 
@@ -261,8 +268,8 @@ The average ranking of housekeeping genes distribution is similar among the
 two RNA-seq datasets, SCAN-B and TCGA and their mean values are higher
 than the mean of the distribution on METABRIC (Figure S1 (a)). 
 The normalization preserves the distinctions of gene expression 
-levels between ER+ and ER- breast cancer samples. Examples of genes 
-where see such differences are TFF1 and ESR1 (Figure S1 (b)).
+levels between ER+ and ER- breast cancer samples, ESR1 and TFF1
+being such examples (Figure S1 (b)).
 
 The biplot in @fig-02 (a) with the third and fourth
 components from TCGA and METABRIC samples shows that the samples are well
@@ -275,47 +282,37 @@ The fourth component mostly divides the luminal A and luminal B subtypes,
 whereas the normal-like subtype is spread across the third and fourth 
 component. This also highlights the fact that one cannot interpret the 
 PCA locations globally, rather when comparing samples one should consider
-only its neighborhood.
+only the neighborhood.
 
 As pointed out before, ER status should be considered
 continuous and not dichotomous, @fig-02 (d) shows a gradient of the 
 ER signaling score $SET_{ER/PR}$. The higher values are on the far right
 of the third component, going to negative values as one goes from right
-to left, i.e., moving from a more ER+ status to the ER-. 
+to left, i.e., moving from a more ER+ status to the ER-. Other clinical
+factors, such as tumor stage, node stage, age, NPI and tumor purity
+show no influence in the embedding (Figure S2), besides the fact
+that ER- BC patients usually have higher stage in general.
+
+Missing genes are a problem inherent to publicly available 
+datasets. We try to understand
+the effect of missing genes in the embedding based on their loading values. 
+Ideally if a low amount of genes with high loadings are missing, this should
+not affect very much the embedding. On the other hand, the more genes missing
+with high loadings, the more it will impact the embedding, as PCA takes
+a weighted linear combination of the gene expression values based
+on the loadings. We removed 200
+genes in total with a varying proportion of top loading genes
+(ranging from 0 to 100% with a 5% step). The number of top loading genes 
+missing from the dataset is key for the embedding (@fig-02 (f)). The
+higher the proportion the less precise the embedding is, with the 
+embedding converging towards the origin, i.e., the (0,0) coordinates
+in the plot. 
 
 In order to check the robustness of the procedure, we redid all the 
 pipeline 10 times with 10 random sets of patient samples from TCGA and
 METABRIC, simulating a cross validation process.
 The PCA embedding is invariant to rotation, translation and reflection 
-(@fig-02 (e)). Another problem inherent to publicly available 
-datasets, is the fact that there are missing genes. We try to understand
-the effect of missing genes in the embedding based on their loading values. 
-Ideally if a low amount of genes with high loadings are missing, this should
-not affect very much the embedding. On the other hand, the more genes missing
-with high loadings, the more it will impact the embedding. We removed 200
-genes in total with a varying proportion of top loading genes
-(ranging from 0 to 100% in a 5% step). The number of top loading genes 
-missing from the dataset is key for the embedding (@fig-02 (f)). The
-higher the proportion the less precise the embedding is. Other clinical
-factors, such as tumor stage, node stage, age, NPI and tumor purity
-show no influence in the embedding (Figure S2), besides the fact
-that ER- BC patients usually have higher stage in general.
-
-```{r}
-#| label: fig-02
-#| fig-cap: > 
-#|     (a) Biplot using the third and fourth components on TCGA and METABRIC
-#|     samples. Colored by cohort. (b) Same as **a**, colored by ER status.
-#|     (c) Same as **a**, colored by PAM50 molecular subtype. (d) Hex grid
-#|     calculated on the biplot of the fourth and third component. Each hex 
-#|     is colored based on its average value of the SET ER/PR signature.
-#|     (e) Embedding of random samples given different training sets for 
-#|     PCA. Blue dots correspond to the original embedding of a sample and
-#|     red dots correspond to the new embedding given the new training set.
-#|     (f) Biplot of all possible embeddings of sample given a certain
-#|     proportion of top loadings missing in the dataset.
-knitr::include_graphics("images/png/figure02.png")
-```
+(@fig-02 (e)). 
 
 ## Embedding generalizes to a validation cohort
 
@@ -324,26 +321,13 @@ projection. An external validation cohort is needed. SCANB was
 used as an external validation cohort. SCANB is well mixed with both
 METABRIC and TCGA samples (@fig-03 (a)). ER+ and ER- BC patients are well
 separated (@fig-03 (b)) and the procedure can also distinguish the 
-molecular subtypes (@fig-03 (c)). As an RNA-seq cohort, it is expected that
+molecular subtypes (@fig-03 (c)). We show
+that the embedding works for the SMC cohort [@Kan2018] 
+(Figure S3). As an RNA-seq cohort, it is expected that
 SCANB samples will be closer to TCGA than to METABRIC when removing batch
 effects, due to platform biases and initial scale of the genes. Biplot of
 PC1 and PC2 (@fig-03 (d)) shows that SCANB is closer to TCGA than to
-METABRIC. It is also in between the two cohorts. We also show
-that the embedding works for the SMC cohort [@Kan2018] 
-(supplementary figure 3; 3.14 from the book).
-
-```{r}
-#| label: fig-03
-#| fig-cap: > 
-#|     Validation of the molecular landscape with an external cohort
-#|     (a) Biplot using the third and fourth components and now including
-#|     all samples from the three cohorts: TCGA, METABRIC and SCANB.
-#|     (b) Same as **a**, colored by ER status. 
-#|     (c) Same as **a**, colored by PAM50 molecular subtype.
-#|     (d) Biplot using the first and second component of TCGA, METABRIC and
-#|     SCANB. 
-knitr::include_graphics("images/png/figure03.png")
-```
+METABRIC. It is also in between the two cohorts. 
 
 ## Molecular landscape is a tool to understand and explore patient heterogeneity
 
@@ -352,21 +336,22 @@ embedding, we can add samples from any cohort. The POETIC trial
 [@Dowsett2011] was a trial that evaluated the use of perioperative
 aromatase inhibitors in ER+, postmenopausal BC patients. Its primary 
 endpoint was time to recurrence. 
-The POETIC trial team sent for microarray hybridization
-matched samples from baseline
+Matched samples from baseline
 (before treatment) and at surgery (after an average 14 days of treatment)
-[@Gao2019]. There are also untreated patients, used to control for sample
+[@Gao2019] were sent for microarray hybridization. 
+There are also untreated patients, used to control for sample
 processing artefacts. The patients have matched Ki67 percentage levels, 
 which can be considered an indication of how well a patient responded to 
 the endocrine therapy. Patients with more than 5% of baseline Ki67 and a 
 reduction of 60% upon endocrine therapy are considered responders, otherwise
 they are called non responders.
 
-The molecular landscape can shed light on the differences between
-responders and non responders.
-We embedded the POETIC trial samples using the procedure (@fig-04 (a) left). 
-The samples are spread across the whole molecular landscape, showing that 
-patients indeed have different molecular biological properties. 
+In order to gain insights on the differences between
+responders and non responders,
+we embedded the POETIC trial samples using the procedure and 
+studied molecular landscape (@fig-04 (a) left). 
+The samples are spread across the whole molecular landscape, consistent with 
+patients having different molecular biological properties. 
 Furthermore, the POETIC samples are embedded closer to the
 METABRIC samples (supplementary figure 4; 4.3 from the book). Given
 the available information, the patients that are ER+ and in the
@@ -380,34 +365,16 @@ posterior distribution of the neighborhood for the responder patient. The
 responder patient has a ER signaling score higher than the average. 
 On the other hand, the non responder has a smaller ER signaling score
 than the average (@fig-04 (d)) and also a higher androgen signaling
-score (Androgen response). Other pathways and their average posterior
+score (Androgen response). Other pathways, such as EMT, E2F targets,
+P53 and TGF$\beta$ signaling along with their average posterior
 distributions are shown for both patients.
-
-```{r}
-#| label: fig-04
-#| fig-cap: > 
-#|     Embedding of the POETIC cohort into the molecular landscape and
-#|     pathway analysis for patient samples. (a) Biplots of the 
-#|     POETIC samples (baseline and surgery) into the molecular landscape.
-#|     Left plot is colored by ER status and right plot is colored by
-#|     molecular subtype PAM50 when available. 
-#|     (b) Biplot highlighting two patients with similar embedding and 
-#|     different response status.
-#|     (c) Posterior distributions of the average scores in the neighborhood
-#|     of the responder patient. Red line corresponds to the patient score.
-#|     (d) Posterior distributions of the average scores in the neighborhood
-#|     of the **non**-responder patient. 
-#|     Red line corresponds to the patient score.
-
-knitr::include_graphics("images/png/figure04.png")
-```
 
 ## Generating hypothesis: subgroups and alternative treatments
 
 One key aspect of drug discovery is finding the right groups for 
 targeting with the proper drug. With the molecular landscape we can try
 to identify different subgroups, based on molecular pathway scores. 
-There are several driving the distinction between samples in the 
+We identify several pathways driving the distinction between samples in the 
 embedding, such as G2M checkpoint, epithelial to mesenchymal transition, DNA
 repair and PI3K AKT MTOR signaling (@fig-05 (a)). The scores go from one
 direction to other across the two different principal components, indicating
@@ -426,22 +393,8 @@ the worse the outcome, and reflects the subtyping differences between
 luminal A and B. The PI3K AKT MTOR signaling has a hazard ratio higher
 than 1 with a wider confidence interval, indicating a possible
 subgroup among all selected patients that could benefit from 
-aditional adjuvant therapy targeting this specific pathway.
-
-```{r}
-#| label: fig-05
-#| fig-cap: > 
-#|     Average scores in hex regions using all three cohorts together and
-#|     survival analysis in each cohort individually.
-#|     (a) Biplots of all samples from TCGA, SCANB and METABRIC that were
-#|     grouped in small hex regions. Colors are depicted as the average 
-#|     score value in each hex region. Selected pathways are shown.
-#|     (b) Survival analysis results obtained for each pathway individually.
-#|     The pathways were adjusted as described in the methods section.
-#|     CI: confidence interval.
-
-knitr::include_graphics("images/png/figure05.png")
-```
+additional adjuvant therapy targeting this specific pathway. Further
+validation is necessary for this point.
 
 # Discussion
 
@@ -469,7 +422,7 @@ associated with the commercial signatures, as it has been shown that
 OncotypeDX's estrogen module is highly correlated with the signature 
 itself [@Buus2021].
 
-Integrating molecular data steaming from different sources is a 
+Integrating molecular data stemming from different sources is a 
 challenge. On one hand batch effect tools are usually
 able to remove the batch effects across the different sources of
 variability [@Zhang2020; @Risso2014], on the other hand they are not 
@@ -502,12 +455,13 @@ is only rotated or translated, thus not affecting the global
 structure of the projection.
 
 Sometimes when dealing with publicly available datasets, not all of the 
-genes are available due to ethical [@Saal2015], pre-processing or 
-technological reasons. Therefore we showed how robust the projection is to 
+genes are available due to ethical protocols [@Saal2015], pre-processing or 
+technical reasons. Therefore we showed how robust the projection is to 
 missing genes with high loadings in the projection. If less than 20% of the
 genes we can recover almost surely the position of the embedding if all the
 genes are available. The more genes that are missing, the closer the 
-projection will be to the origin, i.e., the (0,0) coordinate in the plane. 
+projection will be to the origin, i.e., the (0,0) coordinate in the embedding
+of the third and fourth components of the PCA.
 
 To show the clinical validity of the projection, we used a subset
 of patients from the POETIC trial with microarray and clinical information 
@@ -538,7 +492,8 @@ this problem is by using singscore or stingscore [@Foroutan2018; @Bhuva2020],
 a single sample pathway scorer. There is still a cost barrier for using
 RNA-seq dataset in the clinical setting, but efforts are being made 
 across the industry to reduce the sequencing costs and make it more 
-widespread.
+widespread. An example is Alithea genomics, a company aiming to 
+provide large-scale RNA-sequencing by using BRB-seq.
 
 In conclusion we provide some evidence that ER status should be considered
 a continuous marker rather than a categorical one. We also extend this notion
@@ -548,7 +503,93 @@ underpinnings. In this paper we only discussed some pathways, but when
 analysing patient data, several pathways can be considered and should be 
 taken into account when deciding tumor treatment. 
 
+{{< pagebreak >}}
+
 # References
 
 ::: {#refs}
 :::
+
+{{< pagebreak >}}
+
+```{r}
+#| label: fig-01
+#| fig-cap: "Scores and survival analysis results from TCGA, SCANB and METABRIC
+#|     cohorts. (a) GSVA scores for the SET ER/PR signature for each cohort.
+#|     Each point corresponds to a patient sample and they are divided by
+#|     estrogen receptor status. (b) Forest plot of the survival analysis
+#|     for each cohort separately. NPI: Nottingham prognostic index. 
+#|     Ti: i-th stage of tumor. Ni: i lymph nodes with breast cancer cells."
+knitr::include_graphics("images/png/figure01.png")
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: fig-02
+#| fig-cap: > 
+#|     (a) Biplot using the third and fourth components on TCGA and METABRIC
+#|     samples. Colored by cohort. (b) Same as **a**, colored by ER status.
+#|     (c) Same as **a**, colored by PAM50 molecular subtype. (d) Hex grid
+#|     calculated on the biplot of the fourth and third component. Each hex 
+#|     is colored based on its average value of the SET ER/PR signature.
+#|     (e) Embedding of random samples given different training sets for 
+#|     PCA. Blue dots correspond to the original embedding of a sample and
+#|     red dots correspond to the new embedding given the new training set.
+#|     (f) Biplot of all possible embeddings of sample given a certain
+#|     proportion of top loadings missing in the dataset.
+knitr::include_graphics("images/png/figure02.png")
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: fig-03
+#| fig-cap: > 
+#|     Validation of the molecular landscape with an external cohort
+#|     (a) Biplot using the third and fourth components and now including
+#|     all samples from the three cohorts: TCGA, METABRIC and SCANB.
+#|     (b) Same as **a**, colored by ER status. 
+#|     (c) Same as **a**, colored by PAM50 molecular subtype.
+#|     (d) Biplot using the first and second component of TCGA, METABRIC and
+#|     SCANB. 
+knitr::include_graphics("images/png/figure03.png")
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: fig-04
+#| fig-cap: > 
+#|     Embedding of the POETIC cohort into the molecular landscape and
+#|     pathway analysis for patient samples. (a) Biplots of the 
+#|     POETIC samples (baseline and surgery) into the molecular landscape.
+#|     Left plot is colored by ER status and right plot is colored by
+#|     molecular subtype PAM50 when available. 
+#|     (b) Biplot highlighting two patients with similar embedding and 
+#|     different response status.
+#|     (c) Posterior distributions of the average scores in the neighborhood
+#|     of the responder patient. Red line corresponds to the patient score.
+#|     (d) Posterior distributions of the average scores in the neighborhood
+#|     of the **non**-responder patient. 
+#|     Red line corresponds to the patient score.
+
+knitr::include_graphics("images/png/figure04.png")
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: fig-05
+#| fig-cap: > 
+#|     Average scores in hex regions using all three cohorts together and
+#|     survival analysis in each cohort individually.
+#|     (a) Biplots of all samples from TCGA, SCANB and METABRIC that were
+#|     grouped in small hex regions. Colors are depicted as the average 
+#|     score value in each hex region. Selected pathways are shown.
+#|     (b) Survival analysis results obtained for each pathway individually.
+#|     The pathways were adjusted as described in the methods section.
+#|     CI: confidence interval.
+
+knitr::include_graphics("images/png/figure05.png")
+```
