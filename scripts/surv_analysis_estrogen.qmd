@@ -56,6 +56,7 @@ library(GSVA)
 library(uwot)
 
 source("utils.R")
+source("first_run.R")
 
 # by setting the dev to png and pdf, this saves the figures in a specific
 # folder in both formats. moreover, since png is coming first, it shows
@@ -65,8 +66,7 @@ source("utils.R")
 knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
 ```
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 # load the different datasets. we will do the analysis 
 # and save the intermediate results so loading all the dataset again
 # is not necessary
@@ -203,7 +203,7 @@ saveRDS(
 )
 ```
 
-```{r}
+```{r, eval = first_run}
 datasets <- readRDS("../results/rds_files/surv_analysis_estrogen/datasets.rds")
 
 # these are some global parameters for each dataset. important for
