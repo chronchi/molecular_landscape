@@ -45,6 +45,8 @@ two cohorts using the 1000 most variable genes. We then validate the integration
 with new samples from a completely different cohort.
 
 ```{r setup}
+renv::restore()
+
 library(tidyverse)
 
 library(ggplot2)
@@ -55,6 +57,7 @@ library(SummarizedExperiment)
 library(survival)
 
 source("utils.R")
+source("first_run.R")
 
 # the following script load all data necessary to run the chunks.
 # the data is generated from this quarto document itself, therefore
@@ -64,7 +67,12 @@ source("utils.R")
 # all the necessary files, if you don't have them. Once all files 
 # are saved and available in the respective folder, the following
 # lines can be executed. 
-load_at_setup <- TRUE
+if (first_run){
+    load_at_setup <- TRUE   
+} else {
+    load_at_setup <- FALSE
+}
+
 if (load_at_setup){
     name_document <- "pca_merging"
     source("load_rds_files.R")
@@ -91,8 +99,7 @@ then for each gene in the sample we divide by this average.
 
 ### Selecting stable genes
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 datasets <- readRDS(
     "../results/rds_files/surv_analysis_estrogen/datasets_with_scores.rds"
 )
@@ -228,8 +235,8 @@ sd_genes %>% dplyr::filter(symbol %in% genes_for_pca) %>%
 Overall we can see that housekeeping genes have very low standard deviation
 across cohorts, which is good.
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
+
 datasets_normalized <- mapply(
     get_final_ranking_values,
     sum_exp = datasets,
@@ -335,8 +342,7 @@ different random sizes. The sets will have a minimum of 20 genes and maximum of
 focus just on TCGA for simplicity. The correlation used in this case
 was the Pearson correlation.
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 set.seed(02943)
 sizes_sets <- floor(runif(10, min = 20, max = 44))
 random_subsets <- sapply(
@@ -492,8 +498,7 @@ merged_col_data %>% dplyr::filter(
     kableExtra::kable_classic(full_width = FALSE)
 ```
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 training_set <- lapply(
     datasets_normalized[which_cohorts_training], 
     function(sum_exp, i, genes_for_pca) 
@@ -656,8 +661,7 @@ explains the ER status and the two cohorts are well inter mingled. When plotting
 the third and fourth components and coloring by the molecular subtype, we see a
 clear distinction, recapitulating the biology.
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 datasets_pca_coordinates <- lapply(
     datasets_normalized,
     get_pca_coordinates,
@@ -682,8 +686,7 @@ if (!load_at_setup){
 molecular landscape. The samples are mixing well, the only thing is that
 METABRIC is a bit offset to the left bottom.
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 df_pca_coordinates <- datasets_pca_coordinates %>% 
     do.call(rbind, .) %>%
     data.frame %>% 
@@ -1037,8 +1040,7 @@ to each other in one embedding would be far away from them in another embedding.
 Ten random sets of 1000 patients are sampled and the embedding is calculate. A
 total of 10 PCA embeddings are obtained.
 
-```{r, warning = FALSE}
-#| eval: false
+```{r, warning = FALSE, eval = first_run}
 seeds <- seq(0, 500, by = 29)
 new_pcas <- lapply(
     seeds, 
@@ -1405,9 +1407,7 @@ received some kind of hormonal therapy. As seen before, for the TCGA
 dataset we select ER+ BC patients that have the molecular subtype luminal
 A and B instead. 
 
-```{r}
-#| eval: false
-
+```{r, eval = first_run}
 tcga_samples <- colData(datasets$tcga) %>% data.frame %>%
     dplyr::filter(
         pam50 %in% c("luma", "lumb") &

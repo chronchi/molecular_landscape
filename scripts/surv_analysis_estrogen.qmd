@@ -41,6 +41,9 @@ has an overall equal distribution of ER+ and ER- patients and similar age
 distribution. 
 
 ```{r setup}
+# init renv due to docker installation
+renv::restore()
+
 # first load the packages
 library(tidyverse)
 
@@ -56,6 +59,7 @@ library(GSVA)
 library(uwot)
 
 source("utils.R")
+source("first_run.R")
 
 # by setting the dev to png and pdf, this saves the figures in a specific
 # folder in both formats. moreover, since png is coming first, it shows
@@ -65,8 +69,7 @@ source("utils.R")
 knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
 ```
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 # load the different datasets. we will do the analysis 
 # and save the intermediate results so loading all the dataset again
 # is not necessary
@@ -218,9 +221,7 @@ and even inside each molecular subtype there are some differences. This
 indicates how different patients, at least molecularly. We only do the umap
 of samples that have a PAM50 molecular subtype assigned.
 
-```{r}
-#| eval: false
-
+```{r, eval = first_run}
 # first one uses the library uwot to calculate the umap projection.
 # using uwot is better than umap as it allows you to make parallel computations
 # in a reproducible way.
@@ -283,9 +284,7 @@ plots_umap <- mapply(
 cowplot::plot_grid(plotlist = plots_umap, ncol = 1)
 ```
 
-```{r}
-#| eval: false
-
+```{r, eval = first_run}
 width_plot <- 12
 height_plot <- width_plot/1.6
 a <- mapply(
@@ -327,8 +326,7 @@ Where $T_i$ are the expression levels of target genes and $R_j$ are the
 expression levels of the reference genes. Here we use GSVA to calculate
 the scores, even when using their genes. 
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 all_genes <- sapply(datasets, rownames) %>% unlist %>% unique
 # now load the msigdbr and concatenate with set erpr
 gene_sets <- msigdbr::msigdbr(species = "Homo sapiens", category = "H") %>% 
@@ -408,8 +406,7 @@ For example,
 HALLMARK_PANCREAS_BETA_CELLS might have an unstable score, due to a lot 
 of genes missing. 
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 which_exp <- list(
     tcga = "logFPKM_TMM",
     scanb = "logFPKM",
@@ -447,8 +444,6 @@ saveRDS(
 ```
 
 ```{r}
-#| eval: false
-
 gsva_scores <- readRDS(
     "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds"
 )
@@ -826,9 +821,7 @@ data.frame(
     kableExtra::kable_classic(full_width = FALSE)
 ```
 
-```{r}
-#| eval: false
-
+```{r, eval = first_run}
 # run the survival analysis for each dataset with its own formula.
 # we start by defining the base formulas, because later we sapply and 
 # add the scores. this way if we need to change the formulas, we only
