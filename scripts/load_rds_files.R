@@ -61,6 +61,15 @@ if (length(path_to_files) != length(db_files[[name_document]])){
     ))
 }
 
+# check if it is the first run. if it is not then load
+# all the files. if it is, exclude the files that are 
+# not available yet from the current document
+if (first_run){
+    files_current_document <- grepl(name_document, path_to_files)
+    files_current_document <- path_to_files[files_current_document]
+    path_to_files <- setdiff(path_to_files, files_current_document)
+}
+
 # it is not possible to use parallel, as the workers don't have 
 # access to R main's environemnt. for this we need to load first using
 # mcmapply and then use the function list2env to load to the global 
