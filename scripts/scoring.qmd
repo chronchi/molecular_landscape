@@ -70,10 +70,13 @@ source("first_run.R")
 # Here we are using rds files from previous chapters, so we source
 # in any case the load_rds_files.R and exclude all the associated files
 # that are generated in this current chapter
-if (load_at_setup){
-    name_document <- "validation"
-    source("load_rds_files.R")
+if (first_run){
+    load_at_setup <- FALSE
+} else {
+    load_at_setup <- TRUE
 }
+name_document <- "scoring"
+source("load_rds_files.R")
 
 # by setting the dev to png and pdf, this saves the figures in a specific
 # folder in both formats. moreover, since png is coming first, it shows

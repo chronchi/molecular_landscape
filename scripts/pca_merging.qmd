@@ -68,15 +68,13 @@ source("first_run.R")
 # are saved and available in the respective folder, the following
 # lines can be executed. 
 if (first_run){
-    load_at_setup <- TRUE   
-} else {
     load_at_setup <- FALSE
+} else {
+    load_at_setup <- TRUE
 }
 
-if (load_at_setup){
-    name_document <- "pca_merging"
-    source("load_rds_files.R")
-}
+name_document <- "pca_merging"
+source("load_rds_files.R")
 
 # by setting the dev to png and pdf, this saves the figures in a specific
 # folder in both formats. moreover, since png is coming first, it shows
