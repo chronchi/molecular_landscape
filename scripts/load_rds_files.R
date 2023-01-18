@@ -48,7 +48,7 @@ path_to_files <- sapply(
     path = "..",
     recursive = TRUE, 
     USE.NAMES = FALSE
-) 
+)
 path_to_files <- paste0("../", path_to_files)
 names(path_to_files) <- names(db_files[[name_document]])
 
@@ -61,14 +61,8 @@ if (length(path_to_files) != length(db_files[[name_document]])){
     ))
 }
 
-# check if it is the first run. if it is not then load
-# all the files. if it is, exclude the files that are 
-# not available yet from the current document
-if (first_run){
-    files_current_document <- grepl(name_document, path_to_files)
-    files_current_document <- path_to_files[files_current_document]
-    path_to_files <- setdiff(path_to_files, files_current_document)
-}
+# exclude entries that have character 0 as path
+path_to_files_ <- path_to_files[path_to_files != "../character(0)"]
 
 # it is not possible to use parallel, as the workers don't have 
 # access to R main's environemnt. for this we need to load first using
