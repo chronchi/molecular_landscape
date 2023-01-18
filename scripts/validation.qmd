@@ -757,6 +757,11 @@ missing.
 folder_to_save <- paste0(
     "../results/plots/validation/random_loadings/"
 )
+dir.create(
+    folder_to_save, 
+    showWarnings = FALSE, 
+    recursive = TRUE
+)
 fig_width <- 8
 fig_height <- 5
 

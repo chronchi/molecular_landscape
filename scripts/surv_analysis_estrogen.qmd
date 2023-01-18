@@ -287,6 +287,12 @@ cowplot::plot_grid(plotlist = plots_umap, ncol = 1)
 ```{r, eval = first_run}
 width_plot <- 12
 height_plot <- width_plot/1.6
+dir.create(
+    "../results/plots/surv_analysis_estrogen/umap/", 
+    showWarnings = FALSE, 
+    recursive = TRUE
+)
+
 a <- mapply(
     ggsave,
     plot = plots_umap,
@@ -958,6 +964,15 @@ patients <- list(
     tcga = "Lum A/B, ER+ BC",
     scanb = "Endo Only, ER+ BC",
     metabric = "Endo Only, ER+ BC"
+)
+
+dir.create(
+    paste0(
+        "../results/plots/surv_analysis_estrogen/forest_plots/",
+        c("pdf", "png")
+    ), 
+    showWarnings = FALSE, 
+    recursive = TRUE
 )
 
 forest_plots <- mapply(

@@ -244,6 +244,11 @@ final_plots <- lapply(
 )
 
 folder_to_save <- "../results/plots/scoring/movie"
+dir.create(
+    folder_to_save, 
+    showWarnings = FALSE, 
+    recursive = TRUE
+)
 fig_width <- 22
 fig_height <- 10
 
