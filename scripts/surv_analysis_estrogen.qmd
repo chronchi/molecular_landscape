@@ -966,11 +966,12 @@ patients <- list(
     metabric = "Endo Only, ER+ BC"
 )
 
-dir.create(
+sapply(
     paste0(
         "../results/plots/surv_analysis_estrogen/forest_plots/",
         c("pdf", "png")
     ), 
+    dir.create,
     showWarnings = FALSE, 
     recursive = TRUE
 )
