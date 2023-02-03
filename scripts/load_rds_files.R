@@ -48,7 +48,7 @@ path_to_files <- sapply(
     path = "..",
     recursive = TRUE, 
     USE.NAMES = FALSE
-) 
+)
 path_to_files <- paste0("../", path_to_files)
 names(path_to_files) <- names(db_files[[name_document]])
 
@@ -60,6 +60,9 @@ if (length(path_to_files) != length(db_files[[name_document]])){
         "There might be files with the same name"
     ))
 }
+
+# exclude entries that have character 0 as path
+path_to_files_ <- path_to_files[path_to_files != "../character(0)"]
 
 # it is not possible to use parallel, as the workers don't have 
 # access to R main's environemnt. for this we need to load first using

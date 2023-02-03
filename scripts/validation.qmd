@@ -9,6 +9,8 @@ We show how well it is embedded, and that
 is not dependent on population characteristics. 
 
 ```{r setup}
+renv::restore()
+
 library(tidyverse)
 
 library(ggplot2)
@@ -18,20 +20,13 @@ library(singscore)
 library(SummarizedExperiment)
 
 source("utils.R")
+source("first_run.R")
 
-# the following script load all data necessary to run the chunks.
-# the data is generated from this quarto document itself, therefore
-# if you are running this documents the first time and don't have the
-# files, comment the following lines. Moreover, if this is your first
-# time running the document, you should run all chunks, to generate 
-# all the necessary files, if you don't have them. Once all files 
-# are saved and available in the respective folder, the following
-# lines can be executed. 
-load_at_setup <- TRUE
-if (load_at_setup){
-    name_document <- "validation"
-    source("load_rds_files.R")
-}
+# Here we are using rds files from previous chapters, so we source
+# in any case the load_rds_files.R and exclude all the associated files
+# that are generated in this current chapter
+name_document <- "validation"
+source("load_rds_files.R")
 
 # by setting the dev to png and pdf, this saves the figures in a specific
 # folder in both formats. moreover, since png is coming first, it shows
@@ -266,8 +261,7 @@ is as small as possible.
 Suppose now that the genes missing in a sample are random. We will calculate
 random fuzziness scores based on this to have a feeling of the scores. 
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 nb_of_genes <- seq(from = 2, to = 220, by = 20)
 list_of_random_genes <- lapply(
     nb_of_genes,
@@ -448,8 +442,7 @@ available there. We select randomly a number of top genes from PC3 and PC4
 to compose the list of missing genes. The proportion of the top loading
 genes is varied. 
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 nb_genes <- 200
 proportions <- seq(0, 1, by = 0.05)
 gene_names <- rownames(pca_fit$loadings)
@@ -758,10 +751,14 @@ to the METABRIC and TCGA samples. The point should be close to the line
 and close to points that have the same proportion of top loadings 
 missing.
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 folder_to_save <- paste0(
     "../results/plots/validation/random_loadings/"
+)
+dir.create(
+    folder_to_save, 
+    showWarnings = FALSE, 
+    recursive = TRUE
 )
 fig_width <- 8
 fig_height <- 5
@@ -794,8 +791,15 @@ good the embedding will be depending on the number of missing genes. The
 video below shows the images for 20 different patients. Notice how all of
 them are connected to the origin as well.
 
-<iframe width="720" height="480" src="../plots/validation/random_loadings.mp4" align="middle" frameborder="0" allowfullscreen></iframe>
+```{r, eval = !first_run, results = 'asis', echo = FALSE}
+embedding_video <- paste0(
+    '<iframe width="720" height="480" ',
+    'src="../plots/validation/random_loadings.mp4" ',
+    'align="middle" frameborder="0" allowfullscreen></iframe>'
+)
 
+cat(embedding_video)
+```
 
 ## SMC embedding
 
@@ -805,8 +809,7 @@ when coloring by cohorts. The samples seem to be well mixed already in
 the RNA-seq samples. This is probably due to the fact that the SMC cohort
 has TPM values. 
 
-```{r}
-#| eval: false
+```{r, eval = first_run}
 clin_data_smc <- read.table(
     "../data/2018_SMC/data_clinical_sample.txt",
     sep = "\t",
