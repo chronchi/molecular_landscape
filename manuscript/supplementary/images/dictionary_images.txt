@@ -17,3 +17,6 @@ figure caption names:
 - pca_merging_files/fig-pca-tumor-purity
 - pca_merging_files/fig-pca-men-status
 - pca_merging_files/fig-pca-tumor-node
+
+# Figure 3
+- validation_files/fig-pca-smc-er-pam50
