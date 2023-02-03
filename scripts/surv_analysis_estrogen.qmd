@@ -67,6 +67,7 @@ source("first_run.R")
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
 knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+options(bitmapType = 'cairo')
 ```
 
 ```{r, eval = first_run}
@@ -75,7 +76,7 @@ knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
 # is not necessary
 tcga <- readRDS("../data/tcga_brca_tumor_filtered.rds")
 metabric <- readRDS("../data/metabric_filtered.rds")
-scanb <- readRDS("../data/scanb.rds")
+scanb <- readRDS("../data/scanb_2022/scanb_sumexp.rds")
 
 # we want to have common variables across datasets. so for tcga
 # we convert the ensembl ids to gene symbol in the rownames,
@@ -112,7 +113,8 @@ keep_genes <- keep_genes > 0.7
 metabric <- metabric[keep_genes, ]
 
 # convert back to non log values and then filter.
-fpkm_scanb <- 2^assay(scanb, "logFPKM")
+assay(scanb, "logFPKM") <- log(assay(scanb) + 1, base = 2)
+fpkm_scanb <- assay(scanb, "FPKM")
 prop_expressed <- rowMeans(fpkm_scanb > 1)
 genes_to_keep <- prop_expressed > 0.8
 scanb <- scanb[genes_to_keep, ]
@@ -160,19 +162,22 @@ metabric$npi <- metabric$NPI
 metabric$NPI <- NULL
 metabric$sample_name <- colnames(metabric)
 
-scanb <- scanb[, scanb$ER_1perc %in% c("NEG", "POS")]
-scanb$er_status <- tolower(scanb$ER_1perc)
-scanb$pam50 <- tolower(scanb$PAM50)
-scanb$PAM50 <- NULL
+scanb <- scanb[, scanb$ER %in% c("Negative", "Positive")]
+scanb$er_status <- tolower(scanb$ER)
+scanb$pam50 <- tolower(scanb$SSP.PAM50)
 scanb$nhg <- scanb$NHG
 scanb$NHG <- NULL
-scanb$age <- scanb$Age
-scanb$os_months <- scanb$OS_months
+scanb$age <- scanb$Age..5.year.range..e.g...35.31.35...40.36.40...45.41.45..etc..
+scanb$os_months <- scanb$OS_days/30
 scanb$os_status <- scanb$OS_event + 1
-scanb$tumor_size <- scanb$TumorSize
-scanb$tumor_stage <- scanb$TStage
-scanb$node_group <- scanb$Node_group
-scanb$Node_group <- NULL
+scanb$rfs_status <- scanb$RFi_event + 1
+scanb$rfs_months <- scanb$RFi_days/30
+scanb$drfs_status <- scanb$DRFi_event + 1
+scanb$drfs_months <- scanb$DRFi_days/30
+scanb$tumor_size <- scanb$Size.mm
+scanb$tumor_stage <- scanb$pT
+scanb$node_group <- scanb$LN.spec
+scanb$LN.spec <- NULL
 scanb$sample_name <- colnames(scanb)
 node_stage <- scanb$node_group
 scanb$node_stage <- ifelse(
@@ -433,7 +438,7 @@ gsva_scores <- mapply(
         GSVA::gsva(
             expr = as.matrix(assay(sum_exp, which_assay)),
             gset.idx.list = gene_sets, 
-            parallel.sz = 20
+            parallel.sz = 10
         )
     },
     sum_exp = datasets,
@@ -776,6 +781,15 @@ SCANB are those that are above the 10% threshold.
 The table below shows the number of patients for each cohort.
 
 ```{r}
+datasets$scanb$tumor_stage <- colData(datasets$scanb) %>%
+    data.frame %>%
+    dplyr::mutate(tumor_stage = dplyr::case_when(
+        stringr::str_detect(tumor_stage, "^T1") ~ "T1",
+        stringr::str_detect(tumor_stage, "^T2") ~ "T2",
+        stringr::str_detect(tumor_stage, "^T3") ~ "T3"
+    )) %>%
+    dplyr::pull(tumor_stage)
+
 tcga_samples <- colData(datasets$tcga) %>% data.frame %>%
     dplyr::filter(
         pam50 %in% c("luma", "lumb") &
@@ -789,8 +803,20 @@ scanb_samples <- colData(datasets$scanb) %>% data.frame %>%
     dplyr::filter(
         node_stage != "NX" &
         !(tumor_stage %in% c("T4", "Tis", "TX")) & 
-        ER_10perc == "POS" & 
-        Adjuvant_Endo_only == 1
+        er_status == "positive" & 
+        TreatGroup == "Endo"
+    ) %>% 
+    dplyr::pull(sample_name)
+
+# we select also patients with high ER percentage > 90 for comparison
+# down in the analysis
+scanb_high_er <- colData(datasets$scanb) %>% data.frame %>%
+    dplyr::filter(
+        node_stage != "NX" &
+        !(tumor_stage %in% c("T4", "Tis", "TX")) & 
+        er_status == "positive" & 
+        TreatGroup == "Endo" & 
+        ER.pct >= 90
     ) %>% 
     dplyr::pull(sample_name)
 
@@ -802,12 +828,13 @@ metabric_samples <- colData(datasets$metabric) %>% data.frame %>%
     ) %>% 
     dplyr::pull(sample_name)
 
-data.frame(
-    cohort = c("TCGA", "SCANB", "METABRIC"),
+nb_pts_events <- data.frame(
+    cohort = c("TCGA", "SCANB", "METABRIC", "SCANB High ER"),
     number_patients = c(
         length(tcga_samples),
         length(scanb_samples),
-        length(metabric_samples)
+        length(metabric_samples),
+        length(scanb_high_er)
     ),
     nb_events = c(
         datasets$tcga %>% colData %>% data.frame %>%
@@ -821,10 +848,16 @@ data.frame(
        datasets$metabric %>% colData %>% data.frame %>%
             dplyr::filter(sample_name %in% metabric_samples & os_status == 2) %>%
             dplyr::summarise(n = n()) %>%
+            dplyr::pull(n),
+       datasets$scanb %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% scanb_high_er & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
             dplyr::pull(n)
     )
 ) %>% kableExtra::kbl() %>%
     kableExtra::kable_classic(full_width = FALSE)
+
+nb_pts_events
 ```
 
 ```{r, eval = first_run}
@@ -835,8 +868,11 @@ data.frame(
 formulas_survival <- c(
     "os_tcga" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
-    "rfs_metabric" = "Surv(rfs_months, os_status) ~ age + npi"
+    "rfs_metabric" = "Surv(rfs_months, os_status) ~ age + npi",
+    "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage"
 )
 
 type_survival <- c("os", "rfs")
@@ -845,7 +881,8 @@ which_scores <- c(
     "HALLMARK_ESTROGEN_RESPONSE_LATE",
     "SET_ERPR",
     "random_200",
-    "random_18"
+    "random_18",
+    "ER.pct"
 )
 survival_results <- sapply(
     c("os", "rfs"),
@@ -855,22 +892,31 @@ survival_results <- sapply(
                 dataset, name_dataset, name_scores, formulas, type_analysis
             ){
                 
-                if (type_analysis == "rfs" & name_dataset != "metabric"){
+                if (type_analysis == "rfs" & name_dataset == "tcga"){
                     return()
                 } else { 
                 
                     sapply(
                         name_scores,
-                        function(name_score, col_data, formula){
+                        function(name_score, col_data, formula_str){
                             
-                            survival::coxph(
-                                as.formula(
-                                    paste(formula, name_score, sep = "+")
-                                ),
-                                data = col_data, 
-                                y = FALSE,
-                                x = FALSE
-                            )
+                            if (name_score %in% colnames(col_data)){
+                                survival::coxph(
+                                    as.formula(
+                                        paste(
+                                            formula_str, 
+                                            name_score, 
+                                            sep = "+"
+                                        )
+                                    ),
+                                    data = col_data, 
+                                    y = FALSE,
+                                    x = FALSE
+                                )    
+                            } else {
+                                return()
+                            }
+                            
                         },
                         col_data = colData(dataset) %>% data.frame,
                         formula = formulas[
@@ -887,7 +933,8 @@ survival_results <- sapply(
             dataset = datasets,
             name_dataset = names(datasets),
             MoreArgs = list(
-                formulas = formulas, name_scores = name_scores,
+                formulas = formulas, 
+                name_scores = name_scores,
                 type_analysis = type_analysis
             ),
             USE.NAMES = TRUE,
@@ -896,8 +943,13 @@ survival_results <- sapply(
     },
     datasets = mapply(
         function(dataset, patients) dataset[, patients],
-        dataset = datasets,
-        patients = list(tcga_samples, scanb_samples, metabric_samples),
+        dataset = c(datasets, scanb_high_er = datasets$scanb),
+        patients = list(
+            tcga_samples, 
+            scanb_samples, 
+            metabric_samples, 
+            scanb_high_er
+        ),
         USE.NAMES = TRUE,
         SIMPLIFY = FALSE
     ),
@@ -910,6 +962,17 @@ survival_results <- sapply(
 survival_results$rfs <- survival_results$rfs[
     !sapply(survival_results$rfs, is.null)
 ]
+survival_results$rfs$metabric <- survival_results$rfs$metabric[
+    !sapply(survival_results$rfs$metabric, is.null)
+]
+
+survival_results$os <- purrr::discard(
+    purrr::map(
+        survival_results$os, 
+        ~ purrr::discard(.x, is.null),
+    ),
+    is.null
+)
 
 # we cannot simply save the models as each model has some 
 # environment variables, which adds up to over 20GB. 
@@ -930,7 +993,8 @@ names_signatures <- c(
     "HALLMARK_ESTROGEN_RESPONSE_LATE" = "Estrogen Late",
     "SET_ERPR" = "SET ER/PR",
     "random_200" = "random 200 genes",
-    "random_18" = "random 18 genes"
+    "random_18" = "random 18 genes",
+    "ER.pct" = "ER percentage"
 )
 
 names_coefficients <- list(
@@ -957,13 +1021,23 @@ names_coefficients <- list(
         "node_stageN3" = "N3",
         "tumor_stagestage_ii" = "T2",
         "tumor_stagestage_iii" = "T3"
+    ),
+    scanb_high_er = c(
+        "age" = "age",
+        names_signatures,
+        "node_stageN1" = "N1",
+        "node_stageN2and3" = "N2 and N3",
+        "tumor_stageT1" = "T1",
+        "tumor_stageT2" = "T2",
+        "tumor_stageT3" = "T3"
     )
 )
 
 patients <- list(
     tcga = "Lum A/B, ER+ BC",
     scanb = "Endo Only, ER+ BC",
-    metabric = "Endo Only, ER+ BC"
+    metabric = "Endo Only, ER+ BC",
+    scanb_high_er = "Endo Only, ER+ BC, ER% >= 90"
 )
 
 sapply(
@@ -1066,6 +1140,7 @@ and overall survival (OS), the results for both analysis are presented here.
 
 ```{r}
 tables_survival %>% 
+    dplyr::filter(cohort != "scanb_high_er") %>%
     DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
     DT::formatRound(
         columns=c(
@@ -1083,7 +1158,7 @@ the score, the less likely the patient is to suffer the event in a specific
 timepoint. This indicates that ER signaling is actually something continuous
 and not dichotomous.
 
-@fig-forest-plot shows the forest plot of $SET_{ER/PR}$ for all 
+@fig-forest-plot shows the forest plot of HALLMARK_ESTROGEN_RESPONSE_EARLY for all 
 three cohorts. 
 
 ```{r, fig.height=10, fig.width = 7}
@@ -1095,7 +1170,7 @@ three cohorts.
 # https://stackoverflow.com/questions/71266791/combine-several-forestplot-object-in-one-graph-in-r
 # we convert the forest plots to grob and then used gridExtra to 
 # plot into the output
-which_pathway <- "SET_ERPR"
+which_pathway <- "HALLMARK_ESTROGEN_RESPONSE_EARLY"
 plots_seterpr <- lapply(
     forest_plots$os, 
     function(x){
@@ -1110,13 +1185,156 @@ gridExtra::grid.arrange(
 )
 ```
 
-The hazard ratios are all below 1 and small for $SET_{ER/PR}$.
+The hazard ratios are all below 1 and small for HALLMARK_ESTROGEN_RESPONSE_EARLY.
 The variability changes depending on the cohort, 
 specially because they have different follow-up times, 
-SCANB being the shortest. TCGA has very few events, but using the 10
-to 1 rule of thumb, 
-meaning 10 events for each covariate added, the regression
-satisfies the rule of thumb.
+SCANB being the shortest. TCGA has very few number of events and we could
+not select based on the treatment, the results for TCGA are less reliable.
+
+## Comparison of ER IHC and molecular ER signaling
+
+The new released dataset from the SCANB consortium contains the ER 
+percentage based on the IHC stainings. This is great, because we can
+now compare the molecular ER signaling score to what is seen in the clinics.
+
+First we start by comparing the molecular score with the percentages 
+(@fig-cor-ihc-rna).
+
+```{r, fig.width=8, fig.height=10}
+#| label: fig-cor-ihc-rna
+#| fig-cap: Correlation between ER IHC percentage and molecular ER signaling
+#|     by using the signature HALLMARK_ESTROGEN_RESPONSE_EARLY and SET ER/PR.
+datasets$scanb %>%
+    colData %>%
+    data.frame %>%
+    tidyr::pivot_longer(
+        cols = c(HALLMARK_ESTROGEN_RESPONSE_EARLY, SET_ERPR),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = ER.pct, 
+        y = score,
+        color = TreatGroup
+    )) +
+    ggplot2::geom_smooth(color = "black", method = "gam") +
+    ggplot2::geom_point(size = 2, alpha = 0.8, mapping = aes(shape = pam50)) +
+    ggplot2::labs(
+        x = "ER percentage",
+        color = "Treatment\nGroup",
+        shape = "PAM50",
+        title = paste0(
+            "Correlation between ER IHC percentage and",
+            " molecular ER signaling score"
+        )
+    ) + 
+    ggplot2::facet_wrap(~ pathway, scales = "free_y", ncol = 1) +
+    ggplot2::theme_bw(base_size = 12) 
+```
+
+The first thing that one can notice is that ER percentage is very discrete,
+pathologists probably don't assign non rounded percentage values, which 
+makes sense. Another thing to notice is that for high ER percentage 
+patients you have a whole spectrum of molecular ER signaling score.
+
+@fig-er-hist shows the distribution of the ER IHC percentage for the
+patients used in the previous survival analysis for SCANB. 
+
+```{r}
+#| label: fig-er-hist
+#| fig-cap: Histogram of ER IHC percentage of the SCANB samples used
+#|     for survival analysis
+datasets$scanb %>%
+    colData %>%
+    data.frame %>%
+    dplyr::filter(sample_name %in% scanb_samples) %>%
+    ggplot2::ggplot(aes(x = ER.pct)) +
+    ggplot2::geom_histogram(bins = 20) +
+    ggplot2::labs(
+        x = "ER percentage",
+        title = paste0(
+            "ER IHC percentage of the patients",
+            " selected for survival analysis"
+        )
+    ) +
+    ggplot2::theme_bw(base_size = 12) 
+```
+
+We see that the majority of the patients actually have already pretty
+high percentage. It could be that the results of the overall survival 
+analysis are actually driven by the the low ER percentage patients,
+so we performed the survival analysis only on patients with ER percentage
+equal or higher than 90%. The table below shows the total number of 
+patients for each analysis.
+
+```{r}
+nb_pts_events
+```
+
+There was a decrease of around 200 patients with 80 events less, so indeed
+a lot of those patients with lower ER percentage had died. @fig-er-ihc-survival
+shows the results of the survival analysis when considering the ER IHC 
+percentage as a continuous score on SCANB.
+
+```{r}
+#| label: fig-er-ihc-survival
+#| fig-cap: Survival analysis using ER IHC percentage as the score instead
+#|     of the common molecular ER signaling scores
+gridExtra::grid.arrange(
+    ggplotify::grid2grob(print(forest_plots$os$scanb[["ER.pct"]]))
+)
+```
+
+We a very tight confidence interval in this case with a HR very close
+to 1, meaning that for every 1% increase there is a 2% decrease in your 
+risk of dying. The table with the values is shown below.
+
+```{r}
+tables_survival %>%
+    dplyr::filter(cohort == "scanb" & term == "ER.pct")
+```
+
+Next we selected only patients that had 90% or more ER IHC percentage 
+to perform the survival analysis. @fig-er-ihc-high-os shows the results
+for both the analysis done on ER IHC percentage,  
+HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR.
+
+```{r, fig.width = 7, fig.height=10}
+#| label: fig-er-ihc-high-os
+#| fig-cap: Survival analysis using ER IHC percentage, 
+#|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 
+#|     patients with 90% or more in the ER IHC were selected.
+gridExtra::grid.arrange(
+    ggplotify::grid2grob(print(forest_plots$os$scanb_high_er$ER.pct)),
+    ggplotify::grid2grob(print(forest_plots$os$scanb_high_er$HALLMARK_ESTROGEN_RESPONSE_EARLY)),
+    ggplotify::grid2grob(print(forest_plots$os$scanb_high_er$SET_ERPR))
+)
+```
+
+When performing the survival analysis among the high ER percentage, there is
+no evidence to differentiate between 90 to 100%, but by using the molecular
+scores that fact is still true, showing that perhaps the molecular score
+could be more sensitive for these patients. 
+
+We can also analyse the recurrence free survival for this cohort 
+(@fig-er-ihc-high-rfs).
+
+```{r, fig.width = 7, fig.height=10}
+#| label: fig-er-ihc-high-rfs
+#| fig-cap: Survival analysis using ER IHC percentage, 
+#|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 
+#|     patients with 90% or more in the ER IHC were selected.
+gridExtra::grid.arrange(
+    ggplotify::grid2grob(print(forest_plots$rfs$scanb_high_er$ER.pct)),
+    ggplotify::grid2grob(print(forest_plots$rfs$scanb_high_er$HALLMARK_ESTROGEN_RESPONSE_EARLY)),
+    ggplotify::grid2grob(print(forest_plots$rfs$scanb_high_er$SET_ERPR))
+)
+```
+
+The problem now is that the number of events is much smaller, so the
+confidence intervals for the estimates will be bigger. We see
+that for both signatures the HR is way below 1, meaning that 
+the higher the score the better it is for the patient. 
 
 ## Conclusion
 
