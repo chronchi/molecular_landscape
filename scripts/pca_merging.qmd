@@ -82,6 +82,7 @@ source("load_rds_files.R")
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
 knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+options(bitmapType = 'cairo')
 ```
 
 ## Transcriptomics and qPCR normalization
@@ -162,12 +163,37 @@ the housekeeping genes in the column data `colData`. This way it is very easy to
 retrieve the information for the patients.
 
 ```{r}
+#| label: fig-comparison-sd-cv
+#| fig-cap: Comparison of coefficient of variation and standard deviation
+#|     scores. 
 # the strategy is to calculate the standard deviation for each cohort separately
 # and then select the genes with the highest average standard deviation and
 # then we include the stable genes as well
 common_genes <- Reduce(intersect, lapply(datasets, rownames))
 nb_tcga <- ncol(datasets$tcga)
 nb_metabric <- ncol(datasets$metabric)
+cv_genes <- mapply(
+    function(df, assay_to_use, common_genes){
+        
+        # select first common genes across the two cohorts, so the identified
+        # genes are the same
+        df <- df[common_genes, ]
+        
+        rowSds(as.matrix(assay(df, assay_to_use)))/
+            rowMeans(as.matrix(assay(df, assay_to_use)))
+    },
+    df = datasets[c("tcga", "metabric")],
+    assay_to_use = list(
+        tcga = "vst",
+        metabric = "median_intensity"
+    ),
+    MoreArgs = list(common_genes = common_genes)
+) %>% data.frame %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(average = mean(c(tcga, metabric))) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(symbol = common_genes) 
+
 sd_genes <- mapply(
     function(df, assay_to_use, common_genes){
         
@@ -193,9 +219,31 @@ sd_genes <- mapply(
     dplyr::ungroup() %>%
     dplyr::mutate(symbol = common_genes) 
 
-most_variable_genes <- sd_genes %>% 
+most_variable_genes_sd <- sd_genes %>% 
     dplyr::slice_max(n = 1000, order_by = average) 
-genes_for_pca <- most_variable_genes$symbol
+most_variable_genes_cv <- cv_genes %>% 
+    dplyr::slice_max(n = 1000, order_by = average) 
+
+p <- dplyr::inner_join(cv_genes, sd_genes, by = "symbol") %>% 
+    ggplot2::ggplot(aes(x = average.x, y = average.y)) + 
+    ggplot2::geom_point() +
+    ggplot2::geom_smooth(method = "lm", formula = "y~x") + 
+    ggplot2::labs(
+        x = "Average coefficient of variation (CV)",
+        y = "Average of standard deviation (SD)",
+        title = "Comparison of scores when selecting most variable genes"
+    ) +
+    ggplot2::theme_bw()
+
+p
+```
+
+They are highly correlated values, so we stick to the coefficient of 
+variation as it makes more sense in this kind of analysis.
+
+```{r}
+most_variable_genes <- most_variable_genes_cv
+genes_for_pca <- most_variable_genes_cv$symbol
 
 genes_for_pca <- c(genes_for_pca, stable_genes) %>% unique
 saveRDS(
@@ -213,7 +261,7 @@ deviation. The stable genes are also added to the list.
 #|     each condition and 
 #|     pooled standard deviation. 
 
-sd_genes %>% dplyr::filter(symbol %in% genes_for_pca) %>%
+cv_genes %>% dplyr::filter(symbol %in% genes_for_pca) %>%
     dplyr::mutate(
         is_housekeeping = ifelse(symbol %in% stable_genes, "yes", "no")
     ) %>%
@@ -234,7 +282,6 @@ Overall we can see that housekeeping genes have very low standard deviation
 across cohorts, which is good.
 
 ```{r, eval = first_run}
-
 datasets_normalized <- mapply(
     get_final_ranking_values,
     sum_exp = datasets,
@@ -358,7 +405,7 @@ random_normalization <- parallel::mclapply(
     get_final_ranking_values,
     sum_exp = datasets$tcga,
     assay_to_use = which_exp$tcga,
-    most_variable_genes = most_variable_genes %>% dplyr::pull(symbol),
+    most_variable_genes = setdiff(genes_for_pca, stable_genes),
     mc.cores = 10
 )
 
@@ -389,7 +436,7 @@ correlation_scores <- lapply(
         )
     },
     og_sum_exp = datasets_normalized$tcga,
-    most_variable_genes = most_variable_genes$symbol
+    most_variable_genes = setdiff(genes_for_pca, stable_genes)
 ) %>% `names<-`(
     paste0("nb_genes_", sapply(random_subsets, length))
 )
@@ -659,6 +706,35 @@ explains the ER status and the two cohorts are well inter mingled. When plotting
 the third and fourth components and coloring by the molecular subtype, we see a
 clear distinction, recapitulating the biology.
 
+The plot below shows how the loadings of the first component are really
+concentrated around zero, so there are not actually specific genes that
+are accounting for the batch effects we see in the first component. We show 
+latter that the genes that are the most important are the ones with high loading,
+so the tail of the distributions. In this sense there are really no genes 
+in the tail of the loadings for PC1. 
+
+```{r}
+#| label: fig-loadings-pcs
+#| fig-cap: Different loadings for the first 4 components. 
+pca_fit$loadings %>%
+    data.frame %>%
+    dplyr::select(PC1, PC2, PC3, PC4) %>%
+    tidyr::pivot_longer(
+        cols = c(PC1, PC2, PC3, PC4),
+        names_to = "component", 
+        values_to = "loadings"
+    ) %>%
+    ggplot2::ggplot(
+        aes(x = abs(loadings))
+    ) + 
+    ggplot2::geom_histogram(bins = 30) +
+    ggplot2::facet_wrap(~component) + 
+    ggplot2::labs(
+        title = "Histogram of the loadings from the first four components"
+    ) +
+    ggplot2::theme_bw() 
+```
+
 ```{r, eval = first_run}
 datasets_pca_coordinates <- lapply(
     datasets_normalized,
@@ -745,7 +821,6 @@ plot_pca_coordinates(
     )
 )
 ```
-
 
 In order to check if the integration made sense, it is possible to color by ER
 status, NPI for METABRIC samples and tumor/node stage for TCGA. To check ER
@@ -1073,7 +1148,7 @@ plot_pcas_together <- function(
     new_pca_results <- new_pca_results[[which_seed]]$test %>%
         do.call(rbind, .)
     
-    a <- list(
+    list(
         "og_pca" = test_og_pca[random_samples, c("PC3", "PC4")] %>% 
             data.frame %>%
             tibble::rownames_to_column(var = "sample_name"),
@@ -1352,7 +1427,7 @@ molecular landscape. Something that is particularly remarkable here is the
 association of the epithelial mesenchymal transition and DNA repair
 pathways with PC4. 
 
-```{r, fig.width = 16, fig.height=10}
+```{r, fig.width = 6, fig.height=20}
 #| label: fig-pca-mol-land-pathways
 #| fig-cap: Hex biplots colored by different pathways. Each hex is colored
 #|     based on the average score in the hex.
@@ -1379,6 +1454,7 @@ plots_pathways <- sapply(
             ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
                 ggplot2::stat_summary_hex(bins = 35) +
                 ggplot2::scale_fill_viridis_c() +
+                ggplot2::facet_wrap(~cohort) + 
                 ggplot2::labs(
                     title = color,
                     fill = "Score"
@@ -1393,7 +1469,7 @@ plots_pathways <- sapply(
 
 cowplot::plot_grid(
     plotlist = plots_pathways,
-    ncol = 3,
+    ncol = 1,
     labels = "AUTO"
 )
 ```
@@ -1423,8 +1499,8 @@ scanb_samples <- colData(datasets$scanb) %>% data.frame %>%
     dplyr::filter(
         node_stage != "NX" &
         !(tumor_stage %in% c("T4", "Tis", "TX")) & 
-        ER_10perc == "POS" & 
-        Adjuvant_Endo_only == 1
+        er_status == "pos" & 
+        TreatGroup == "Endo"
     ) %>% 
     dplyr::pull(sample_name)
 
@@ -1449,7 +1525,8 @@ formulas_survival <- c(
     "os_tcga" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
-    "rfs_metabric" = "Surv(rfs_months, os_status) ~ age + npi"
+    "rfs_metabric" = "Surv(rfs_months, rfs_status) ~ age + npi",
+    "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage"
 )
 
 type_survival <- c("os", "rfs")
@@ -1468,7 +1545,7 @@ survival_results <- sapply(
                 dataset, name_dataset, name_scores, formulas, type_analysis
             ){
                 
-                if (type_analysis == "rfs" & name_dataset != "metabric"){
+                if (type_analysis == "rfs" & name_dataset == "tcga"){
                     return()
                 } else { 
                 
@@ -1523,7 +1600,17 @@ survival_results <- sapply(
 survival_results$rfs <- survival_results$rfs[
     !sapply(survival_results$rfs, is.null)
 ]
+survival_results$rfs$metabric <- survival_results$rfs$metabric[
+    !sapply(survival_results$rfs$metabric, is.null)
+]
 
+survival_results$os <- purrr::discard(
+    purrr::map(
+        survival_results$os, 
+        ~ purrr::discard(.x, is.null),
+    ),
+    is.null
+)
 # we cannot simply save the models as each model has some 
 # environment variables, which adds up to over 20GB. 
 # check this stack exchange thread to read more on it:
@@ -1594,7 +1681,7 @@ forest_plots <- mapply(
                     pathways_of_interest = names(names_signatures)
                 )
                 
-                plot_combined_scores(tidy_survival, range_hr = 3.5) + 
+                plot_combined_scores(tidy_survival, range_hr = 4.5) + 
                     ggplot2::labs(
                         title = paste0(
                             toupper(name_cohort), ", PC3 > 0\n", 
@@ -1658,10 +1745,6 @@ cowplot::plot_grid(plotlist = c(
 ), ncol = 1)
 ```
 
-We see that G2M checkpoint and PI3K AKT MTOR signaling all have
-hazard ratios higher than 1. The other scores are a bit more
-variable and can change the sign (type S error). The 
-magnitude of the HRs for G2M and PI3K seem to be concordant
-across the different datasets, on TCGA the score is more variable,
-probably due to the number of events available, still the sign and 
-the magnitude make sense in this case.
+We see that G2M checkpoint has hazard ratio higher than 1.
+The other scores are a bit more
+variable and can change the sign (type S error).

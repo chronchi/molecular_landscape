@@ -84,6 +84,7 @@ source("load_rds_files.R")
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
 knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+options(bitmapType = 'cairo')
 ```
 
 ## Calculating scores in neighborhoods

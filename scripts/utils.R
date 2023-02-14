@@ -1444,11 +1444,13 @@ plot_combined_scores <- function(tidy_results, range_hr = 6.5, cowplot_table = F
         levels = tidy_results$pathway
     )
     
-    tidy_results <- tidy_results %>% dplyr::arrange(pathway)
+    tidy_results <- tidy_results %>% 
+        dplyr::arrange(pathway) %>%
+        dplyr::mutate(
+            out_range = ifelse(conf.high > range_hr, range_hr, NA)
+        )
     
-    p <- tidy_results %>% dplyr::mutate(
-        out_range = ifelse(conf.high > range_hr, range_hr, NA)
-    ) %>%
+    p <- tidy_results %>% 
         ggplot2::ggplot(aes(
             y = pathway, 
             x = estimate, 
@@ -1461,8 +1463,13 @@ plot_combined_scores <- function(tidy_results, range_hr = 6.5, cowplot_table = F
             x = "Hazard ratio (95% CI)",
             y = ""
         ) +
-        ggplot2::coord_cartesian(xlim = c(0, range_hr)) + 
-        ggplot2::geom_segment(
+        ggplot2::coord_cartesian(xlim = c(0, range_hr))
+    
+    # sometimes the confidence intervals are tight and don't 
+    # cross the specified range_hr, so we check this before 
+    # plotting the arrows
+    if (!all(is.na(tidy_results$out_range))){
+        p <- p + ggplot2::geom_segment(
             aes(
                 x = ifelse(is.na(out_range), conf.high, out_range), 
                 y = pathway,
@@ -1472,6 +1479,10 @@ plot_combined_scores <- function(tidy_results, range_hr = 6.5, cowplot_table = F
             arrow = arrow(length = unit(0.5, "cm"), ends = "last", angle = 150)
         ) +
         ggplot2::theme_bw()
+    } else {
+        p <- p + ggplot2::theme_bw()
+    }
+        
     
     if (cowplot_table){
     

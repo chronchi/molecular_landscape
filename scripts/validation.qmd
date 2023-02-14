@@ -18,6 +18,7 @@ library(PCAtools)
 
 library(singscore)
 library(SummarizedExperiment)
+library(tximport)
 
 source("utils.R")
 source("first_run.R")
@@ -34,6 +35,7 @@ source("load_rds_files.R")
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
 knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+options(bitmapType = 'cairo')
 ```
 
 
@@ -950,4 +952,3 @@ plots_smc <- sapply(
 
 cowplot::plot_grid(plotlist = plots_smc, labels = "AUTO")
 ```
-

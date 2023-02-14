@@ -108,6 +108,17 @@
         "rsvd"
       ]
     },
+    "BiocVersion": {
+      "Package": "BiocVersion",
+      "Version": "3.16.0",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/BiocVersion",
+      "git_branch": "master",
+      "git_last_commit": "c681e06",
+      "git_last_commit_date": "2022-04-26",
+      "Hash": "44c5824508b9a10e52dbb505c34fa880",
+      "Requirements": []
+    },
     "Biostrings": {
       "Package": "Biostrings",
       "Version": "2.64.0",
@@ -2869,6 +2880,17 @@
         "magrittr",
         "rlang"
       ]
+    },
+    "tximport": {
+      "Package": "tximport",
+      "Version": "1.26.1",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/tximport",
+      "git_branch": "RELEASE_3_16",
+      "git_last_commit": "b665ba9",
+      "git_last_commit_date": "2022-12-15",
+      "Hash": "9d749a7f822aacc830cc01384c2cdb37",
+      "Requirements": []
     },
     "tzdb": {
       "Package": "tzdb",

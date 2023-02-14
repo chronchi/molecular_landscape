@@ -42,7 +42,7 @@ distribution.
 
 ```{r setup}
 # init renv due to docker installation
-renv::restore()
+renv::restore(prompt = FALSE)
 
 # first load the packages
 library(tidyverse)
@@ -163,7 +163,7 @@ metabric$NPI <- NULL
 metabric$sample_name <- colnames(metabric)
 
 scanb <- scanb[, scanb$ER %in% c("Negative", "Positive")]
-scanb$er_status <- tolower(scanb$ER)
+scanb$er_status <- c("Positive" = "pos", "Negative" = "neg")[scanb$ER]
 scanb$pam50 <- tolower(scanb$SSP.PAM50)
 scanb$nhg <- scanb$NHG
 scanb$NHG <- NULL
@@ -176,6 +176,14 @@ scanb$drfs_status <- scanb$DRFi_event + 1
 scanb$drfs_months <- scanb$DRFi_days/30
 scanb$tumor_size <- scanb$Size.mm
 scanb$tumor_stage <- scanb$pT
+scanb$tumor_stage <- colData(scanb) %>%
+    data.frame %>%
+    dplyr::mutate(tumor_stage = dplyr::case_when(
+        stringr::str_detect(tumor_stage, "^T1") ~ "T1",
+        stringr::str_detect(tumor_stage, "^T2") ~ "T2",
+        stringr::str_detect(tumor_stage, "^T3") ~ "T3"
+    )) %>%
+    dplyr::pull(tumor_stage)
 scanb$node_group <- scanb$LN.spec
 scanb$LN.spec <- NULL
 scanb$sample_name <- colnames(scanb)
@@ -717,9 +725,50 @@ These signatures are highly curated and they have close or no PAGs.
 Therefore, the scores are not affected by PAGs and they really reflect the
 biology.
 
+Lastly we show in @fig-scores-scanb-esr1 the correlation of 
+the estrogen signaling scores with the signatures. 
+
+```{r}
+#| label: fig-scores-scanb-esr1
+#| fig-cap: Scores for SCANB patients stratified by PAM50 molecular subtype
+
+# we also plot ESR1 levels along here
+esr1_levels <- log(assay(datasets$scanb)["ESR1", ], base = 2)
+
+datasets$scanb %>%
+    colData %>%
+    data.frame %>%
+    dplyr::mutate(`log2(ESR1)` = esr1_levels) %>%
+    tidyr::pivot_longer(
+        cols = c(HALLMARK_ESTROGEN_RESPONSE_EARLY, SET_ERPR),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = `log2(ESR1)`, 
+        y = score,
+        color = TreatGroup
+    )) +
+    ggplot2::geom_point(size = 2, alpha = 0.8, mapping = aes(shape = pam50)) +
+    ggplot2::geom_smooth(color = "black", method = "gam") +
+    ggplot2::labs(
+        x = "log2(ESR1) levels (FPKM)",
+        color = "Treatment\nGroup",
+        shape = "PAM50",
+        title = paste0(
+            "Correlation between ER IHC percentage and",
+            " molecular ER signaling score"
+        )
+    ) + 
+    ggplot2::facet_wrap(~ pathway, scales = "free_y", ncol = 1) +
+    ggplot2::theme_bw(base_size = 12) 
+```
+
+We see that there is a positive correlation between signatures and scores,
+the problem though is the high variability in the scores in this case. 
+
 In the next section we will show how these scores are also prognostic for
 ER+ BC patients.
-
 
 ## Survival analysis
 
@@ -781,15 +830,6 @@ SCANB are those that are above the 10% threshold.
 The table below shows the number of patients for each cohort.
 
 ```{r}
-datasets$scanb$tumor_stage <- colData(datasets$scanb) %>%
-    data.frame %>%
-    dplyr::mutate(tumor_stage = dplyr::case_when(
-        stringr::str_detect(tumor_stage, "^T1") ~ "T1",
-        stringr::str_detect(tumor_stage, "^T2") ~ "T2",
-        stringr::str_detect(tumor_stage, "^T3") ~ "T3"
-    )) %>%
-    dplyr::pull(tumor_stage)
-
 tcga_samples <- colData(datasets$tcga) %>% data.frame %>%
     dplyr::filter(
         pam50 %in% c("luma", "lumb") &
@@ -803,7 +843,7 @@ scanb_samples <- colData(datasets$scanb) %>% data.frame %>%
     dplyr::filter(
         node_stage != "NX" &
         !(tumor_stage %in% c("T4", "Tis", "TX")) & 
-        er_status == "positive" & 
+        er_status == "pos" & 
         TreatGroup == "Endo"
     ) %>% 
     dplyr::pull(sample_name)
@@ -814,7 +854,7 @@ scanb_high_er <- colData(datasets$scanb) %>% data.frame %>%
     dplyr::filter(
         node_stage != "NX" &
         !(tumor_stage %in% c("T4", "Tis", "TX")) & 
-        er_status == "positive" & 
+        er_status == "pos" & 
         TreatGroup == "Endo" & 
         ER.pct >= 90
     ) %>% 
@@ -870,7 +910,7 @@ formulas_survival <- c(
     "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
-    "rfs_metabric" = "Surv(rfs_months, os_status) ~ age + npi",
+    "rfs_metabric" = "Surv(rfs_months, rfs_status) ~ age + npi",
     "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
     "rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage"
 )
@@ -882,8 +922,10 @@ which_scores <- c(
     "SET_ERPR",
     "random_200",
     "random_18",
-    "ER.pct"
+    "ER.pct", 
+    "ESR1"
 )
+
 survival_results <- sapply(
     c("os", "rfs"),
     function(type_analysis, datasets, name_scores, formulas){
@@ -1207,8 +1249,9 @@ First we start by comparing the molecular score with the percentages
 datasets$scanb %>%
     colData %>%
     data.frame %>%
+    dplyr::mutate(`log2(ESR1)` = esr1_levels) %>%
     tidyr::pivot_longer(
-        cols = c(HALLMARK_ESTROGEN_RESPONSE_EARLY, SET_ERPR),
+        cols = c(HALLMARK_ESTROGEN_RESPONSE_EARLY, SET_ERPR, `log2(ESR1)`),
         names_to = "pathway",
         values_to = "score"
     ) %>%
