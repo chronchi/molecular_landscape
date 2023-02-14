@@ -72,9 +72,12 @@ some of the risk scores are already recommended in international guidelines
 [@Andre2022]. These signatures though do not provide a possible
 explanation on why a patient should receive additional therapy. These 
 signatures are composed of several submodules, they are in most of the cases
-related to estrogen, proliferation, HER2 and invasion. In some of the cases
-the risk score is more strongly associated with the estrogen module and in
-other cases to the proliferation module [@Buus2021]. There is still a lack of
+related to estrogen, proliferation, HER2 and invasion. For example,
+the recurrence score (RS) is strongly associated with the estrogen module and 
+in the Risk of Recurrence (ROR) signature there is a strong correlation
+with its proliferation module [@Buus2021]. 
+
+There is still a lack of
 understanding of the patient's tumor molecular biology. There are 
 challenges to overcome in the pathway analysis for patients
 individually and how to compare patients molecularly when considering 
@@ -90,17 +93,20 @@ Such procedure is not usually feasible as there are not enough samples to
 estimate batch effects across groups and therefore correct them.
 
 We propose here a framework for personalized medicine and the understanding
-of the signaling pathways in a patient level. By developing a normalization
+of the signaling pathways at the patient level. By developing a normalization
 and projection technique, we show that it is possible to integrate
 publicly available molecular datasets, such as TCGA, SCAN-B, METABRIC and
 microarray data of some patients from the POETIC trial 
-[@tcgabrca; @Saal2015; @Curtis2012; @Gao2019]. It is possible
+[@tcgabrca; @Saal2015; @Curtis2012; @Gao2019]. By putting the datasets
+together we can explore the full molecular landscape of 
+RNA-seq and microarray samples together. The learned representation
+allows us to add new single samples. It is then possible
 to compare patients in a neighborhood of the projected data, providing
 a context to compare patients and better understand the biology of the tumor.
 Moreover, we propose to use the different gene sets from the hallmarks
 collection of the Molecular Signature Database (MSigDB) 
-[@Subramanian2005; @Liberzon2011] to understand
-the biology of the tumors in patient and neighborhood levels. 
+[@Subramanian2005; @Liberzon2011] to provide novel mechanistic insights of
+the patient specific tumor biology.
 
 # Methods
 
@@ -109,9 +115,15 @@ the biology of the tumors in patient and neighborhood levels.
 The breast cancer cohorts TCGA, SCANB, METABRIC and POETIC 
 [@tcgabrca; @Saal2015; @Curtis2012; @Gao2019]
 were used to calculate the principal component analysis 
-(PCA) embeddings and scores. The samples are of 
-primary breast cancer from different molecular subtypes and age 
-distribution. TCGA was downloaded from Firebrowse, SCANB data
+(PCA) embeddings and perform the validation. The samples are from TCGA, 
+SCANB and METABRIC are representative of the different breast cancer
+molecular subtypes in each respective country of the study. For these
+three cohorts, the samples are from primary breast cancer.
+The POETIC trial data corresponds only post-menopausal women that 
+were diagnosed with primary breast cancer and are considered to have
+an estrogen receptor positive status in the initial diagnosis. 
+
+TCGA was downloaded from Firebrowse, SCANB data
 from GEO (accession code GSE96058)
 using the package GEOquery [@geoquery] in R along the clinical data from the 
 https://oncogenomics.bmc.lu.se/MutationExplorer/ website. METABRIC 
@@ -136,11 +148,9 @@ where k corresopnds to the number of cohorts, in this case $k=2$.
 
 ## qPCR-like normalization
 
-Since samples are coming from different platforms, they need to be
-scaled in a way that they are comparable. For this we developed a new way
-to scale the data based on the ranking of the samples. Given a list of 44
-stable genes across different cancers [@Bhuva2020] and the 1000
-genes selected previously, all genes were ranked from lowest to highest
+Given a list of 44
+stable genes across different cancers [@Bhuva2020] and 1000
+genes selected, all genes were ranked from lowest to highest
 expression for each sample separately and the rankings were divided by 
 the average ranking of the stable genes. Stable genes are considered
 the housekeeping genes. 
@@ -149,15 +159,13 @@ the housekeeping genes.
 
 Using the normalized data, a total of 1000 random samples
 coming from TCGA and METABRIC were selected to perform the initial PCA. 
-This is an unsupervised learning method, therefore there is no need to label
-the samples with respect to some category. The package PCAtools 
-[@Blighe2022] in R was used to perform the PCA and to obtain the loadings for 
-downstream analysis. PCA was used with centering and scaling set to 
-`FALSE`. The embedding for new individual samples is obtained
-by multiplying the loadings matrix with the normalized data for that sample.
-Since the normalization procedure is performed sample-wise, this step is
-independent of the number of samples. If there are missing genes in a sample,
-the normalization is performed and the missing genes are padded with 0. 
+The package PCAtools [@Blighe2022] in R was used to perform the PCA
+obtain the loadings for downstream analysis. 
+PCA was used without centering and scaling. 
+The embedding for new individual samples is obtained by multiplying the 
+loadings matrix with the normalized data for that sample.
+For samples where not all the 1044 genes are available, 
+the normalization is performed and the missing genes are padded with 0.
 
 ## Scoring strategies
 
@@ -179,7 +187,8 @@ the draws and put them in a tidy format.
 
 Survival analysis was done using cox regression with the `survival` 
 package from R. The variables used for adjustment were age, tumor
-stage and number of lymph nodes for TCGA and SCANB. For METABRIC the
+stage and number of positive
+lymph nodes for TCGA and SCANB. For METABRIC the
 variables used were Age and the Nottingham Prognostic Index (NPI). Overall
 survival was performed for all three cohorts and recurrence free 
 survival for METABRIC only. The
@@ -251,10 +260,11 @@ of survival for a patient.
 
 ## Single sample integration preserves relevant breast cancer properties
 
-Since each patient has a different ER signaling score, we assumed that 
-patients should be treated individually, not just binned in two big
-subgroups as ER+ and ER-. Therefore, it is important to consider each
-patient individually. We developed a single sample
+The ER signaling score shows that even among ER+ BC patients there is 
+a possible difference in response to ET. We aimed here to integrate 
+the differente datasets so we can analyse each patient individually 
+on the molecular level given its neighborhood.
+ We developed a single sample
 batch effect removal method (see methods section)
 to integrate microarray and bulk RNA-seq and create a molecular landscape,
 which is an embedding of the molecular data into a common space for all 
@@ -272,12 +282,14 @@ levels between ER+ and ER- breast cancer samples, ESR1 and TFF1
 being such examples (Figure S1 (b)).
 
 The biplot in @fig-02 (a) with the third and fourth
-components from TCGA and METABRIC samples shows that the samples are well
-integrated. All samples, including those used for training
+components from TCGA and METABRIC samples shows that the samples are 
+overlapping across the two cohorts. 
+All samples, including those used for training
 and validation, are plotted. The third components corresponds
 to the separation between ER+ and ER- BC patients in
 both cohorts (@fig-02 (b)). A combination of the third and fourth components
-shows a good distinction among the PAM50 molecular subtypes (@fig-02 (c)).
+shows a good distinction among the PAM50 molecular subtypes (@fig-02 (c)),
+validating the meaning of the overlaping of the samples.
 The fourth component mostly divides the luminal A and luminal B subtypes,
 whereas the normal-like subtype is spread across the third and fourth 
 component. This also highlights the fact that one cannot interpret the 
@@ -290,14 +302,13 @@ ER signaling score $SET_{ER/PR}$. The higher values are on the far right
 of the third component, going to negative values as one goes from right
 to left, i.e., moving from a more ER+ status to the ER-. Other clinical
 factors, such as tumor stage, node stage, age, NPI and tumor purity
-show no influence in the embedding (Figure S2), besides the fact
-that ER- BC patients usually have higher stage in general.
+show no influence in the embedding (Figure S2).
 
 Missing genes are a problem inherent to publicly available 
 datasets. We try to understand
 the effect of missing genes in the embedding based on their loading values. 
-Ideally if a low amount of genes with high loadings are missing, this should
-not affect very much the embedding. On the other hand, the more genes missing
+Ideally if a low number of genes with high loadings are missing, it should
+not affect the embedding. On the other hand, the more genes missing
 with high loadings, the more it will impact the embedding, as PCA takes
 a weighted linear combination of the gene expression values based
 on the loadings. We removed 200
@@ -305,11 +316,11 @@ genes in total with a varying proportion of top loading genes
 (ranging from 0 to 100% with a 5% step). The number of top loading genes 
 missing from the dataset is key for the embedding (@fig-02 (f)). The
 higher the proportion the less precise the embedding is, with the 
-embedding converging towards the origin, i.e., the (0,0) coordinates
-in the plot. 
+embedding converging towards the origin, i.e., 
+the (0,0) coordinates (@fig-02 (f)).
 
 In order to check the robustness of the procedure, we redid all the 
-pipeline 10 times with 10 random sets of patient samples from TCGA and
+pipeline 10 times with 10 random subsets of patient samples from TCGA and
 METABRIC, simulating a cross validation process.
 The PCA embedding is invariant to rotation, translation and reflection 
 (@fig-02 (e)). 
@@ -318,16 +329,18 @@ The PCA embedding is invariant to rotation, translation and reflection
 
 So far only samples from TCGA and METABRIC were used in the training and
 projection. An external validation cohort is needed. SCANB was
-used as an external validation cohort. SCANB is well mixed with both
-METABRIC and TCGA samples (@fig-03 (a)). ER+ and ER- BC patients are well
+used as an external validation cohort. Similar to the previous
+results, SCANB is also overlapping with METABRIC and TCGA (@fig-03 (a)). 
+ER+ and ER- BC patients are well
 separated (@fig-03 (b)) and the procedure can also distinguish the 
-molecular subtypes (@fig-03 (c)). We show
+molecular subtypes (@fig-03 (c)) on top of the other samples coming
+from TCGA and METABRIC. We show
 that the embedding works for the SMC cohort [@Kan2018] 
 (Figure S3). As an RNA-seq cohort, it is expected that
 SCANB samples will be closer to TCGA than to METABRIC when removing batch
-effects, due to platform biases and initial scale of the genes. Biplot of
+effects, mostly due to platform. Biplot of
 PC1 and PC2 (@fig-03 (d)) shows that SCANB is closer to TCGA than to
-METABRIC. It is also in between the two cohorts. 
+METABRIC. 
 
 ## Molecular landscape is a tool to understand and explore patient heterogeneity
 
@@ -393,28 +406,40 @@ the worse the outcome, and reflects the subtyping differences between
 luminal A and B. The PI3K AKT MTOR signaling has a hazard ratio higher
 than 1 with a wider confidence interval, indicating a possible
 subgroup among all selected patients that could benefit from 
-additional adjuvant therapy targeting this specific pathway. Further
-validation is necessary for this point.
+additional adjuvant therapy targeting this specific pathway. Current
+clinical trials [@Capiva] are evaluating the use of PI3K-AKT-MTOR inhibitors
+in advanced metastatic BC patients, here we show weak
+evidence on the molecular level that such treatment could benefit
+early stage primary BC patients. 
 
 # Discussion
 
-Personalized medicine is a key topic in medicine. The goal of better 
+Personalized medicine is a key topic in medicine and BC [@Scabia2022]. 
+The goal of better 
 understanding the molecular underpinnings of the diseases leads to a better
 allocation of treatments and resources in the patient care. We have 
 shown here a possible framework to deal with personalized medicine in 
 breast cancer in general with a focus on ER+ BC patients. 
 
-In general, estrogen receptor status is considered either a dichotomous or
-trichotomous state [@Allison2020]. Breast cancers are classified either in
-ER+ or ER- based on their protein expression levels and IHC. For those tumors
-that are ER+, they can be subdivided into low ER positive (1\% < IHC\% < 10\%)
-and simply ER positive. Those that are into the low ER positive do not 
+Estrogen receptor status is defined as a clinical variable that
+usually have two or three categories [@Allison2020].
+Breast cancers are classified either in
+ER+ or ER- based on their protein expression levels and IHC.
+ER+ are those tumors that express more than 1% and for those expressing
+less than 1% they are considered ER-. This definition is highly dependent on
+the country and guidelines that are used. For example, the ASCO guidelines 
+[@Allison2020] recommends to use a threshold of 1%, whereas the Swedish
+national guidelines uses a threshold of 10% for ER status.
+For those tumors that are ER+, 
+they can be subdivided into low ER positive (1\% < IHC\% < 10\%)
+and simply ER positive. The low ER positive tumors do not 
 usually benefit as much on endocrine therapy. Here we show using cox 
 regression and multiple
 big study cohorts [@tcgabrca; @Curtis2012; @Saal2015] 
 with both RNA-seq and microarray data, that ER status is more of a continuous
-rather than a categorical state. This can aid in treatment decision 
-when evaluating the breast cancer. Several gene signatures already are being
+rather than a categorical state. This can aid in when evaluating
+treatment options and avoiding overtreatment. 
+Several gene signatures already are being
 used, such as OncotypeDX, Mammaprint and Prosigna to assign chemotherapy
 for those patients with higher risk of recurrence 
 [@oncotypedx; @mammaprint; @pam50]. This score might be 
@@ -426,7 +451,8 @@ Integrating molecular data stemming from different sources is a
 challenge. On one hand batch effect tools are usually
 able to remove the batch effects across the different sources of
 variability [@Zhang2020; @Risso2014], on the other hand they are not 
-single sample based, meaning each time a new sample comes the algorithm runs. 
+single sample based, meaning each time a new sample comes the algorithm
+needs to be run again. 
 It is also based on the fact one has enough data in the different datasets,
 otherwise it skews the possible integration towards one of the datasets. 
 Here we show by using TCGA, METABRIC and SCANB that it is 
@@ -439,11 +465,12 @@ PC4 is what makes a difference between the molecular subtypes
 luminal A and B, which in practice differ by proliferation status in terms
 of Ki67 levels [@Arima2018]. 
  
-Moreover, the embeddings in a validation set 
+Moreover, the embeddings in the validation set (SCANB)
 preserve the key features of breast cancer. 
 Samples are projected by their different PAM50 molecular subtypes and
 there is a gradient of estrogen signaling pathway from ER+ BC
-towards ER- BC patients. The first two components are the batch effect 
+towards ER- BC patients in all the three cohorts
+combined. The first two components are the batch effect 
 removal components and SCANB is projected closer to TCGA, since both
 datasets are RNA-seq. On the other hand, part of the POETIC trial was sequenced
 using microarray dataset [@Dowsett2011; @Gao2019], 
@@ -493,7 +520,8 @@ a single sample pathway scorer. There is still a cost barrier for using
 RNA-seq dataset in the clinical setting, but efforts are being made 
 across the industry to reduce the sequencing costs and make it more 
 widespread. An example is Alithea genomics, a company aiming to 
-provide large-scale RNA-sequencing by using BRB-seq.
+provide large-scale RNA-sequencing by using 
+Bulk RNA barcoding and sequencing (BRB-seq).
 
 In conclusion we provide some evidence that ER status should be considered
 a continuous marker rather than a categorical one. We also extend this notion
