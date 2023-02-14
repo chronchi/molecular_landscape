@@ -1462,7 +1462,7 @@ plots_pathways <- sapply(
                 ggplot2::theme_bw(base_size = base_size)
     }, 
     df_pca_coordinates = df_pca_coordinates %>% 
-        dplyr::filter(cohort %in% c("tcga", "metabric")),
+        dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")),
     USE.NAMES = TRUE, 
     simplify = FALSE
 )
