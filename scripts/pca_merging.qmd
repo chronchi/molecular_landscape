@@ -1469,8 +1469,7 @@ plots_pathways <- sapply(
 
 cowplot::plot_grid(
     plotlist = plots_pathways,
-    ncol = 1,
-    labels = "AUTO"
+    ncol = 1
 )
 ```
 
