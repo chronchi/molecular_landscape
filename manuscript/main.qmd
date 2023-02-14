@@ -1,34 +1,37 @@
 # Abstract
 
 Estrogen receptor (ER) signaling is an important factor in breast 
-carcinogenesis. It drives different subtypes in breast cancer and
+carcinogenesis. The receptor drives different subtypes and
 treatment decisions. If a patient is diagnosed
 with breast cancer and has immunohistochemistry (IHC) percentage higher or equal
 than 1% for
-estrogen receptor, they will receive standard endocrine therapy. We 
-hypothesized that there are differences in endocrine therapy among estrogen
+estrogen receptor, they will usually receive standard endocrine therapy. We 
+hypothesized that there are differences in endocrine therapy response
+among estrogen
 receptor positive patients based on the molecular estrogen signaling. We show
-here that estrogen signaling is a continuous status rather than
-dichotomous based on molecular signatures. Given the estrogen 
-signaling score continuity we propose
+that a continuous molecular measure of estrogen signaling is prognostic
+among all ER+ breast cancer patients and also among those with
+high ER IHC percentage ($\geq 90 \%$). We propose
 a new framework for personalized medicine to better understand the 
-molecular biology of patients that have different scores. 
+molecular biology of patients. 
 We introduce a novel single sample embedding technique based on
 RNA-seq and microarray data that integrates distinct cohorts, 
 such as TCGA, METABRIC and SCANB. We show that the embedding, also
 called molecular landscape, captures the true biology of breast cancer,
 dividing patients based on ER status and the different molecular subtypes
-(PAM50). The embedding
-is not dependent of tumor purity, age and other clinical variables but other
-pathways, such as G2M Checkpoint, Epithelial to Mesenchymal Transition
-(EMT) and PI3K AKT MTOR signaling drive the embedding. 
+(PAM50). 
 The embedding works in a way that the algorithm is able to project 
 new samples together within the three cohorts, allowing to compare
 them to what is publicly available and avoiding the
 need of specific reference sets. We demonstrate how to use the molecular
 landscape to ask specific questions about patients in terms of 
 estrogen signaling in the context of the POETIC trial and what could
-be possible reasons that explain the response to treatment. Lastly, 
+be possible reasons that explain the response to treatment. 
+The embedding
+is not dependent of tumor purity, age and other clinical variables but other
+pathways, such as G2M Checkpoint, Epithelial to Mesenchymal Transition
+(EMT) and PI3K AKT MTOR signaling drive the embedding. 
+Lastly, 
 we analyse specific parts of the molecular landscape to look for
 potential subgroups and alternative therapies, more specifically, 
 we show that PI3K AKT
@@ -137,14 +140,13 @@ https://chronchi.github.io/transcriptomics.
 In order to perform the PCA, we sub selected 1000 common and 
 highly variable genes
 in the TCGA and METABRIC cohorts. For each gene and in each cohort
-separately, the standard deviation of that gene was calculated. Then an
-average standard deviation was calculated using the formula below.
+separately, the coefficient of variation (CV) was calculated:
 
 $$
-\text{average sd} = \sqrt{\frac{(sd_{TCGA}^2 + sd_{METABRIC}^2)}{k}},
+\text{CV} = \frac{\text{standard deviation}}{\text{average expression level}}.
 $$
 
-where k corresopnds to the number of cohorts, in this case $k=2$.
+The 1000 genes with highest average CV were selected.
 
 ## qPCR-like normalization
 
@@ -210,9 +212,9 @@ the analysis can be found on
 
 ## Estrogen receptor signaling is a clinical continuous variable
 
-Estrogen receptor status determines if a patient will receive endocrine
-therapy or not. The status is not the only way to determine the estrogen
-signaling and have a clinical meaning. 
+We hypothesized that estrogen receptor (ER) signaling measured by
+scores from bulk RNA-seq samples is prognostic among patients
+that received only endocrine therapy. 
 One way to define estrogen signaling is to calculate scores derived from gene
 expression levels of bulk RNA-sequencing. This provides a continuous measure
 for estrogen signaling that can be used to understand the impact of 
@@ -234,8 +236,16 @@ between estrogen receptor positive and negative breast cancer
 as expected. There is a wide range of values in 
 the estrogen receptor positive (ER+) subgroup. 
 
-Cox regression was used to determine the hazard ratio of the 
-estrogen signaling
+The SCANB cohort has also estrogen receptor percentage determined
+by immuno histochemistry (IHC), the most commonly used measure
+in the clinics to decide if a patient should receive endocrine therapy 
+or not. We show that there is a small positive correlation between
+the molecular ER signaling score (@fig-01 (b)) and that among
+patients with high ER IHC percentage there is a continuum of
+ER signaling scores.
+
+Cox regression was used to determine the hazard ratio (HR) of the 
+ER signaling
 in overall survival (OS) for TCGA, SCANB and METABRIC and
 recurrence free survival (RFS) for METABRIC. Each survival analysis was done
 independently and adjusted for available clinical variables. Tumor size and
@@ -247,10 +257,10 @@ when possible only those that received endocrine therapy. Such sampling
 may avoid a bias on the coefficients
 due to chemotherapy, as patients that receive chemotherapy tend to have
 a worst outcome in general compared to those that do not receive. 
-@fig-01 (b) shows the forest plots for each cohort individually 
+@fig-01 (c) shows the forest plots for each cohort individually 
 when calculating the hazard ratio for the
-$SET_{ER/PR}$ estrogen signaling signature. In all the three cases, the 
-hazard ratio for $SET_{ER/PR}$ was below 1, with values ranging from 
+estrogen signaling signature. In all the three cases, the 
+hazard ratio for estrogen early was below 1, with values ranging from 
 0.23 to 0.61. There is moderate variability for each hazard ratio. 
 This shows the continuous aspect of estrogen receptor signaling. For both
 estrogen pathways of the hallmark collection of gene sets, hazard ratios
@@ -258,13 +268,24 @@ were below 1 in all cases (Table S1), with a
 HR below 1 meaning that the higher the score the better the chances
 of survival for a patient.
 
+Given that the ER percentage could have an impact in the previous results,
+we only selected patients that have high ER IHC percentage (above 90%) and
+performed survival analysis once again on the SCANB cohort. The HR for
+ER percentage is variable and it crosses 1, as expected. But even among
+those patients the two estrogen signatures have a HR below 1 and a 
+confidence interval that is not crossing 1, showing that the previous 
+results obtained for all the three cohorts reproduce for the high ER IHC
+percentage breast cancer patients. 
+
 ## Single sample integration preserves relevant breast cancer properties
 
-The ER signaling score shows that even among ER+ BC patients there is 
-a possible difference in response to ET. We aimed here to integrate 
-the differente datasets so we can analyse each patient individually 
-on the molecular level given its neighborhood.
- We developed a single sample
+Given that not all patients with high ER IHC percentage will respond the 
+same to endocrine therapy, we aimed to develop a framework where we can
+molecular differences of patients that have similar 
+bulk RNA-seq profile of the tumor tissue. This analysis 
+might unravel changes in molecular
+pathways that might be used when deciding the treatment. 
+We developed a single sample
 batch effect removal method (see methods section)
 to integrate microarray and bulk RNA-seq and create a molecular landscape,
 which is an embedding of the molecular data into a common space for all 
@@ -314,16 +335,16 @@ a weighted linear combination of the gene expression values based
 on the loadings. We removed 200
 genes in total with a varying proportion of top loading genes
 (ranging from 0 to 100% with a 5% step). The number of top loading genes 
-missing from the dataset is key for the embedding (@fig-02 (f)). The
+missing from the dataset is key for the embedding (@fig-02 (e)). The
 higher the proportion the less precise the embedding is, with the 
 embedding converging towards the origin, i.e., 
-the (0,0) coordinates (@fig-02 (f)).
+the (0,0) coordinates (@fig-02 (e)).
 
 In order to check the robustness of the procedure, we redid all the 
 pipeline 10 times with 10 random subsets of patient samples from TCGA and
 METABRIC, simulating a cross validation process.
 The PCA embedding is invariant to rotation, translation and reflection 
-(@fig-02 (e)). 
+(@fig-02 (f)). 
 
 ## Embedding generalizes to a validation cohort
 
@@ -398,7 +419,7 @@ EMT.
 Understanding a pathway and its clinical relevance is key
 for drug development and subtyping. The overall and recurrence
 free survival calculated from patients that have ER+ BC, received
-only endocrine therapy (METABRIC: OS/RFS and SCANB: OS) and have 
+only endocrine therapy (METABRIC: OS/RFS and SCANB: OS/RFS) and have 
 $PC3 > 0$ show that G2M 
 checkpoint has a hazard ratio higher than 1 (@fig-05 (b)) and a tight
 confidence interval, which reflects the fact the higher the proliferation
@@ -410,7 +431,7 @@ additional adjuvant therapy targeting this specific pathway. Current
 clinical trials [@Capiva] are evaluating the use of PI3K-AKT-MTOR inhibitors
 in advanced metastatic BC patients, here we show weak
 evidence on the molecular level that such treatment could benefit
-early stage primary BC patients. 
+early stage primary BC patients.
 
 # Discussion
 
