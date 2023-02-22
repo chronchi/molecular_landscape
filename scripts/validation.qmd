@@ -326,7 +326,7 @@ fuzziness_scores_random %>%
         x = "Fuzziness score",
         y = "Count",
         title = "Distribution of fuzziness score as a function of the number\nof genes missing",
-        subtitle = "Only PC2 fuzziness scores",
+        subtitle = "Only PC3 fuzziness scores",
         fill = "# missing\ngenes"
     ) +
     ggplot2::theme_bw()
@@ -926,7 +926,7 @@ smc_df_pca %>%
     ggplot2::theme_bw(base_size = 10)
 ```
 
-As previously, @fig-pca-smc-er-pam50 shows the biplot of PC2 and PC3, 
+As previously, @fig-pca-smc-er-pam50 shows the biplot of PC3 and PC4, 
 highlighting the well mixing of the cohorts. When coloring by ER status,
 samples are in the right group. Molecular subtype is also correct. This
 cohort is special in the sense that there are more luminal B patients,
@@ -951,4 +951,192 @@ plots_smc <- sapply(
 )
 
 cowplot::plot_grid(plotlist = plots_smc, labels = "AUTO")
+```
+
+## PDX 
+
+Another way to validate the results is to use patient derived xenografts.
+In the Brisken lab the MIND model is used [@Sflomos2016; @Scabia2022]. 
+ER+ breast cancer
+samples coming from patients are processed in a specific way and
+injected into the mammary glands of mice. Based on that they can
+stablish themselves and proliferate. The environment should recapitulate
+what is seen in women as well, in the sense that estrogen (E2) levels 
+are similar to those of post-menopausal women. Since these cells have
+to proliferate in order to establish and grow in the ducts, we expect
+them to be more proliferative in terms of RNA-seq components and also
+to lie in the luminal B region of the molecular landscape. We validate
+this now. 
+
+```{r, eval=first_run}
+path_data <- "../data/2019_pdx_brisken"
+
+tx2gene <- readr::read_table(
+    file.path(path_data, "transcripts_to_genes.txt"), 
+    col_names = c("transcript", "gene", "symbol")
+)[, c(1, 3)]
+
+files <- list.files(file.path(path_data, "abundance"), full.names = TRUE)
+files <- file.path(files, "abundance.h5")
+names(files) <- list.files(file.path(path_data, "abundance"))
+txi <- tximport::tximport(
+    files, 
+    type = "kallisto", 
+    tx2gene = tx2gene, 
+    countsFromAbundance = "lengthScaledTPM"
+)
+
+pdx_tpm <- txi$abundance
+log2_pdx_tpm <- log2(pdx_tpm + 1)
+
+# filter the samples to remove lowly expressed genes
+highly_expressed <- rowSums(log2_pdx_tpm > 1) > 0.3
+
+# load the metadata so we can create later the summarized
+# experiment object for the downstream analysis
+metadata <- readr::read_csv(file.path(path_data, "metadata.csv")) %>%
+    dplyr::mutate(pdx = sapply(
+        sample_name,
+        function(x) stringr::str_split(x, "_", simplify = TRUE)[1] %>%
+            as.character
+    ))
+rownames(metadata) <- metadata$sample_name
+
+pdx_tpm <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(
+            tpm = pdx_tpm[highly_expressed, ],
+            log2tpm = log2_pdx_tpm[highly_expressed, ]
+        ),
+    colData = metadata[colnames(pdx_tpm), ]
+)
+
+pdx_normalized <- get_final_ranking_values(
+    sum_exp = pdx_tpm,
+    assay_to_use = "log2tpm",
+    stable_genes = stable_genes,
+    most_variable_genes = setdiff(rownames(pca_fit$loadings), stable_genes)
+)
+
+# calculate the embedding
+pdx_df_pca <- get_pca_coordinates(pdx_normalized, pca_fit) %>%
+    dplyr::bind_cols(
+        ., 
+        colData(pdx_tpm) %>% 
+            data.frame %>% 
+            dplyr::mutate(cohort = "pdx")
+    ) %>% 
+    dplyr::bind_rows(., df_pca_coordinates)
+
+# save all the results
+saveRDS(
+    pdx_tpm,
+    "../results/rds_files/validation/pdx_tpm.rds"
+)
+
+saveRDS(
+    pdx_df_pca %>% data.frame,
+    "../results/rds_files/validation/pdx_df_pca.rds"
+)
+
+saveRDS(
+    pdx_normalized,
+    "../results/rds_files/validation/pdx_normalized.rds"
+)
+```
+
+When checking the total number of genes missing, there are only 
+`r nrow(datasets_normalized$tcga) - nrow(pdx_normalized)` genes missing. 
+And as seen before, this number is almost irrelevant, in the sense that
+the embedding will still be robust and locations will be precise enough.
+
+```{r}
+#| label: fig-pdx-cohort
+#| fig-cap: Biplot of first two PCA components from PDX, TCGA, SCANB and 
+#|     METABRIC. PDX is highlighted in the plot and has bigger dot size.
+pdx_df_pca %>% 
+    ggplot2::ggplot(
+        aes(x = PC1, y = PC2, color = cohort)
+    ) +
+    ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+    ggplot2::scale_size_manual(values = c(
+        "pdx" = 2, 
+        "tcga" = 1,
+        "scanb" = 1,
+        "metabric" = 1
+    )) +
+    ggplot2::scale_alpha_manual(values = c(
+        "pdx" = 1, 
+        "tcga" = 0.1,
+        "scanb" = 0.1,
+        "metabric" = 0.1
+    )) +
+    ggplot2::labs(
+        color = "Cohort",
+        alpha = "Cohort",
+        size = "Cohort",
+        title = paste0(
+            "First two components of PDX cohort overlayed on all the three\n",
+            "big cohorts in the the molecular landscape"
+        ),
+        subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
+    ) + 
+    ggplot2::theme_bw(base_size = 14)
+```
+
+As previously, @fig-pca-pdx-cohort shows the biplot of PC3 and PC4, 
+highlighting the well mixing of the cohorts. As expected the samples are 
+overall in the luminal B region, since these are tumor cells in a 
+proliferative state.
+
+```{r, fig.width=8, fig.height=6}
+#| label: fig-pca-pdx-cohort
+#| fig-cap: Embedding of all samples from TCGA and METABRIC including
+#|     the PDX samples on top.
+pdx_df_pca %>%
+    ggplot2::ggplot(
+        aes(x = PC3, y = PC4, color = cohort)
+    ) +
+    ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+    ggplot2::scale_size_manual(values = c(
+        "pdx" = 2, 
+        "tcga" = 1,
+        "scanb" = 1,
+        "metabric" = 1
+    )) +
+    ggplot2::scale_alpha_manual(values = c(
+        "pdx" = 1, 
+        "tcga" = 0.1,
+        "scanb" = 0.1,
+        "metabric" = 0.1
+    )) +
+    ggplot2::labs(
+        color = "Cohort",
+        alpha = "Cohort",
+        size = "Cohort",
+        title = paste0(
+            "PDX cohort embedding"
+        ),
+        subtitle = "All samples from TCGA, SCANB and METABRIC are plotted"
+    ) + 
+    ggplot2::theme_bw(base_size = 18)
+```
+
+
+```{r fig.width=8, fig.height=5}
+#| label: fig-pca-pdx-control-only
+#| fig-cap: Embedding of only PDX control samples on top of the 
+#|     METABRIC, SCANB and TCGA samples
+p <- get_base_plot(df_pca_coordinates)
+
+pdx_df_pca_sub <- pdx_df_pca %>%
+    dplyr::filter(cohort == "pdx" & treatment == "CTRL") %>%
+    dplyr::mutate(pam50 = "nc")
+
+p +
+    ggplot2::geom_point(
+        pdx_df_pca_sub,
+        mapping = aes(x = PC3, y = PC4, shape = pdx),
+        size = 5
+    ) + 
+    ggplot2::theme_bw(base_size = 15)
 ```

@@ -610,8 +610,18 @@ seterpr_plots <- mapply(
     function(plot, cohort, pathway){
         plot + 
             ggplot2::labs(
-                title = paste0(toupper(cohort), " - ", pathway)
-            )
+                title = paste0(toupper(cohort), " - ", pathway),
+                x = "ER status",
+                color = "PAM50"
+            ) +
+            ggplot2::theme_bw(base_size = 15) + 
+            ggplot2::theme(
+                legend.title = element_text(size=15),
+                legend.text = element_text(size=14), 
+            ) + 
+            ggplot2::guides(
+                color = ggplot2::guide_legend(override.aes = list(size = 5))
+            ) 
     },
     plot = seterpr_plots,
     cohort = names(seterpr_plots),
@@ -761,7 +771,7 @@ datasets$scanb %>%
         )
     ) + 
     ggplot2::facet_wrap(~ pathway, scales = "free_y", ncol = 1) +
-    ggplot2::theme_bw(base_size = 12) 
+    ggplot2::theme_bw(base_size = 15) 
 ```
 
 We see that there is a positive correlation between signatures and scores,
@@ -922,8 +932,7 @@ which_scores <- c(
     "SET_ERPR",
     "random_200",
     "random_18",
-    "ER.pct", 
-    "ESR1"
+    "ER.pct"
 )
 
 survival_results <- sapply(
@@ -1106,8 +1115,8 @@ forest_plots <- mapply(
                         type_survival = toupper(type_analysis),
                         patients = patients[[name_cohort]],
                         #clip = c(0.1, 2),
-                        width = 6.5, 
-                        height = 3, 
+                        width = 4.5, 
+                        height = 2, 
                         path_to_save = paste0(
                             "../results/plots/surv_analysis_estrogen",
                             "/forest_plots/"  
@@ -1203,7 +1212,7 @@ and not dichotomous.
 @fig-forest-plot shows the forest plot of HALLMARK_ESTROGEN_RESPONSE_EARLY for all 
 three cohorts. 
 
-```{r, fig.height=10, fig.width = 7}
+```{r, fig.height=8.5, fig.width = 6}
 #| label: fig-forest-plot
 #| fig-cap: Forest plots of the different cohorts and their hazard ratios.
 #|     The bars correspond to 95% confidence interval.
@@ -1213,7 +1222,7 @@ three cohorts.
 # we convert the forest plots to grob and then used gridExtra to 
 # plot into the output
 which_pathway <- "HALLMARK_ESTROGEN_RESPONSE_EARLY"
-plots_seterpr <- lapply(
+plots_estrogen_early <- lapply(
     forest_plots$os, 
     function(x){
         ggplotify::grid2grob(print(x[[which_pathway]]))
@@ -1221,9 +1230,9 @@ plots_seterpr <- lapply(
 )
 
 gridExtra::grid.arrange(
-    plots_seterpr$tcga, 
-    plots_seterpr$scanb,
-    plots_seterpr$metabric
+    plots_estrogen_early$tcga, 
+    plots_estrogen_early$scanb,
+    plots_estrogen_early$metabric
 )
 ```
 
@@ -1264,15 +1273,25 @@ datasets$scanb %>%
     ggplot2::geom_point(size = 2, alpha = 0.8, mapping = aes(shape = pam50)) +
     ggplot2::labs(
         x = "ER percentage",
-        color = "Treatment\nGroup",
+        y = "Score",
+        color = "Treatment group",
         shape = "PAM50",
         title = paste0(
-            "Correlation between ER IHC percentage and",
+            "Correlation between ER IHC percentage\nand",
             " molecular ER signaling score"
         )
     ) + 
     ggplot2::facet_wrap(~ pathway, scales = "free_y", ncol = 1) +
-    ggplot2::theme_bw(base_size = 12) 
+    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::theme(
+        legend.title = element_text(size=16),
+        legend.text = element_text(size=15), 
+        axis.text = element_text(face="bold")
+    ) + 
+    ggplot2::guides(
+        color = ggplot2::guide_legend(override.aes = list(size = 6)),
+        shape = ggplot2::guide_legend(override.aes = list(size = 6))
+    ) 
 ```
 
 The first thing that one can notice is that ER percentage is very discrete,
@@ -1342,7 +1361,7 @@ to perform the survival analysis. @fig-er-ihc-high-os shows the results
 for both the analysis done on ER IHC percentage,  
 HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR.
 
-```{r, fig.width = 7, fig.height=10}
+```{r, fig.height=8.5, fig.width = 6}
 #| label: fig-er-ihc-high-os
 #| fig-cap: Survival analysis using ER IHC percentage, 
 #|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 
@@ -1362,7 +1381,7 @@ could be more sensitive for these patients.
 We can also analyse the recurrence free survival for this cohort 
 (@fig-er-ihc-high-rfs).
 
-```{r, fig.width = 7, fig.height=10}
+```{r, fig.height=8.5, fig.width = 6}
 #| label: fig-er-ihc-high-rfs
 #| fig-cap: Survival analysis using ER IHC percentage, 
 #|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 

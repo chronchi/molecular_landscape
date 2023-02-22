@@ -26,7 +26,9 @@ db_files <- list(
         pca_random_genes_patients = "pca_random_genes_patients",
         fuzziness_scores_random = "fuzziness_scores_random",
         smc_df_pca = "smc_df_pca",
-        smc_normalized = "smc_normalized"
+        smc_normalized = "smc_normalized",
+        pdx_df_pca = "pdx_df_pca",
+        pdx_normalized = "pdx_normalized"
     ),
     scoring = c(
         df_pca_coordinates = "poetic_df_pca_with_scores",

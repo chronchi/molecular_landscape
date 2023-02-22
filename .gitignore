@@ -10,3 +10,4 @@ results/*
 *RData
 !.gitignore
 !results/book
+scripts/tests.qmd
