@@ -1,11 +1,9 @@
 # Abstract
 
 Estrogen receptor (ER) signaling is an important factor in breast 
-carcinogenesis. The receptor drives different subtypes and
-treatment decisions. If a patient is diagnosed
-with breast cancer and has immunohistochemistry (IHC) percentage higher or equal
-than 1% for
-estrogen receptor, they will usually receive standard endocrine therapy. We 
+carcinogenesis. A breast cancer patient that has more than 1% (or 10%) of 
+ER positive cells by immunohistochemistry (IHC) usually receives standard 
+endocrine therapy. We 
 hypothesized that there are differences in endocrine therapy response
 among estrogen
 receptor positive patients based on the molecular estrogen signaling. We show
@@ -13,13 +11,12 @@ that a continuous molecular measure of estrogen signaling is prognostic
 among all ER+ breast cancer patients and also among those with
 high ER IHC percentage ($\geq 90 \%$). We propose
 a new framework for personalized medicine to better understand the 
-molecular biology of patients. 
+molecular biology of tumors. 
 We introduce a novel single sample embedding technique based on
 RNA-seq and microarray data that integrates distinct cohorts, 
 such as TCGA, METABRIC and SCANB. We show that the embedding, also
 called molecular landscape, captures the true biology of breast cancer,
-dividing patients based on ER status and the different molecular subtypes
-(PAM50). 
+dividing patients based on ER status and the different molecular subtypes. 
 The embedding works in a way that the algorithm is able to project 
 new samples together within the three cohorts, allowing to compare
 them to what is publicly available and avoiding the
