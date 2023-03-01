@@ -668,6 +668,7 @@ selected_data %>%
         color = pam50
     )) + 
     ggplot2::geom_jitter(alpha = 0.7) + 
+    ggplot2::geom_violin(color = "black", alpha = 0.3) + 
     ggplot2::facet_wrap(
         ~cohort, 
         ncol = 1,
