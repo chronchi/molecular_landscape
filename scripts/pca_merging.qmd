@@ -589,7 +589,7 @@ if (!load_at_setup){
 1000 samples used for training. We select several PCs of interest to show how
 the embedding works.
 
-```{r, fig.width=20, fig.height=16}
+```{r, fig.width=14, fig.height=16}
 #| label: fig-pca-embeddings
 #| fig-cap: PCA projections colored by different factors and organized
 #|    by different components. (A) Plot of the first two components colored
@@ -661,6 +661,9 @@ plots_pca_fit$pc2_pc3_pam50 <- PCAtools::biplot(
     subtitle = "Only 1000 training samples",
     pointSize = point_size
 )
+plots_pca_fit$pc2_pc3_pam50 <- plots_pca_fit$pc2_pc3_pam50 +
+    ggplot2::scale_color_manual(values = get_colors_pam50(pca_fit$metadata))
+    
 
 plots_pca_fit$pc2_pc3_intclust <- PCAtools::biplot(
     pca_fit,
@@ -684,7 +687,9 @@ plots_pca_fit$pc3_pc4_pam50 <- PCAtools::biplot(
     title = "Third and fourth components colored by PAM50",
     subtitle = "Only 1000 training samples",
     pointSize = point_size
-)
+) 
+plots_pca_fit$pc3_pc4_pam50 <- plots_pca_fit$pc3_pc4_pam50 +
+    ggplot2::scale_color_manual(values = get_colors_pam50(pca_fit$metadata))
 
 plots_pca_fit$pc3_pc4_cohort <- PCAtools::biplot(
     pca_fit,
@@ -713,7 +718,7 @@ latter that the genes that are the most important are the ones with high loading
 so the tail of the distributions. In this sense there are really no genes 
 in the tail of the loadings for PC1. 
 
-```{r}
+```{r, fig.width=10, fig.height=7}
 #| label: fig-loadings-pcs
 #| fig-cap: Different loadings for the first 4 components. 
 pca_fit$loadings %>%
@@ -732,7 +737,8 @@ pca_fit$loadings %>%
     ggplot2::labs(
         title = "Histogram of the loadings from the first four components"
     ) +
-    ggplot2::theme_bw() 
+    ggplot2::theme_bw(base_size = 20) +
+    change_plot_aes_point()
 ```
 
 ```{r, eval = first_run}
@@ -794,7 +800,10 @@ plot_pca_coordinates(
         "Embedding of all samples from TCGA",
         " and METABRIC"
     )
-)
+) + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 And @fig-pca-pam50.
@@ -803,13 +812,15 @@ And @fig-pca-pam50.
 #| label: fig-pca-pam50
 #| fig-cap: Original PC3 and PC4 of all samples, including test and 
 #|     train samples, of TCGA and METABRIC.
-plot_pca_coordinates(
-    df_pca_coordinates %>% 
+df <- df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
         dplyr::filter(
             pam50 %in% c("basal", "her2", "lumb", "luma", "normal")
         ) %>%
-        dplyr::slice(sample(1:n())),
+        dplyr::slice(sample(1:n()))
+
+plot_pca_coordinates(
+    df,
     color = "pam50",
     x = "PC3",
     y = "PC4",
@@ -819,7 +830,12 @@ plot_pca_coordinates(
         "Embedding of all samples from TCGA",
         " and METABRIC"
     )
-)
+) + 
+    ggplot2::labs(color = "PAM50") +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::scale_color_manual(values = get_colors_pam50(df)) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 In order to check if the integration made sense, it is possible to color by ER
@@ -846,7 +862,9 @@ plot_pca_coordinates(
         " and METABRIC"
     )
 ) + ggplot2::scale_color_viridis_c() +
-    ggplot2::labs(color = "Age")
+    ggplot2::labs(color = "Age") +
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point()
 ```
 
 Age seems to be well mixed. @fig-pca-er-status shows the
@@ -869,7 +887,10 @@ plot_pca_coordinates(
         " and METABRIC"
     )
 ) + ggplot2::scale_color_viridis_d() +
-    ggplot2::labs(color = "ER status")
+    ggplot2::labs(color = "ER status") +
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 It has a very good separation among the different patients.
@@ -892,7 +913,9 @@ plot_pca_coordinates(
         "Embedding of all samples from METABRIC"
     )
 ) + ggplot2::scale_color_viridis_c(na.value = 0) +
-    ggplot2::labs(color = "NPI")
+    ggplot2::labs(color = "NPI") + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point()
 ```
 
 It looks good, ER+ BC patients have lower NPI, which makes sense. 
@@ -915,7 +938,10 @@ plot_pca_coordinates(
         "Embedding of all samples from METABRIC"
     )
 ) + ggplot2::scale_color_viridis_d(na.value = 0) +
-    ggplot2::labs(color = "Tumor purity")
+    ggplot2::labs(color = "Tumor purity") + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 The tumor purity is not a factor that is affecting the embedding as samples
@@ -942,7 +968,10 @@ plot_pca_coordinates(
         "Embedding of all samples from METABRIC"
     )
 ) + ggplot2::scale_color_viridis_d(na.value = 0) +
-    ggplot2::labs(color = "Menopausal\nstatus")
+    ggplot2::labs(color = "Menopausal\nstatus") + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 We don't see any difference between the two status. We proceed now with 
@@ -966,7 +995,10 @@ p1 <- plot_pca_coordinates(
     )
 ) + ggplot2::scale_color_viridis_d() +
     ggplot2::geom_point(size = 2) + 
-    ggplot2::labs(color = "Tumor\nstage")
+    ggplot2::labs(color = "Tumor\nstage") +
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 
 p2 <- plot_pca_coordinates(
     df_pca_coordinates %>% 
@@ -981,7 +1013,10 @@ p2 <- plot_pca_coordinates(
     )
 ) + ggplot2::scale_color_viridis_d() +
     ggplot2::geom_point(size = 2) + 
-    ggplot2::labs(color = "Node\nstage")
+    ggplot2::labs(color = "Node\nstage") +
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 
 cowplot::plot_grid(p1, p2, ncol = 2)
 ```
@@ -997,10 +1032,11 @@ subtype.
 #| label: fig-pca-pam50-2
 #| fig-cap: Corrected PC3 and PC4 of samples from TCGA and METABRIC
 #|     colored by PAM50 molecular subtype.
-plot_pca_coordinates(
-    df_pca_coordinates %>% 
+df <- df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
-        dplyr::filter(!(pam50 %in% c("claudin-low", "nc"))),
+        dplyr::filter(!(pam50 %in% c("claudin-low", "nc")))
+plot_pca_coordinates(
+    df,
     color = "pam50",
     x = "PC3",
     y = "PC4",
@@ -1011,7 +1047,11 @@ plot_pca_coordinates(
     )
 ) +
     ggplot2::geom_point(size = 2) + 
-    ggplot2::labs(color = "PAM50")
+    ggplot2::labs(color = "PAM50") + 
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::scale_color_manual(values = get_colors_pam50(df)) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 The molecular subtypes are projected as expected, going from left to right there
@@ -1042,7 +1082,8 @@ p1 <- df_pca_coordinates %>%
             title = title,
             fill = expression(SET[ER/PR])
         ) + 
-        ggplot2::theme_bw(base_size = base_size)
+        ggplot2::theme_bw(base_size = 15) +
+        change_plot_aes_point() 
 
 p1
 ```
@@ -1068,7 +1109,9 @@ p1 <- df_pca_coordinates %>%
             title = title,
             fill = "Estrogen\nearly"
         ) + 
-        ggplot2::theme_bw(base_size = base_size)
+        ggplot2::theme_bw(base_size = 15) +
+        change_plot_aes_point() +
+        change_guides_point()
 
 p1
 ```
@@ -1079,9 +1122,6 @@ p1
 #|     colored by the hallmark estrogen response late
 
 color <- "HALLMARK_ESTROGEN_RESPONSE_LATE"
-#color <- "HALLMARK_G2M_CHECKPOINT"
-#color <- "HALLMARK_TGF_BETA_SIGNALING"
-#color <- "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION"
 x <- "PC3"
 y <- "PC4"
 size <- 1
@@ -1097,7 +1137,8 @@ p1 <- df_pca_coordinates %>%
             title = title,
             fill = "Estrogen\nlate"
         ) + 
-        ggplot2::theme_bw(base_size = base_size)
+        ggplot2::theme_bw(base_size = 15) +
+        change_plot_aes_point() 
 
 p1
 ```
@@ -1168,7 +1209,9 @@ plot_pcas_together <- function(
         ggplot2::geom_line(color = "gray") + 
         ggplot2::labs(title = paste0("Seed nb: ", which_seed)) + 
         ggplot2::theme_bw(base_size = base_size) + 
-        ggplot2::theme(legend.position = c(0.2, 0.7))
+        ggplot2::theme(legend.position = c(0.2, 0.7)) +
+        change_plot_aes_point() +
+        change_guides_point()
 }
 ```
 
@@ -1246,7 +1289,7 @@ saveRDS(
 )
 ```
 
-```{r pca-no-norm, fig.width=20, fig.height=16}
+```{r pca-no-norm, fig.width=14, fig.height=16}
 #| label: fig-pca-no-norm
 #| fig-cap: PCA projections colored by different factors and organized
 #|    by different components. (A) Plot of the first two components colored
@@ -1317,6 +1360,10 @@ plots_pca_fit$pc2_pc3_pam50 <- PCAtools::biplot(
     subtitle = "Only 1000 training samples",
     pointSize = point_size
 )
+plots_pca_fit$pc2_pc3_pam50 <- plots_pca_fit$pc2_pc3_pam50 +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(pca_fit_no_norm$metadata)
+    ) 
 
 plots_pca_fit$pc3_pc4_pam50 <- PCAtools::biplot(
     pca_fit_no_norm,
@@ -1328,7 +1375,11 @@ plots_pca_fit$pc3_pc4_pam50 <- PCAtools::biplot(
     title = "Third and fourth components colored by PAM50",
     subtitle = "Only 1000 training samples",
     pointSize = point_size
-)
+) + 
+    plots_pca_fit$pc3_pc4_pam50 +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(pca_fit_no_norm$metadata)
+    ) 
 
 plots_pca_fit$pc3_pc4_cohort <- PCAtools::biplot(
     pca_fit_no_norm,
@@ -1381,7 +1432,10 @@ plot_corrected <- plot_pca_coordinates(
         " and METABRIC\n",
         "qPCR normalization performed in the samples"
     )
-)
+) + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 
 plot_no_norm <- plot_pca_coordinates(
     df_pca_coordinates_og_no_norm %>% 
@@ -1397,15 +1451,17 @@ plot_no_norm <- plot_pca_coordinates(
         " and METABRIC\n",
         "No qPCR normalization performed in the samples"
     )
-)
+) + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
-```{r pca-norm-no-norm, fig.width=10, fig.height=4}
+```{r pca-norm-no-norm, fig.width=14, fig.height=6}
 #| label: fig-pca-norm-no-norm
 #| fig-cap: PC3 and PC4 from all METABRIC and TCGA samples. (A) Embedding
 #|     using the qPCR-like normalization. (B) Embedding using the original
 #|     normalization from each dataset.
-
 cowplot::plot_grid(
     plot_corrected,
     plot_no_norm
@@ -1427,7 +1483,7 @@ molecular landscape. Something that is particularly remarkable here is the
 association of the epithelial mesenchymal transition and DNA repair
 pathways with PC4. 
 
-```{r, fig.width = 6, fig.height=20}
+```{r, fig.width = 10, fig.height=30}
 #| label: fig-pca-mol-land-pathways
 #| fig-cap: Hex biplots colored by different pathways. Each hex is colored
 #|     based on the average score in the hex.
@@ -1448,7 +1504,7 @@ plots_pathways <- sapply(
         x <- "PC3"
         y <- "PC4"
         size <- 1
-        base_size <- 10
+        base_size <- 15
         
         p1 <- df_pca_coordinates %>% 
             ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
@@ -1459,7 +1515,8 @@ plots_pathways <- sapply(
                     title = color,
                     fill = "Score"
                 ) + 
-                ggplot2::theme_bw(base_size = base_size)
+                ggplot2::theme_bw(base_size = base_size) + 
+                change_plot_aes_point()
     }, 
     df_pca_coordinates = df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")),

@@ -28,7 +28,9 @@ db_files <- list(
         smc_df_pca = "smc_df_pca",
         smc_normalized = "smc_normalized",
         pdx_df_pca = "pdx_df_pca",
-        pdx_normalized = "pdx_normalized"
+        pdx_normalized = "pdx_normalized",
+        normal_swiss_df_pca = "normal_swiss_df_pca",
+        normal_swiss_normalized = "normal_swiss_normalized"
     ),
     scoring = c(
         df_pca_coordinates = "poetic_df_pca_with_scores",

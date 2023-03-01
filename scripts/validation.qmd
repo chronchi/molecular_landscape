@@ -59,11 +59,13 @@ plot_pca_coordinates(
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from TCGA",
-        ", METABRIC and SCANB\n",
-        "Corrected METABRIC samples"
+        "Embedding of all samples from TCGA,\n",
+        "METABRIC and SCANB"
     )
-) + ggplot2::scale_color_viridis_d()
+) + ggplot2::scale_color_viridis_d() +
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 Ideally there would be some overlap between SCANB and TCGA already in the 
@@ -91,45 +93,62 @@ plot_pca_coordinates(
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from TCGA",
-        ", METABRIC and SCANB"
+        "Embedding of all samples from TCGA,\n",
+        "METABRIC and SCANB"
     )
-)
+) + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 @fig-pca-scanb-er-pam50 shows that the SCANB samples are also well mixed
 regarding the clinical factors, including the $SET_{ER/PR}$ signature.
 
-```{r, fig.width=20, fig.height=14}
+```{r, fig.width=16, fig.height=12}
 #| label: fig-pca-scanb-er-pam50
 #| fig-cap: PCA embedding of all samples from TCGA, SCANB and METABRIC.
 #|     (A) Colored by cohort,
 #|     (B) colored by ER status, (C) colored by PAM50 molecular subtype,
 #|     (D) colored by the $SET_{ER/PR}$ signature and only SCANB samples.
 size <- 2
-base_size <- 18
+base_size <- 20
 
 plots_with_scanb <- sapply(
     c("cohort", "er_status", "pam50", "SET_ERPR"), 
     plot_pca_coordinates,
     df_pca = df_pca_coordinates %>% dplyr::filter(
         pam50 %in% c("luma", "lumb", "basal", "her2", "normal")
-    ),
+    ) %>%
+        dplyr::slice(sample(1:n())),
     x = "PC3", 
     y = "PC4",
     size = size,
     base_size = base_size,
     title = paste0(
-        "Embedding of all samples from TCGA",
-        ", METABRIC and SCANB"
+        "Embedding of all samples from TCGA,\n",
+        "METABRIC and SCANB"
     ),
     USE.NAMES = TRUE, 
     simplify = FALSE
 )
 
+plots_with_scanb$cohort <- plots_with_scanb$cohort +
+    change_plot_aes_point() +
+    change_guides_point()
+
+plots_with_scanb$pam50 <- plots_with_scanb$pam50 +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(plots_with_scanb$pam50$data)
+    ) +
+    change_plot_aes_point() +
+    change_guides_point()
+
 plots_with_scanb$er_status <-  plots_with_scanb$er_status +
     ggplot2::scale_color_viridis_d() +
-    ggplot2::labs(color = "ER status")
+    ggplot2::labs(color = "ER status") +
+    change_plot_aes_point() +
+    change_guides_point()
 
 plots_with_scanb$SET_ERPR <- df_pca_coordinates %>% 
     dplyr::filter(cohort %in% c("scanb")) %>%
@@ -140,12 +159,12 @@ plots_with_scanb$SET_ERPR <- df_pca_coordinates %>%
             title = "Embedding of SCANB only",
             fill = expression(SET[ER/PR])
         ) + 
-        ggplot2::theme_bw(base_size = base_size)
+        ggplot2::theme_bw(base_size = base_size) +
+        change_plot_aes_point()
 
 cowplot::plot_grid(
     plotlist = plots_with_scanb,
-    ncol = 2,
-    labels = "AUTO"
+    ncol = 2
 )
 ```
 
@@ -906,13 +925,13 @@ smc_df_pca %>%
         "tcga" = 1,
         "scanb" = 1,
         "metabric" = 1
-    )) +
+    ), guide = "none") +
     ggplot2::scale_alpha_manual(values = c(
         "smc" = 1, 
         "tcga" = 0.1,
         "scanb" = 0.1,
         "metabric" = 0.1
-    )) +
+    ), guide = "none") +
     ggplot2::labs(
         color = "Cohort",
         alpha = "Cohort",
@@ -923,7 +942,9 @@ smc_df_pca %>%
         ),
         subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
     ) + 
-    ggplot2::theme_bw(base_size = 10)
+    ggplot2::theme_bw(base_size = 15) + 
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 As previously, @fig-pca-smc-er-pam50 shows the biplot of PC3 and PC4, 
@@ -950,7 +971,12 @@ plots_smc <- sapply(
     simplify = FALSE
 )
 
-cowplot::plot_grid(plotlist = plots_smc, labels = "AUTO")
+plots_smc$pam50 <- plots_smc$pam50 +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(plots_smc$pam50$data)
+    )
+
+cowplot::plot_grid(plotlist = plots_smc)
 ```
 
 ## PDX 
@@ -1063,13 +1089,13 @@ pdx_df_pca %>%
         "tcga" = 1,
         "scanb" = 1,
         "metabric" = 1
-    )) +
+    ), guide = "none") +
     ggplot2::scale_alpha_manual(values = c(
         "pdx" = 1, 
         "tcga" = 0.1,
         "scanb" = 0.1,
         "metabric" = 0.1
-    )) +
+    ), guide = "none") +
     ggplot2::labs(
         color = "Cohort",
         alpha = "Cohort",
@@ -1080,7 +1106,9 @@ pdx_df_pca %>%
         ),
         subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
     ) + 
-    ggplot2::theme_bw(base_size = 14)
+    ggplot2::theme_bw(base_size = 14) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 As previously, @fig-pca-pdx-cohort shows the biplot of PC3 and PC4, 
@@ -1098,17 +1126,17 @@ pdx_df_pca %>%
     ) +
     ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
     ggplot2::scale_size_manual(values = c(
-        "pdx" = 2, 
+        "pdx" = 3, 
         "tcga" = 1,
         "scanb" = 1,
         "metabric" = 1
-    )) +
+    ), guide = "none") +
     ggplot2::scale_alpha_manual(values = c(
         "pdx" = 1, 
         "tcga" = 0.1,
         "scanb" = 0.1,
         "metabric" = 0.1
-    )) +
+    ), guide = "none") +
     ggplot2::labs(
         color = "Cohort",
         alpha = "Cohort",
@@ -1118,11 +1146,13 @@ pdx_df_pca %>%
         ),
         subtitle = "All samples from TCGA, SCANB and METABRIC are plotted"
     ) + 
-    ggplot2::theme_bw(base_size = 18)
+    ggplot2::theme_bw(base_size = 18) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 
-```{r fig.width=8, fig.height=5}
+```{r fig.width=9, fig.height=6}
 #| label: fig-pca-pdx-control-only
 #| fig-cap: Embedding of only PDX control samples on top of the 
 #|     METABRIC, SCANB and TCGA samples
@@ -1138,5 +1168,193 @@ p +
         mapping = aes(x = PC3, y = PC4, shape = pdx),
         size = 5
     ) + 
-    ggplot2::theme_bw(base_size = 15)
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        caption = "Grey points correspond to the PDX cohort",
+        title = "PDX cohort, only control samples"
+    ) + 
+    ggplot2::scale_color_manual(
+        values = c(
+            get_colors_pam50(p$data),
+            "not available" = "grey"
+        )
+    ) +
+    change_plot_aes_point() +
+    change_guides_point(shape = TRUE)
 ```
+
+## Normal samples
+
+We now further validate the molecular landscape on the normal samples
+that were sequenced using the same pipeline as the SCANB data. These
+are samples obtained from reduction mammoplasty of swiss women and were
+sent to Sweden for the tissue processing and sequecing. The hypotheses 
+here is that the samples will be embedded in the region of the normal
+like BC samples.
+
+```{r, eval = first_run}
+# load the data and perform the normalization + embedding
+load("../data/scanb_2022/Normal.66.mymatrix.Rdata")
+load("../data/scanb_2022/Gene.ID.ann.Rdata")
+normal_swiss <- Normal.66.mymatrix
+gene_id_ann <- Gene.ID.ann
+rownames(normal_swiss) <- gene_id_ann[rownames(normal_swiss), "Gene.Name"]
+normal_swiss <- normal_swiss[!duplicated(rownames(normal_swiss)), ]
+
+normal_swiss <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(
+            fpkm = normal_swiss,
+            log2fpkm = log2(normal_swiss + 1)
+        )
+)
+
+normal_swiss_normalized <- get_final_ranking_values(
+    sum_exp = normal_swiss,
+    assay_to_use = "log2fpkm",
+    stable_genes = stable_genes,
+    most_variable_genes = setdiff(rownames(pca_fit$loadings), stable_genes)
+)
+
+# calculate the embedding
+normal_swiss_df_pca <- get_pca_coordinates(normal_swiss_normalized, pca_fit) %>%
+    dplyr::bind_cols(
+        ., 
+        data.frame(cohort = rep("normal_swiss", ncol(normal_swiss_normalized)))
+    ) %>% 
+    dplyr::bind_rows(., df_pca_coordinates)
+
+# save all the results
+saveRDS(
+    normal_swiss,
+    "../results/rds_files/validation/normal_swiss.rds"
+)
+
+saveRDS(
+    normal_swiss_df_pca %>% data.frame,
+    "../results/rds_files/validation/normal_swiss_df_pca.rds"
+)
+
+saveRDS(
+    normal_swiss_normalized,
+    "../results/rds_files/validation/normal_swiss_normalized.rds"
+)
+```
+
+When checking the total number of genes missing, there are only 
+`r nrow(datasets_normalized$tcga) - nrow(normal_swiss_normalized)` genes
+missing, i.e., no genes were missing. This makes sense as these samples were
+processed in the same way as the ones from SCANB.
+
+```{r}
+#| label: fig-normal-cohort
+#| fig-cap: Biplot of first two PCA components from Normal Swiss Cohort, 
+#|     TCGA, SCANB and 
+#|     METABRIC. The normal cohort is highlighted in the plot and
+#|     has bigger dot size.
+normal_swiss_df_pca %>% 
+    ggplot2::ggplot(
+        aes(x = PC1, y = PC2, color = cohort)
+    ) +
+    ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+    ggplot2::scale_size_manual(values = c(
+        "normal_swiss" = 2, 
+        "tcga" = 1,
+        "scanb" = 1,
+        "metabric" = 1
+    ), guide = "none") +
+    ggplot2::scale_alpha_manual(values = c(
+        "normal_swiss" = 1, 
+        "tcga" = 0.1,
+        "scanb" = 0.1,
+        "metabric" = 0.1
+    ), guide = "none") +
+    ggplot2::labs(
+        color = "Cohort",
+        alpha = "Cohort",
+        size = "Cohort",
+        title = paste0(
+            "First two components of Normal Swiss cohort overlayed on all\nthe three ",
+            "big cohorts in the the molecular landscape"
+        ),
+        subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
+    ) + 
+    ggplot2::theme_bw(base_size = 14) +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+As previously, @fig-pca-normal-cohort shows the biplot of PC3 and PC4, 
+highlighting the well mixing of the cohorts. As expected the samples are 
+overall in the luminal B region, since these are tumor cells in a 
+proliferative state.
+
+```{r, fig.width=9, fig.height=6}
+#| label: fig-pca-normal-cohort
+#| fig-cap: Embedding of all samples from TCGA, SCNAB and METABRIC including
+#|     the Normal samples on top. 
+normal_swiss_df_pca %>%
+    ggplot2::ggplot(
+        aes(x = PC3, y = PC4, color = cohort)
+    ) +
+    ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+    ggplot2::scale_size_manual(values = c(
+        "normal_swiss" = 3, 
+        "tcga" = 1,
+        "scanb" = 1,
+        "metabric" = 1
+    ), guide = "none") +
+    ggplot2::scale_alpha_manual(values = c(
+        "normal_swiss" = 1, 
+        "tcga" = 0.1,
+        "scanb" = 0.1,
+        "metabric" = 0.1
+    ), guide = "none") +
+    ggplot2::labs(
+        color = "Cohort",
+        alpha = "Cohort",
+        size = "Cohort",
+        title = paste0(
+            "Normal Swiss cohort embedding"
+        ),
+        subtitle = "All samples from TCGA, SCANB and METABRIC are plotted"
+    ) + 
+    ggplot2::theme_bw(base_size = 18) +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+```{r fig.width=9, fig.height=6}
+#| label: fig-pca-normal-pam50
+#| fig-cap: Embedding of Normal Swiss cohort with the 
+#|     other cohorts colored by the PAM50. 
+
+p <- get_base_plot(df_pca_coordinates)
+
+normal_df_pca_sub <- normal_swiss_df_pca %>%
+    dplyr::filter(cohort == "normal_swiss") %>%
+    dplyr::mutate(pam50 = "nc")
+
+p +
+    ggplot2::geom_point(
+        normal_df_pca_sub,
+        mapping = aes(x = PC3, y = PC4),
+        size = 3
+    ) + 
+    ggplot2::labs(
+        title = paste0(
+            "Normal Swiss cohort embedding"
+        ),
+        subtitle = "All samples from TCGA, SCANB and METABRIC are plotted",
+        caption = "Grey points correspond to the swiss cohort"
+    ) +
+    ggplot2::scale_color_manual(
+        values = c(
+            get_colors_pam50(p$data),
+            "not available" = "grey"
+        )
+    ) +
+    ggplot2::theme_bw(base_size = 20) + 
+    change_plot_aes_point() +
+    change_guides_point()
+```
+

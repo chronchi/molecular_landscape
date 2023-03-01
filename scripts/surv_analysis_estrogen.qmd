@@ -118,11 +118,14 @@ fpkm_scanb <- assay(scanb, "FPKM")
 prop_expressed <- rowMeans(fpkm_scanb > 1)
 genes_to_keep <- prop_expressed > 0.8
 scanb <- scanb[genes_to_keep, ]
+scanb$esr1_levels <- assay(scanb, "logFPKM")["ESR1", ]
 
 # we now convert the clinical data to some common names and values
 tcga <- tcga[, tcga$er_status %in% c("Positive", "Negative")]
 tcga$er_status <- c("Positive" = "pos", "Negative" = "neg")[tcga$er_status]
 tcga$pam50 <- tolower(tcga$molecular_subtype)
+levels_order_pam50 <- c("basal", "her2", "lumb", "luma", "normal", "claudin-low")
+tcga$pam50 <- factor(tcga$pam50, levels = levels_order_pam50)
 tcga$os_days <- tcga$time
 tcga$os_months <- tcga$os_days/30
 tcga$os_status <- tcga$status
@@ -151,6 +154,8 @@ tcga$node_stage <- ifelse(
 metabric <- metabric[, metabric$ER_IHC %in% c("Positve", "Negative")]
 metabric$er_status <- c("Positve" = "pos", "Negative" = "neg")[metabric$ER_IHC]
 metabric$pam50 <- tolower(metabric$CLAUDIN_SUBTYPE)
+metabric <- metabric[, metabric$pam50 != "nc"]
+metabric$pam50 <- factor(metabric$pam50, levels = levels_order_pam50)
 metabric$os_months <- metabric$OS_MONTHS
 metabric$rfs_months <- metabric$RFS_MONTHS
 metabric$os_status <- substr(metabric$OS_STATUS, 1, 1) %>% as.numeric
@@ -165,6 +170,7 @@ metabric$sample_name <- colnames(metabric)
 scanb <- scanb[, scanb$ER %in% c("Negative", "Positive")]
 scanb$er_status <- c("Positive" = "pos", "Negative" = "neg")[scanb$ER]
 scanb$pam50 <- tolower(scanb$SSP.PAM50)
+scanb$pam50 <- factor(scanb$pam50, levels = levels_order_pam50)
 scanb$nhg <- scanb$NHG
 scanb$NHG <- NULL
 scanb$age <- scanb$Age..5.year.range..e.g...35.31.35...40.36.40...45.41.45..etc..
@@ -456,17 +462,6 @@ gsva_scores <- mapply(
     USE.NAMES = TRUE
 )
 
-saveRDS(
-    gsva_scores, 
-    "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds"
-)
-```
-
-```{r}
-gsva_scores <- readRDS(
-    "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds"
-)
-
 datasets <- mapply(
     function(gsva_score, dataset){
         colData(dataset)[, rownames(gsva_score)] <- t(gsva_score)
@@ -476,6 +471,11 @@ datasets <- mapply(
     datasets,
     USE.NAMES = TRUE,
     SIMPLIFY = FALSE
+)
+
+saveRDS(
+    gsva_scores, 
+    "../results/rds_files/surv_analysis_estrogen/gsva_scores.rds"
 )
 
 saveRDS(
@@ -604,35 +604,91 @@ signature.
 #| label: fig-scores-metabric-tcga-scanb
 #| fig-cap: SET ER/PR scores for all three cohorts.
 pathway_to_get <- c("SET_ERPR" = "SET ER/PR")
-seterpr_plots <- purrr::map(plot_scores, names(pathway_to_get)[1])
-seterpr_plots <- seterpr_plots[c("tcga", "scanb", "metabric")]
-seterpr_plots <- mapply(
-    function(plot, cohort, pathway){
-        plot + 
-            ggplot2::labs(
-                title = paste0(toupper(cohort), " - ", pathway),
-                x = "ER status",
-                color = "PAM50"
-            ) +
-            ggplot2::theme_bw(base_size = 15) + 
-            ggplot2::theme(
-                legend.title = element_text(size=15),
-                legend.text = element_text(size=14), 
-            ) + 
-            ggplot2::guides(
-                color = ggplot2::guide_legend(override.aes = list(size = 5))
-            ) 
-    },
-    plot = seterpr_plots,
-    cohort = names(seterpr_plots),
-    MoreArgs = list(pathway = pathway_to_get[1]),
-    SIMPLIFY = FALSE,
-    USE.NAMES = TRUE
-)
+cols_to_select <- c("pam50", "er_status", names(pathway_to_get))
+selected_data <- lapply(
+    plot_scores,
+    purrr::pluck,
+    "SET_ERPR", 
+    "data"
+) %>% 
+    lapply(., \(x) x[, cols_to_select]) %>%
+    dplyr::bind_rows(.id = "cohort") %>%
+    dplyr::filter(pam50 %in% levels(pam50))
 
-cowplot::plot_grid(plotlist = seterpr_plots, ncol = 1)
+selected_data %>% 
+    ggplot2::ggplot(aes(
+        x = er_status, 
+        y = !!sym(names(pathway_to_get)),
+        color = pam50
+    )) + 
+    ggplot2::geom_jitter(alpha = 0.7) + 
+    ggplot2::geom_violin(color = "black", alpha = 0.3) + 
+    ggplot2::facet_wrap(
+        ~cohort, 
+        ncol = 1,
+        labeller = as_labeller(c(
+            "tcga" = "TCGA",
+            "metabric" = "METABRIC",
+            "scanb" = "SCANB"
+        ))
+    )+ 
+    ggplot2::labs(
+        x = "ER status",
+        color = "PAM50",
+        y = "Score",
+        title = paste0(pathway_to_get[1], " scores by cohort")
+    ) +
+    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::scale_color_manual(values = get_colors_pam50(selected_data)) +
+    change_plot_aes_point() +
+    change_guides_point() +
+    ggplot2::theme(strip.text = element_text(size = 18))
 ```
 
+And now using the hallmark estrogen response early.
+
+```{r, fig.height=10, fig.width = 6}
+#| label: fig-scores-metabric-tcga-scanb-estrogen-early
+#| fig-cap: Estrogen early scores for all three cohorts.
+pathway_to_get <- c("HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early")
+cols_to_select <- c("pam50", "er_status", names(pathway_to_get))
+selected_data <- lapply(
+    plot_scores,
+    purrr::pluck,
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY", 
+    "data"
+) %>% 
+    lapply(., \(x) x[, cols_to_select]) %>%
+    dplyr::bind_rows(.id = "cohort")
+
+selected_data %>% 
+    ggplot2::ggplot(aes(
+        x = er_status, 
+        y = !!sym(names(pathway_to_get)),
+        color = pam50
+    )) + 
+    ggplot2::geom_jitter(alpha = 0.7) + 
+    ggplot2::facet_wrap(
+        ~cohort, 
+        ncol = 1,
+        labeller = as_labeller(c(
+            "tcga" = "TCGA",
+            "metabric" = "METABRIC",
+            "scanb" = "SCANB"
+        ))
+    )+ 
+    ggplot2::labs(
+        x = "ER status",
+        color = "PAM50",
+        y = "Score",
+        title = paste0(pathway_to_get[1], " scores by cohort")
+    ) +
+    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::scale_color_manual(values = get_colors_pam50(selected_data)) +
+    change_plot_aes_point() +
+    change_guides_point() +
+    ggplot2::theme(strip.text = element_text(size = 18))
+```
 
 Another way to look at the data is to plot by molecular subtype instead
 of ER status.
@@ -738,13 +794,9 @@ biology.
 Lastly we show in @fig-scores-scanb-esr1 the correlation of 
 the estrogen signaling scores with the signatures. 
 
-```{r}
+```{r, fig.width=8, fig.height=6}
 #| label: fig-scores-scanb-esr1
 #| fig-cap: Scores for SCANB patients stratified by PAM50 molecular subtype
-
-# we also plot ESR1 levels along here
-esr1_levels <- log(assay(datasets$scanb)["ESR1", ], base = 2)
-
 datasets$scanb %>%
     colData %>%
     data.frame %>%
@@ -766,12 +818,15 @@ datasets$scanb %>%
         color = "Treatment\nGroup",
         shape = "PAM50",
         title = paste0(
-            "Correlation between ER IHC percentage and",
-            " molecular ER signaling score"
+            "Correlation between ER IHC percentage and\n",
+            "molecular ER signaling score"
         )
     ) + 
     ggplot2::facet_wrap(~ pathway, scales = "free_y", ncol = 1) +
-    ggplot2::theme_bw(base_size = 15) 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point(shape = TRUE) 
+    
 ```
 
 We see that there is a positive correlation between signatures and scores,
@@ -1115,8 +1170,8 @@ forest_plots <- mapply(
                         type_survival = toupper(type_analysis),
                         patients = patients[[name_cohort]],
                         #clip = c(0.1, 2),
-                        width = 4.5, 
-                        height = 2, 
+                        width = 6, 
+                        height = 4, 
                         path_to_save = paste0(
                             "../results/plots/surv_analysis_estrogen",
                             "/forest_plots/"  
@@ -1143,7 +1198,6 @@ forest_plots <- mapply(
 # all forest plots are saved as a pdf in the 
 # results/plots/surv_analysis_estrogen folder and
 # as a rds file in the folder below.
-
 saveRDS(
     forest_plots,
     "../results/rds_files/surv_analysis_estrogen/forest_plots.rds"
@@ -1255,6 +1309,67 @@ First we start by comparing the molecular score with the percentages
 #| label: fig-cor-ihc-rna
 #| fig-cap: Correlation between ER IHC percentage and molecular ER signaling
 #|     by using the signature HALLMARK_ESTROGEN_RESPONSE_EARLY and SET ER/PR.
+esr1_levels <- assay(datasets$scanb, "logFPKM")["ESR1", ]
+    
+df <- datasets$scanb %>%
+    colData %>%
+    data.frame %>%
+    dplyr::mutate(`log2(ESR1)` = esr1_levels) %>%
+    tidyr::pivot_longer(
+        cols = c(HALLMARK_ESTROGEN_RESPONSE_EARLY, SET_ERPR, `log2(ESR1)`),
+        names_to = "pathway",
+        values_to = "score"
+    ) 
+
+df %>%
+    ggplot2::ggplot(aes(
+        x = ER.pct, 
+        y = score,
+        #color = TreatGroup
+        color = pam50
+    )) +
+    ggplot2::geom_smooth(color = "black", method = "gam") +
+    ggplot2::geom_point(size = 2, alpha = 0.8) + #, mapping = aes(shape = pam50)) +
+    ggplot2::labs(
+        x = "ER percentage",
+        y = "Score",
+        #shape = "Treatment group",
+        color = "PAM50",
+        title = paste0(
+            "Correlation between ER IHC percentage\nand",
+            " molecular ER signaling score"
+        )
+    ) + 
+    ggplot2::facet_wrap(~ pathway, scales = "free_y", ncol = 1) +
+    ggplot2::theme_bw(base_size = 18) +
+    ggplot2::scale_color_manual(values = get_colors_pam50(df)) +
+    change_plot_aes_point() +
+    change_guides_point()
+    # ggplot2::theme(
+    #     legend.title = element_text(size=16),
+    #     legend.text = element_text(size=15), 
+    #     axis.text = element_text(face="bold", size = 18),
+    #     axis.title.x = element_text(size = 20),
+    #     axis.title.y = element_text(size = 20)
+    # ) + 
+    # ggplot2::guides(
+    #     color = ggplot2::guide_legend(override.aes = list(size = 6))#,
+    #     #shape = ggplot2::guide_legend(override.aes = list(size = 6))
+    # ) 
+```
+
+The first thing that one can notice is that ER percentage is very discrete,
+pathologists probably don't assign non rounded percentage values, which 
+makes sense. Another thing to notice is that for high ER percentage 
+patients you have a whole spectrum of molecular ER signaling score.
+
+Now we look speficially at the high ER percentage patients and compare
+their ER signaling scores. We previously saw that the distribution
+of these scores seems to be wide.
+
+```{r, fig.width=7, fig.height=10}
+#| label: fig-scores-high-er
+#| fig-cap: Scores for high ER percentage breast cancer patients.
 datasets$scanb %>%
     colData %>%
     data.frame %>%
@@ -1264,40 +1379,77 @@ datasets$scanb %>%
         names_to = "pathway",
         values_to = "score"
     ) %>%
+    dplyr::filter(ER.pct >= 90) %>%
     ggplot2::ggplot(aes(
-        x = ER.pct, 
-        y = score,
-        color = TreatGroup
+        x = score
     )) +
-    ggplot2::geom_smooth(color = "black", method = "gam") +
-    ggplot2::geom_point(size = 2, alpha = 0.8, mapping = aes(shape = pam50)) +
+    ggplot2::geom_histogram(bins = 30) + 
     ggplot2::labs(
-        x = "ER percentage",
-        y = "Score",
-        color = "Treatment group",
-        shape = "PAM50",
+        x = "Score",
         title = paste0(
-            "Correlation between ER IHC percentage\nand",
-            " molecular ER signaling score"
-        )
+            "Scores for high ER IHC (over 90%)\npercentage BC patients",
+            " (", length(scanb_high_er), " pts)"
+        ),
+        y = "Count"
     ) + 
-    ggplot2::facet_wrap(~ pathway, scales = "free_y", ncol = 1) +
-    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::facet_wrap(~ pathway, scales = "free", ncol = 1) +
+    ggplot2::theme_bw(base_size = 18) + 
     ggplot2::theme(
         legend.title = element_text(size=16),
         legend.text = element_text(size=15), 
-        axis.text = element_text(face="bold")
-    ) + 
-    ggplot2::guides(
-        color = ggplot2::guide_legend(override.aes = list(size = 6)),
-        shape = ggplot2::guide_legend(override.aes = list(size = 6))
-    ) 
+        axis.text = element_text(face="bold", size = 14),
+        axis.title.x = element_text(size = 20),
+        axis.title.y = element_text(size = 20)
+    )
 ```
 
-The first thing that one can notice is that ER percentage is very discrete,
-pathologists probably don't assign non rounded percentage values, which 
-makes sense. Another thing to notice is that for high ER percentage 
-patients you have a whole spectrum of molecular ER signaling score.
+@fig-scores-high-er shows how the distributions are not skewed towards
+high values only. It looks like there is a step in the SET ER/PR signature,
+we now compare with the ESR1 values and hallmark estrogen response early.
+
+```{r, fig.width=8, fig.height=7}
+#| label: fig-seter-others
+#| fig-cap: Correlation between SET ER/PR and other scores.
+df <- datasets$scanb %>%
+    colData %>%
+    data.frame %>%
+    dplyr::mutate(`log2(ESR1)` = esr1_levels) %>%
+    tidyr::pivot_longer(
+        cols = c(HALLMARK_ESTROGEN_RESPONSE_EARLY, `log2(ESR1)`),
+        names_to = "pathway",
+        values_to = "score"
+    ) 
+
+df %>%
+    ggplot2::ggplot(aes(
+        x = SET_ERPR, 
+        y = score,
+        color = pam50
+    )) +
+    ggplot2::geom_point(size = 2, alpha = 0.8) +
+    ggplot2::geom_smooth(color = "black", method = "gam") +
+    ggplot2::labs(
+        x = expression(SET[ER/PR]),
+        y = "Score",
+        color = "PAM50",
+        title = paste0(
+            "Correlation between SET ER/PR and",
+            "\nEstrogen Early, log(ESR1)"
+        )
+    ) + 
+    ggplot2::facet_wrap(~ pathway, scales = "free_y", ncol = 1) +
+    ggplot2::theme_bw(base_size = 18) + 
+    ggplot2::scale_color_manual(values = get_colors_pam50(df)) +
+    change_plot_aes_point() +
+    change_guides_point() 
+```
+
+There is a highly positive correlation. Also interesting to see that 
+ESR1 levels are not necessarily highly correlated with high 
+SET ER/PR scores. Remember that for ESR1 the scale is 
+logarithmic, so even if the slope is smaller than in the
+hallmark estrogen response early, it might mean a higher correlation
+even..
 
 @fig-er-hist shows the distribution of the ER IHC percentage for the
 patients used in the previous survival analysis for SCANB. 

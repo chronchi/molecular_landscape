@@ -143,7 +143,7 @@ forest_plot_fits <- function(
         dplyr::across(
             where(is.numeric), 
             round, 
-            2
+            3
         )
     )
     
@@ -181,6 +181,8 @@ forest_plot_fits <- function(
         ),
         boxsize = 0.2,
         graph.pos = 2,
+        txt_gp = fpTxtGp(ticks=gpar(cex=1)),
+        xticks = c(0.2, 0.4, 1, 2, 3),
         ...
     )
     
@@ -709,7 +711,9 @@ plot_pca_random_genes <- function(
     ggplot2::labs(
         title = patient
     ) +
-    ggplot2::theme_bw()
+    ggplot2::theme_bw(base_size = 15) + 
+    change_plot_aes_point() +
+    change_guides_point(shape = TRUE) 
 }
 
 #' Plot PCA embedding of the dataframe using new samples
@@ -750,8 +754,8 @@ get_plot_new_samples <- function(
                     "tcga", 
                     "scanb", 
                     "metabric"
-                ))
-        ) +
+                )),
+        guide = "none") +
         ggplot2::scale_alpha_manual(
             values = c(1, .1, .1, .1) %>% 
                 `names<-`(c(
@@ -759,15 +763,17 @@ get_plot_new_samples <- function(
                     "tcga", 
                     "scanb", 
                     "metabric"
-                ))
-        ) +
+                )),
+        guide = "none") +
         ggplot2::labs(
             alpha = "Cohort",
             size = "Cohort",
             title = title,
             subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
         ) + 
-        ggplot2::theme_bw(base_size = 20)
+        ggplot2::theme_bw(base_size = 20) + 
+        change_plot_aes_point() +
+        change_guides_point()
 }
 
 #' Plot PCA embedding of the 3 big cohorts to serve as a base plot
@@ -801,6 +807,9 @@ get_base_plot <- function(
         ggplot2::scale_alpha(guide = 'none') +
         ggplot2::labs(
             color = "PAM50"
+        ) + 
+        ggplot2::scale_color_manual(
+           values = get_colors_pam50(df_pca)
         ) + 
         ggplot2::guides(
             colour = ggplot2::guide_legend(
@@ -957,7 +966,7 @@ plots_estimates <- function(
         ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
         tidybayes::stat_dotsinterval(
             quantiles = 100,
-            size = 3
+            size = 10
         ) + 
         ggplot2::facet_wrap(~pathway, ncol = 3) +
         ggplot2::labs(
@@ -1515,3 +1524,61 @@ plot_combined_scores <- function(tidy_results, range_hr = 6.5, cowplot_table = F
     
 }
 
+#' Change the plot aesthetics
+#'
+#' This is a common function for all the plots in the 
+#' paper to have the same changes in the axis titles, ticks, point sizes 
+#' and more.
+#'
+#' @param p A ggplot
+#' @return A ggplot object with the modified aesthetics
+change_plot_aes_point <- function(...){
+    
+    ggplot2::theme(
+        legend.title = element_text(size=16),
+        legend.text = element_text(size=15), 
+        axis.text = element_text(face="bold", size = 18),
+        axis.title.x = element_text(size = 20),
+        axis.title.y = element_text(size = 20),
+        text = element_text(family = "Helvetica")
+    ) + 
+        ggplot2::theme(...)
+    
+}
+
+change_guides_point <- function(shape = FALSE){
+    if (shape){
+        ggplot2::guides(
+           color = ggplot2::guide_legend(override.aes = list(size = 5)),
+           shape = ggplot2::guide_legend(override.aes = list(size = 5))
+        )
+    } else {
+        ggplot2::guides(
+            color = ggplot2::guide_legend(override.aes = list(size = 5))
+        )   
+    }
+}
+
+get_colors_pam50 <- function(df){
+    
+    # ggplot2 default palette scheme
+    n <- 6
+    hues <- seq(15, 375, length = n + 1)
+    colors_pam50 <- hcl(h = hues, l = 65, c = 100)[1:n]    
+    names(colors_pam50) <- c(
+        "basal",
+        "her2", 
+        "lumb", 
+        "luma", 
+        "normal",
+        "claudin-low"
+    )
+    
+    # we only use the colors available in the dataframe, otherwise
+    # it shows all categories when it is not actually necessary
+    selected_colors <- intersect(
+        names(colors_pam50), 
+        unique(df$pam50)
+    )
+    colors_pam50[selected_colors]
+}

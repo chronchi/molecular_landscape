@@ -465,6 +465,14 @@ plots_poetic <- sapply(
     y = "PC4"
 )
 
+plots_poetic$pam50 <- plots_poetic$pam50 +
+    ggplot2::scale_color_manual(
+        values = c(
+            get_colors_pam50(plots_poetic$pam50$data),
+            "not_available" = "black"
+        )
+    ) 
+
 cowplot::plot_grid(plotlist = plots_poetic, labels = "AUTO")
 ```
 
@@ -519,13 +527,13 @@ poetic_df_pca %>%
         "tcga" = 1,
         "scanb" = 1,
         "metabric" = 1
-    )) +
+    ), guide = "none") +
     ggplot2::scale_alpha_manual(values = c(
         "poetic" = 1, 
         "tcga" = 0.1,
         "scanb" = 0.1,
         "metabric" = 0.1
-    )) +
+    ), guide = "none") +
     ggplot2::labs(
         color = "Cohort",
         alpha = "Cohort",
@@ -536,7 +544,9 @@ poetic_df_pca %>%
         ),
         subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
     ) + 
-    ggplot2::theme_bw(base_size = 10)
+    ggplot2::theme_bw(base_size = 14) +
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 ## Scoring all samples 
@@ -708,7 +718,7 @@ poetic_df_pca %>%
 @fig-pt63-236 shows the embedding of two distinct patients 
 in a similar neighborhood.
 
-```{r, fig.width=16, fig.height=10}
+```{r, fig.width=10, fig.height=7}
 #| label: fig-pt63-236
 #| fig-cap: Plot of two selected patients in the molecular landscape. One
 #|     is a responder and the other is a non responder. The patient id numbers
@@ -755,11 +765,12 @@ plot_patients <- base_plot +
             "and treated group"
         ),
         caption = paste0(
-            "Responder is defined as having at least 5% baseline Ki67 and",
+            "Responder is defined as having at least 5% baseline Ki67\nand",
             " reduction of at least 60% in Ki67 levels"
         )
     ) + 
-    ggplot2::theme_bw(base_size = 25)
+    ggplot2::theme_bw(base_size = 18) +
+    change_plot_aes_point()
 
 plot_patients
 ```
@@ -814,11 +825,12 @@ Patient 63 @fig-pt63 is considered a responder. According to
 the scores, when comparing the estrogen early signature to its average 
 distribution in the neighborhood, the score is higher.
 
-```{r, fig.height=8, fig.width=14}
+```{r, fig.height=6, fig.width=10}
 #| label: fig-pt63
 #| fig-cap: Posterior distribution of the average scores in the neighborhood
 #|     of patient 236 from POETIC trial. Each dot corresponds to a 1% quantile.
-pipeline_scores_plots$treated_nb63_baseline$plot
+pipeline_scores_plots$treated_nb63_baseline$plot +
+    change_plot_aes_point()
 ```
 
 Patient 236 @fig-pt236 was considered a non responder. According to 
@@ -826,11 +838,12 @@ the scores, when comparing the estrogen early signature to its average
 distribution in the neighborhood, the score is lower, being in the
 5% quantile.
 
-```{r, fig.height=8, fig.width=14}
+```{r, fig.height=6, fig.width=10}
 #| label: fig-pt236
 #| fig-cap: Posterior distribution of the average scores in the neighborhood
 #|     of patient 236 from POETIC trial. Each dot corresponds to a 1% quantile.
-pipeline_scores_plots$treated_nb236_baseline$plot
+pipeline_scores_plots$treated_nb236_baseline$plot +
+    change_plot_aes_point()
 ```
 
 When comparing these two patients, there is also a difference in the androgen
