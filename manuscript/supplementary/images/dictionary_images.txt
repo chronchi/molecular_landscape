@@ -20,3 +20,6 @@ figure caption names:
 
 # Figure 3
 - validation_files/fig-pca-smc-er-pam50
+
+# Figure 4
+- scoring_file/fig-poetic-cohort-1
