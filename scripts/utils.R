@@ -181,8 +181,14 @@ forest_plot_fits <- function(
         ),
         boxsize = 0.2,
         graph.pos = 2,
-        txt_gp = fpTxtGp(ticks=gpar(cex=1)),
+        txt_gp = fpTxtGp(
+            ticks = gpar(fontfamily = "Helvetica", cex=1),
+            xlab = gpar(fontfamily = "Helvetica", cex = 1.1),
+            title = gpar(fontfamily = "Helvetica"),
+            label = gpar(fontfamily = "Helvetica")
+        ),
         xticks = c(0.2, 0.4, 1, 2, 3),
+        xlab = "Hazard Ratio (HR)",
         ...
     )
     
@@ -430,6 +436,8 @@ get_final_ranking_values <- function(
         assay_to_use = assay_to_use
     )
     
+    assay(sum_exp, "znorm") <- scale(assay(sum_exp, assay_to_use))
+    
     sum_exp
     
 }
@@ -486,6 +494,7 @@ get_gene_col_data <- function(
 get_pca_coordinates <- function(
     sum_exp,
     pca_fit,
+    genes_for_pca,
     which_exp = "avg_ranking"
 ){
     
@@ -1356,6 +1365,7 @@ plot_selected_samples <- function(
                     )
                 )
             ) +
+                ggplot2::geom_point(size = size_points) +
                 ggplot2::geom_path(
                     inherit.aes = FALSE,
                     data = pca_values[["top_down"]] %>% data.frame,
@@ -1372,7 +1382,6 @@ plot_selected_samples <- function(
                     show.legend = FALSE,
                     size = size_line
                 ) + 
-                ggplot2::geom_point(size = size_points) +
                 ggforce::geom_circle(
                     data = data.frame(
                         x_center = pca_values[["top_down"]][i, 1], 
@@ -1404,6 +1413,9 @@ plot_selected_samples <- function(
                     color = "black"
                 ) + 
                 ggplot2::scale_alpha(guide = 'none') +
+                ggplot2::scale_color_manual(
+                    values = get_colors_pam50(df_pca)
+                ) +
                 ggplot2::labs(title = title_plot) +
                 ggplot2::theme_bw(base_size = base_size)
         },
@@ -1581,4 +1593,422 @@ get_colors_pam50 <- function(df){
         unique(df$pam50)
     )
     colors_pam50[selected_colors]
+}
+
+#' Get the PCA projection coordinates uncertainty regions
+#'
+#' @inheritParams get_pca_coordinates
+#' @param nb_bootstraping An integer specifying the number of times
+#'     to sample genes when calculating the uncertainty region. Default
+#'     is 100.
+#' @param get_pcs An integer vector specifying the number of PCs to calculate.
+#'     Default is 1:10
+#' @examples
+#' \dontrun{
+#' get_pca_coordinates_uncertainty(
+#'     scanb,
+#'     pca_fit
+#' )
+#' }
+get_pca_coordinates_uncertainty <- function(
+    sum_exp,
+    pca_fit,
+    genes_for_pca,
+    which_exp = "avg_ranking",
+    nb_bootstraping = 100,
+    get_pcs = 1:10,
+    mc.cores = 10,
+    remove_only_high = FALSE
+){
+    
+    # first check if avg_ranking is there if it was
+    # selected
+    if (which_exp == "avg_ranking"){
+        if( !("avg_ranking" %in% SummarizedExperiment::assayNames(sum_exp)) ){
+            stop(
+                paste0(
+                    "avg_ranking not available in the object, make sure",
+                    " the normalization was done."
+                )
+            )
+        }    
+    }
+    
+    
+    loadings_pca <- pca_fit$loadings
+    
+    # we now add 0 to average ranking for the genes that are not
+    # available in the summarized experiment 
+    genes_for_pca <- rownames(loadings_pca)
+    assay_matrix <- assay(sum_exp, which_exp) %>% as.matrix
+    genes_not_available <- setdiff(genes_for_pca, rownames(assay_matrix))
+    if (length(genes_not_available) > 0){
+        assay_matrix <- rbind(
+            assay_matrix,
+            matrix(
+                0, 
+                nrow = length(genes_not_available), 
+                ncol = ncol(sum_exp),
+                dimnames = list(
+                    genes_not_available,
+                    colnames(assay_matrix)
+                )
+            )
+        )
+    }
+    
+    uncertainty_position <- parallel::mclapply(
+        1:nb_bootstraping,
+        function(i, assay_matrix, genes_for_pca, get_pcs, loadings_pca){
+            
+            # For each PC individually we calculate the multiplication
+            # of the loading with the gene expression and then we multiply
+            # by the number of times this genes appears. This way we
+            # obtain the PC for the sample
+            sapply(
+                get_pcs,
+                function(pc, assay_matrix, loadings_pca){
+                    
+                    # these will be the genes used when calculating the new 
+                    # embedding
+                    
+                    if (remove_only_high) {
+                        
+                        high_loadings <- quantile(
+                            loadings_pca %>% dplyr::pull(pc) %>% abs, 
+                            .99
+                        )
+                        
+                        high_loading_genes <- loadings_pca %>% 
+                            dplyr::filter(
+                                abs(!!sym(paste0("PC", pc))) > high_loadings
+                            ) %>%
+                            rownames
+                            
+                        genes_to_use <- setdiff(
+                            genes_for_pca,
+                            high_loading_genes
+                        )
+                        
+                        genes_to_use <- c(
+                            genes_to_use,
+                            sample(
+                                high_loading_genes, 
+                                replace = TRUE
+                            )
+                        )
+                           
+                    } else {
+                        genes_to_use <- sample(
+                            genes_for_pca, 
+                            size = length(genes_for_pca), 
+                            replace = TRUE
+                        )
+                    }
+                    
+                    # we get the number of times each gene was selected
+                    freq_genes <- table(genes_to_use)
+                    
+                    load_pca_current <- loadings_pca[names(freq_genes), ] %>%
+                        dplyr::pull(pc)
+                    
+                    pre_embedding <- assay_matrix[names(freq_genes), ] * 
+                        load_pca_current
+                    
+                    # we now do the same but we multiply by the frequency vector
+                    colSums(pre_embedding * as.vector(freq_genes))
+                    
+                },
+                assay_matrix = assay_matrix,
+                loadings_pca = loadings_pca
+            ) %>% 
+                `colnames<-`(paste0("PC", get_pcs)) %>%
+                data.frame %>%
+                tibble::rownames_to_column(var = "sample_name")
+            
+        },
+        assay_matrix = assay_matrix,
+        genes_for_pca = genes_for_pca,
+        get_pcs = get_pcs,
+        loadings_pca = loadings_pca,
+        mc.cores = mc.cores
+    ) %>%
+        dplyr::bind_rows(., .id = "run") %>%
+        dplyr::mutate(run = factor(run))
+    
+    uncertainty_position
+    
+}
+
+plot_density_uncertainty <- function(
+    which_sample, 
+    base_plot,
+    uncertainty_position,
+    x = quo_name(base_plot$mapping$x),
+    y = quo_name(base_plot$mapping$y)
+){
+    
+    sample_uncertainty <- uncertainty_position %>%
+        dplyr::filter(sample_name == which_sample) %>%
+        dplyr::select(dplyr::all_of(c(x, y))) %>%
+        dplyr::mutate(pam50 = "not available")
+    
+    og_position <- base_plot$data %>% 
+        dplyr::filter(sample_name == which_sample) %>%
+        dplyr::select(dplyr::all_of(c(x, y))) %>%
+        dplyr::mutate(pam50 = "not available")
+    
+    
+    base_plot + 
+        ggplot2::geom_density_2d(
+            sample_uncertainty,
+            mapping = aes(x = !!sym(x), y = !!sym(y)),
+            color = "black"
+            #size = 3,
+            #shape = 21,
+            #fill = "black",
+        ) + 
+        ggplot2::geom_point(
+            og_position,
+            mapping = aes(x = !!sym(x), y = !!sym(y)),
+            size = 3,
+            shape = 21,
+            fill = "red"
+        ) +     
+        ggplot2::labs(
+            title = paste0(
+                "Uncertainty region of sample ", which_sample
+            ),
+            subtitle = "All samples from TCGA, SCANB and METABRIC are plotted"
+        ) +
+        ggplot2::scale_color_manual(
+            values = c(
+                get_colors_pam50(base_plot$data),
+                "not available" = "grey"
+            )
+        ) +
+        ggplot2::theme_bw(base_size = 20) +
+        ggplot2::theme(legend.position="none")
+    
+}
+
+get_pca_coordinates_high <- function(
+    sum_exp,
+    pca_fit,
+    genes_for_pca,
+    which_exp = "avg_ranking",
+    nb_bootstraping = 100,
+    get_pcs = 1:10,
+    mc.cores = 10
+){
+    
+    # first check if avg_ranking is there if it was
+    # selected
+    if (which_exp == "avg_ranking"){
+        if( !("avg_ranking" %in% SummarizedExperiment::assayNames(sum_exp)) ){
+            stop(
+                paste0(
+                    "avg_ranking not available in the object, make sure",
+                    " the normalization was done."
+                )
+            )
+        }    
+    }
+    
+    
+    loadings_pca <- pca_fit$loadings
+    
+    # we now add 0 to average ranking for the genes that are not
+    # available in the summarized experiment 
+    genes_for_pca <- rownames(loadings_pca)
+    assay_matrix <- assay(sum_exp, which_exp) %>% as.matrix
+
+    uncertainty_position <- parallel::mclapply(
+        1:nb_bootstraping,
+        function(i, assay_matrix, genes_for_pca, get_pcs, loadings_pca){
+            
+            # For each PC individually we calculate the multiplication
+            # of the loading with the gene expression and then we multiply
+            # by the number of times this genes appears. This way we
+            # obtain the PC for the sample
+            sapply(
+                get_pcs,
+                function(pc, assay_matrix, loadings_pca){
+                    
+                    # these will be the genes used when calculating the new 
+                    # embedding
+                    
+                    
+                    high_loadings <- quantile(
+                        loadings_pca %>% dplyr::pull(pc) %>% abs, 
+                        .95
+                    )
+                    
+                    high_loading_genes <- loadings_pca %>% 
+                        dplyr::filter(
+                            abs(!!sym(paste0("PC", pc))) > high_loadings
+                        ) %>%
+                        rownames
+                    
+                    high_loading_genes <- sample(
+                        high_loading_genes,
+                        size = floor(length(high_loading_genes)/2)
+                    )    
+                    
+                    genes_to_use <- setdiff(
+                        genes_for_pca,
+                        high_loading_genes
+                    )
+                    
+                    assay_matrix <- assay_matrix[genes_to_use, ]
+                    
+                    genes_not_available <- setdiff(
+                        genes_for_pca, 
+                        rownames(assay_matrix)
+                    )
+                    
+                    if (length(genes_not_available) > 0){
+                        assay_matrix <- rbind(
+                            assay_matrix,
+                            matrix(
+                                0, 
+                                nrow = length(genes_not_available), 
+                                ncol = ncol(sum_exp),
+                                dimnames = list(
+                                    genes_not_available,
+                                    colnames(assay_matrix)
+                                )
+                            )
+                        )
+                    }
+                    
+                    # we get the number of times each gene was selected
+                    freq_genes <- table(genes_to_use)
+                    
+                    load_pca_current <- loadings_pca[names(freq_genes), ] %>%
+                        dplyr::pull(pc)
+                    
+                    pre_embedding <- assay_matrix[names(freq_genes), ] * 
+                        load_pca_current
+                    
+                    # we now do the same but we multiply by the frequency vector
+                    colSums(pre_embedding * as.vector(freq_genes))
+                    
+                },
+                assay_matrix = assay_matrix,
+                loadings_pca = loadings_pca
+            ) %>% 
+                `colnames<-`(paste0("PC", get_pcs)) %>%
+                data.frame %>%
+                tibble::rownames_to_column(var = "sample_name")
+            
+        },
+        assay_matrix = assay_matrix,
+        genes_for_pca = genes_for_pca,
+        get_pcs = get_pcs,
+        loadings_pca = loadings_pca,
+        mc.cores = mc.cores
+    ) %>%
+        dplyr::bind_rows(., .id = "run") %>%
+        dplyr::mutate(run = factor(run))
+    
+    uncertainty_position
+    
+}
+
+calculate_distance_to_center <- function(
+    uncertainty_high_loadings,
+    og_position,
+    get_pcs = 3:4
+) {
+    
+    a <- uncertainty_high_loadings %>%
+        tidyr::pivot_longer(
+            cols = dplyr::all_of(paste0("PC", get_pcs)),
+            names_to = "pc",
+            values_to = "score"
+        ) %>%
+        dplyr::inner_join(
+            .,
+            og_position %>%
+                dplyr::select(dplyr::all_of(c(
+                    paste0("PC", get_pcs),
+                    "sample_name"
+                ))) %>%
+                tidyr::pivot_longer(
+                    cols = dplyr::all_of(paste0("PC", get_pcs)),
+                    names_to = "pc",
+                    values_to = "score_og"
+                ),
+            by = c("sample_name", "pc")
+        ) %>%
+        dplyr::mutate(diff_pcs = score - score_og)
+    
+}
+
+ranking_high_loadings <- function(
+    sum_exp,
+    pca_fit,
+    genes_for_pca,
+    which_exp = "avg_ranking",
+    get_pcs = 1:10
+){
+    
+    if (which_exp == "avg_ranking"){
+        if( !("avg_ranking" %in% SummarizedExperiment::assayNames(sum_exp)) ){
+            stop(
+                paste0(
+                    "avg_ranking not available in the object, make sure",
+                    " the normalization was done."
+                )
+            )
+        }    
+    }
+    
+    
+    loadings_pca <- pca_fit$loadings
+    
+    # we now add 0 to average ranking for the genes that are not
+    # available in the summarized experiment 
+    genes_for_pca <- rownames(loadings_pca)
+    assay_matrix <- assay(sum_exp, which_exp) %>% as.matrix
+
+
+    # For each PC individually we calculate the multiplication
+    # of the loading with the gene expression and then we multiply
+    # by the number of times this genes appears. This way we
+    # obtain the PC for the sample
+    lapply(
+        get_pcs,
+        function(pc, assay_matrix, loadings_pca){
+            
+            # these will be the genes used when calculating the new 
+            # embedding
+            
+            
+            high_loadings <- quantile(
+                loadings_pca %>% dplyr::pull(pc) %>% abs, 
+                .9
+            )
+            
+            high_loading_genes <- loadings_pca %>% 
+                dplyr::filter(
+                    abs(!!sym(paste0("PC", pc))) > high_loadings
+                ) %>%
+                rownames
+            
+            singscore::rankGenes(assay_matrix)[high_loading_genes, ] %>%
+                data.frame(check.names = FALSE) %>% 
+                tidyr::pivot_longer(
+                    cols = dplyr::all_of(colnames(.)),
+                    names_to = "sample_name",
+                    values_to = "rank"
+                ) %>%
+                tibble::rownames_to_column(var = "gene")
+        },
+        assay_matrix = assay_matrix,
+        loadings_pca = loadings_pca
+    ) %>%
+        `names<-`(paste0("PC", get_pcs)) %>%
+        dplyr::bind_rows(.id = "pc")
 }

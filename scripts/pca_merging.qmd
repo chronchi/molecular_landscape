@@ -1430,7 +1430,7 @@ plot_corrected <- plot_pca_coordinates(
     title = paste0(
         "Embedding of all samples from TCGA",
         " and METABRIC\n",
-        "qPCR normalization performed in the samples"
+        "qPCR-like normalization performed in the samples"
     )
 ) + 
     ggplot2::theme_bw(base_size = 15) +
@@ -1449,7 +1449,7 @@ plot_no_norm <- plot_pca_coordinates(
     title = paste0(
         "Embedding of all samples from TCGA",
         " and METABRIC\n",
-        "No qPCR normalization performed in the samples"
+        "No qPCR-like normalization performed in the samples"
     )
 ) + 
     ggplot2::theme_bw(base_size = 15) +

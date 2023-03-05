@@ -622,6 +622,12 @@ selected_data %>%
         color = pam50
     )) + 
     ggplot2::geom_jitter(alpha = 0.7) + 
+    ggplot2::geom_boxplot(
+        width=0.05, 
+        color = "black", 
+        alpha = 0.3,
+        outlier.shape = NA
+    ) +
     ggplot2::geom_violin(color = "black", alpha = 0.3) + 
     ggplot2::facet_wrap(
         ~cohort, 
@@ -635,7 +641,7 @@ selected_data %>%
     ggplot2::labs(
         x = "ER status",
         color = "PAM50",
-        y = "Score",
+        y = "SET ER/PR score",
         title = paste0(pathway_to_get[1], " scores by cohort")
     ) +
     ggplot2::theme_bw(base_size = 15) + 
@@ -669,6 +675,12 @@ selected_data %>%
     )) + 
     ggplot2::geom_jitter(alpha = 0.7) + 
     ggplot2::geom_violin(color = "black", alpha = 0.3) + 
+    ggplot2::geom_boxplot(
+        width=0.05, 
+        color = "black", 
+        alpha = 0.3,
+        outlier.shape = NA
+    ) +
     ggplot2::facet_wrap(
         ~cohort, 
         ncol = 1,
@@ -681,7 +693,7 @@ selected_data %>%
     ggplot2::labs(
         x = "ER status",
         color = "PAM50",
-        y = "Score",
+        y = "Estrogen early score",
         title = paste0(pathway_to_get[1], " scores by cohort")
     ) +
     ggplot2::theme_bw(base_size = 15) + 
@@ -1008,13 +1020,14 @@ survival_results <- sapply(
                         function(name_score, col_data, formula_str){
                             
                             if (name_score %in% colnames(col_data)){
+                                
                                 survival::coxph(
                                     as.formula(
                                         paste(
                                             formula_str, 
                                             name_score, 
                                             sep = "+"
-                                        )
+                                        )[1]
                                     ),
                                     data = col_data, 
                                     y = FALSE,
@@ -1195,7 +1208,6 @@ forest_plots <- mapply(
     USE.NAMES = TRUE,
     SIMPLIFY = FALSE
 )
-
 # all forest plots are saved as a pdf in the 
 # results/plots/surv_analysis_estrogen folder and
 # as a rds file in the folder below.
@@ -1247,6 +1259,7 @@ and overall survival (OS), the results for both analysis are presented here.
 ```{r}
 tables_survival %>% 
     dplyr::filter(cohort != "scanb_high_er") %>%
+    dplyr::filter(term %in% c("HALLMARK_ESTROGEN_RESPONSE_EARLY", "SET_ERPR")) %>%
     DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
     DT::formatRound(
         columns=c(
@@ -1267,7 +1280,7 @@ and not dichotomous.
 @fig-forest-plot shows the forest plot of HALLMARK_ESTROGEN_RESPONSE_EARLY for all 
 three cohorts. 
 
-```{r, fig.height=8.5, fig.width = 6}
+```{r, fig.height=9.5, fig.width = 6}
 #| label: fig-forest-plot
 #| fig-cap: Forest plots of the different cohorts and their hazard ratios.
 #|     The bars correspond to 95% confidence interval.
@@ -1333,7 +1346,7 @@ df %>%
     ggplot2::geom_point(size = 2, alpha = 0.8) + #, mapping = aes(shape = pam50)) +
     ggplot2::labs(
         x = "ER percentage",
-        y = "Score",
+        y = "Molecular score",
         #shape = "Treatment group",
         color = "PAM50",
         title = paste0(
@@ -1346,17 +1359,6 @@ df %>%
     ggplot2::scale_color_manual(values = get_colors_pam50(df)) +
     change_plot_aes_point() +
     change_guides_point()
-    # ggplot2::theme(
-    #     legend.title = element_text(size=16),
-    #     legend.text = element_text(size=15), 
-    #     axis.text = element_text(face="bold", size = 18),
-    #     axis.title.x = element_text(size = 20),
-    #     axis.title.y = element_text(size = 20)
-    # ) + 
-    # ggplot2::guides(
-    #     color = ggplot2::guide_legend(override.aes = list(size = 6))#,
-    #     #shape = ggplot2::guide_legend(override.aes = list(size = 6))
-    # ) 
 ```
 
 The first thing that one can notice is that ER percentage is very discrete,
@@ -1514,7 +1516,7 @@ to perform the survival analysis. @fig-er-ihc-high-os shows the results
 for both the analysis done on ER IHC percentage,  
 HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR.
 
-```{r, fig.height=8.5, fig.width = 6}
+```{r, fig.height=9.5, fig.width = 6}
 #| label: fig-er-ihc-high-os
 #| fig-cap: Survival analysis using ER IHC percentage, 
 #|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 
@@ -1534,7 +1536,7 @@ could be more sensitive for these patients.
 We can also analyse the recurrence free survival for this cohort 
 (@fig-er-ihc-high-rfs).
 
-```{r, fig.height=8.5, fig.width = 6}
+```{r, fig.height=9.5, fig.width = 6}
 #| label: fig-er-ihc-high-rfs
 #| fig-cap: Survival analysis using ER IHC percentage, 
 #|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 

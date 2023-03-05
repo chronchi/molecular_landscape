@@ -774,7 +774,7 @@ missing.
 
 ```{r, eval = first_run}
 folder_to_save <- paste0(
-    "../results/plots/validation/random_loadings/"
+    "../results/plots/validation/random_loadings"
 )
 dir.create(
     folder_to_save, 
@@ -803,8 +803,15 @@ sapply(
     final_plots = plots_random_genes
 )
 
-# we then proceed to generate a gif by using the following command:
+# we then proceed to generate a mp4 by using the following command:
 # ffmpeg -framerate 1 -pattern_type glob -i 'random_loadings/*.png' random_loadings.mp4
+system(
+    paste0(
+        "ffmpeg -y -framerate 1 -pattern_type glob -i '",
+        folder_to_save, "/*.png' ", 
+        folder_to_save, "/../random_loadings.mp4"
+    )
+)
 ```
 
 These plots show how the fuzziness score might be indicative of how

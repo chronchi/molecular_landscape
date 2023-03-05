@@ -11,3 +11,4 @@ results/*
 !.gitignore
 !results/book
 scripts/tests.qmd
+scripts/trying.qmd
