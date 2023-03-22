@@ -811,7 +811,7 @@ get_base_plot <- function(
 ){
     
     df_pca %>%
-        ggplot2::ggplot(aes_string(x = x, y = y, color = color)) + 
+        ggplot2::ggplot(aes(x = !!sym(x), y = !!sym(y), color = !!sym(color))) + 
         ggplot2::geom_point(size = size_dots, alpha = alpha_val) +
         ggplot2::scale_alpha(guide = 'none') +
         ggplot2::labs(
@@ -2012,3 +2012,23 @@ ranking_high_loadings <- function(
         `names<-`(paste0("PC", get_pcs)) %>%
         dplyr::bind_rows(.id = "pc")
 }
+
+calculate_risk_score <- function(
+        coefs, 
+        df_pca,
+        is_node = TRUE
+){
+
+    # if node status was used in the training to get the coefficients
+    # then add a new column so the coefficients can be used and risk
+    # score can be calculated
+    if (is_node){
+        df_pca$node_statuspos <- ifelse(df_pca$node_status == "pos", 1, 0)    
+    }
+
+    (as.matrix(df_pca[, names(coefs)]) %*% coefs) %>%
+        .[, 1]    
+    
+    
+}
+    

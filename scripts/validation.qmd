@@ -19,6 +19,10 @@ library(PCAtools)
 library(singscore)
 library(SummarizedExperiment)
 library(tximport)
+library(survival)
+library(forestplot)
+library(ggplotify)
+library(gridExtra)
 
 source("utils.R")
 source("first_run.R")
@@ -1364,4 +1368,654 @@ p +
     change_plot_aes_point() +
     change_guides_point()
 ```
+
+## Third component as a prognostic measure?
+
+We have seen that estrogen signaling is a continuous measure across
+the third component. The farthest to the right you are the
+higher the ER signaling scores are also. Here we hypothesized then
+that the third component is correlated to the prognostic nature
+of the estrogen signaling score. For this we select only samples
+with PC3 higher than 0, as these would be the ones that are from
+luminal A and B subtypes and we use PC3 as a score in the survival analysis.
+
+```{r}
+scanb_samples <- df_pca_coordinates %>% 
+    dplyr::filter(cohort == "scanb") %>%
+    dplyr::filter(
+        node_stage != "NXs" &
+        !(tumor_stage %in% c("T4", "Tis", "TX")) & 
+        er_status == "pos" & 
+        TreatGroup == "Endo" & 
+        PC3 > 0
+    ) %>% 
+    dplyr::pull(sample_name)
+
+scanb_high_er <- df_pca_coordinates %>% 
+    dplyr::filter(cohort == "scanb") %>%
+    dplyr::filter(
+        node_stage != "NX" &
+        !(tumor_stage %in% c("T4", "Tis", "TX")) & 
+        er_status == "pos" & 
+        TreatGroup == "Endo" & 
+        PC3 > 0 & 
+        ER.pct >= 90
+    ) %>% 
+    dplyr::pull(sample_name)
+
+metabric_samples <- df_pca_coordinates %>% 
+    dplyr::filter(cohort == "metabric") %>%
+    dplyr::filter(
+        CHEMOTHERAPY == "NO" &
+        er_status == "pos" & 
+        HORMONE_THERAPY == "YES" & 
+        PC3 > 0
+    ) %>% 
+    dplyr::pull(sample_name)
+
+nb_pts_events <- data.frame(
+    cohort = c("SCANB", "METABRIC", "SCANB High ER"),
+    number_patients = c(
+        length(scanb_samples),
+        length(metabric_samples),
+        length(scanb_high_er)
+    ),
+    nb_events = c(
+       datasets$scanb %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% scanb_samples & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n),
+       datasets$metabric %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% metabric_samples & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n),
+       datasets$scanb %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% scanb_high_er & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n)
+    )
+) %>% kableExtra::kbl() %>%
+    kableExtra::kable_classic(full_width = FALSE)
+
+nb_pts_events
+```
+
+First we check the correlation of PC3 with estrogen response early and 
+G2M checkpoint.
+
+```{r, fig.width=12, fig.height=10}
+df_pca_coordinates %>%
+    tidyr::pivot_longer(
+        cols = c(
+            "HALLMARK_ESTROGEN_RESPONSE_EARLY",
+            "HALLMARK_G2M_CHECKPOINT",
+            "SET_ERPR"
+        ),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    tidyr::pivot_longer(
+        cols = c("PC3", "PC4"),
+        names_to = "component",
+        values_to = "score_pc"
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = score_pc, 
+        y = score,
+        color = pam50,
+        shape = cohort
+    )) +
+    ggplot2::geom_point(size = 2, alpha = 0.8) + #, mapping = aes(shape = pam50)) +
+    ggplot2::geom_smooth(
+        formula = y ~ s(x, bs = "cs"),
+        method = "gam",
+        color = "black",
+        mapping = aes(linetype = cohort)
+    ) +
+    ggplot2::labs(
+        x = "Principal Components",
+        y = "Molecular score",
+        shape = "Cohort",
+        color = "PAM50",
+        title = paste0(
+            "Correlation between principal components\nand",
+            " molecular scores"
+        )
+    ) + 
+    ggplot2::facet_grid(
+        pathway ~ component, 
+        scales = "free_y",
+        labeller = as_labeller(c(
+            "PC3" = "PC3",
+            "PC4" = "PC4",
+            "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen early",
+            "HALLMARK_G2M_CHECKPOINT" = "G2M",
+            "SET_ERPR" = "SET ER/PR"
+        ))
+    ) +
+    ggplot2::theme_bw(base_size = 18) +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(df_pca_coordinates)
+    ) +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+There is indeed the correlation with the components but still a lot of 
+variability. So it will be unlikely to see such strong effects on the
+third component.
+
+```{r, eval = first_run}
+# run the survival analysis for each dataset with its own formula.
+# we start by defining the base formulas, because later we sapply and 
+# add the scores. this way if we need to change the formulas, we only
+# need to change once and all together.
+formulas_survival <- c(
+    "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
+    "rfs_metabric" = "Surv(rfs_months, rfs_status) ~ age + npi",
+    "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage"
+)
+
+type_survival <- c("os", "rfs")
+which_scores <- c(
+    "PC3", 
+    "PC4",
+    "SET_ERPR",
+    "SET_ERPR_scaled"
+)
+
+df_pca_coordinates$SET_ERPR_scaled <- df_pca_coordinates$SET_ERPR*5 + 5
+
+survival_results <- sapply(
+    c("os", "rfs"),
+    function(type_analysis, datasets, name_scores, formulas){
+        mapply(
+            function(
+                dataset, name_dataset, name_scores, formulas, type_analysis
+            ){
+                
+                if (type_analysis == "rfs" & name_dataset == "tcga"){
+                    return()
+                } else { 
+                
+                    sapply(
+                        name_scores,
+                        function(name_score, col_data, formula_str){
+                            
+                            if (name_score %in% colnames(col_data)){
+                                
+                                survival::coxph(
+                                    as.formula(
+                                        paste(
+                                            formula_str, 
+                                            name_score, 
+                                            sep = "+"
+                                        )[1]
+                                    ),
+                                    data = col_data, 
+                                    y = FALSE,
+                                    x = FALSE
+                                )    
+                            } else {
+                                return()
+                            }
+                            
+                        },
+                        col_data = dataset,
+                        formula = formulas[
+                            grepl(
+                                paste(type_analysis, name_dataset, sep = "_"),
+                                names(formulas)
+                            )
+                        ],
+                        USE.NAMES = TRUE,
+                        simplify = FALSE
+                    )
+                }
+            },
+            dataset = datasets,
+            name_dataset = names(datasets),
+            MoreArgs = list(
+                formulas = formulas, 
+                name_scores = name_scores,
+                type_analysis = type_analysis
+            ),
+            USE.NAMES = TRUE,
+            SIMPLIFY = FALSE
+        )
+    },
+    datasets = list(
+        scanb = df_pca_coordinates %>%
+            dplyr::filter(sample_name %in% scanb_samples),
+        metabric = df_pca_coordinates %>%
+            dplyr::filter(sample_name %in% metabric_samples),
+        scanb_high_er = df_pca_coordinates %>%
+            dplyr::filter(sample_name %in% scanb_high_er)
+    ),
+    name_scores = which_scores,
+    formulas = formulas_survival,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+survival_results$rfs <- survival_results$rfs[
+    !sapply(survival_results$rfs, is.null)
+]
+survival_results$rfs$metabric <- survival_results$rfs$metabric[
+    !sapply(survival_results$rfs$metabric, is.null)
+]
+
+survival_results$os <- purrr::discard(
+    purrr::map(
+        survival_results$os, 
+        ~ purrr::discard(.x, is.null),
+    ),
+    is.null
+)
+
+# we cannot simply save the models as each model has some 
+# environment variables, which adds up to over 20GB. 
+# check this stack exchange thread to read more on it:
+# https://stackoverflow.com/questions/42230920/saverds-inflating-size-of-object/52372480
+# the solution is to basically clear the environment from the terms 
+# object. since it is pretty fast to run the survival analysis
+# we will not save the objects.
+
+
+# we now proceed to prepare the plots. since the survival result is 
+# actually a large file, it is best to do all the plottings, save
+# them in other rds/pdf files and then use on the quarto markdown.
+# otherwise it is too slow to render the book. 
+# the same is true for the statistics and coefficients available.
+names_signatures <- c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early",
+    "HALLMARK_ESTROGEN_RESPONSE_LATE" = "Estrogen Late",
+    "SET_ERPR" = "SET ER/PR",
+    "random_200" = "random 200 genes",
+    "random_18" = "random 18 genes",
+    "ER.pct" = "ER percentage",
+    "PC3" = "PC3",
+    "PC4" = "PC4"
+)
+
+names_coefficients <- list(
+    metabric = c(
+        "age" = "Age", 
+        "npi" = "NPI", 
+        names_signatures
+    ),
+    scanb = c(
+        "age" = "age",
+        names_signatures,
+        "node_stageN1" = "N1",
+        "node_stageN2and3" = "N2 and N3",
+        "tumor_stageT1" = "T1",
+        "tumor_stageT2" = "T2",
+        "tumor_stageT3" = "T3"
+    ),
+    tcga = c(
+        "age" = "age",
+        "tumor_stage" = "Tumor Stage",
+        names_signatures,
+        "node_stageN1" = "N1",
+        "node_stageN2" = "N2",
+        "node_stageN3" = "N3",
+        "tumor_stagestage_ii" = "T2",
+        "tumor_stagestage_iii" = "T3"
+    ),
+    scanb_high_er = c(
+        "age" = "age",
+        names_signatures,
+        "node_stageN1" = "N1",
+        "node_stageN2and3" = "N2 and N3",
+        "tumor_stageT1" = "T1",
+        "tumor_stageT2" = "T2",
+        "tumor_stageT3" = "T3"
+    )
+)
+
+patients <- list(
+    tcga = "Lum A/B, ER+ BC",
+    scanb = "Endo Only, ER+ BC",
+    metabric = "Endo Only, ER+ BC",
+    scanb_high_er = "Endo Only, ER+ BC, ER% >= 90"
+)
+
+path_to_save <- "../results/plots/validation/forest_plots/"
+sapply(
+    paste0(
+        path_to_save,
+        c("pdf", "png")
+    ), 
+    dir.create,
+    showWarnings = FALSE, 
+    recursive = TRUE
+)
+
+forest_plots <- mapply(
+    function(fits, type_analysis){
+        mapply(
+            function(cohort_fits, name_cohort, type_analysis){
+                mapply(
+                    forest_plot_fits,
+                    fit = cohort_fits,
+                    name_signature = names(cohort_fits),
+                    MoreArgs = list(
+                        cohort = name_cohort,
+                        names_coefficients = names_coefficients,
+                        type_survival = toupper(type_analysis),
+                        patients = patients[[name_cohort]],
+                        #clip = c(0.1, 2),
+                        width = 6, 
+                        height = 4, 
+                        path_to_save = path_to_save
+                    ),
+                    USE.NAMES = TRUE,
+                    SIMPLIFY = FALSE
+                )
+            
+            },
+            cohort_fits = fits,
+            name_cohort = names(fits),
+            MoreArgs = list(type_analysis = type_analysis),
+            USE.NAMES = TRUE,
+            SIMPLIFY = FALSE
+        )
+    },
+    survival_results,
+    names(survival_results),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+# all forest plots are saved as a pdf in the 
+# results/plots/surv_analysis_estrogen folder and
+# as a rds file in the folder below.
+saveRDS(
+    forest_plots,
+    "../results/rds_files/validation/forest_plots.rds"
+)
+
+# and now we fetch the tables that will be used later on including the
+# confidence intervals and other parameters from the fit
+tables_survival <- lapply(
+    survival_results, 
+    function(x) 
+        lapply(
+            x,
+            function(y)
+                lapply(
+                    y,
+                    function(z) broom::tidy(
+                        z, 
+                        exponentiate = TRUE, 
+                        conf.int = TRUE
+                    )
+                ) %>% dplyr::bind_rows(.id = "score")
+        ) %>% dplyr::bind_rows(.id = "cohort")
+) %>% dplyr::bind_rows(.id = "type_analysis") %>%
+    dplyr::mutate(HR = estimate)
+
+dir.create(
+    "../results/tables/validation/",
+    showWarnings = FALSE
+)
+write.csv(
+    tables_survival,
+    "../results/tables/validation/survival_results.csv",
+    row.names = FALSE
+)
+```
+
+```{r}
+tables_survival <- read.csv(
+    "../results/tables/validation/survival_results.csv"
+)
+
+forest_plots <- readRDS(
+    "../results/rds_files/validation/forest_plots.rds"
+)
+```
+
+The table below shows the results for the survival analysis using all
+the samples from SCANB and METABRIC coming from patients that received
+only endocrine therapy and whose samples had a $PC3 > 0$. OS means
+overall survival and RFS means recurrence free survival.
+
+```{r}
+tables_survival %>% 
+    dplyr::filter(term %in% c("PC3", "SET_ERPR")) %>%
+    dplyr::select(
+        type_analysis, 
+        cohort, term, 
+        HR, conf.low, 
+        conf.high, p.value
+    ) %>%
+    dplyr::arrange(term, type_analysis, cohort) %>%
+    DT::datatable(
+        options = list(
+            scrollX = TRUE, 
+            pageLength = 20
+        ), 
+        filter = 'top'
+    ) %>% 
+    DT::formatRound(
+        columns = c("HR", "conf.low", "conf.high"), 
+        digits = 2
+    ) %>% 
+    DT::formatSignif(columns = c("p.value"))
+```
+
+We see that in all cases the HR for PC3 is below 1, for OS it ranges
+from 0.95 to 0.97 the HR and for RFS from 0.88 to 0.89. What is 
+interesting to note here is that in all cases the confidence interval
+is crossing 1, as expected due to the variability of the 
+correlation with SET ER/PR and estrogen response early. Also it is interesting
+to note that the confidence interval does not cross so much into 
+the values higher than 1. Remember that the hazard ratio scale is not
+linear. Indeed it seems that the more a sample is on the right side
+of the plot the better is its outcome. Notice that the 
+scale for HR is different for PC3 and SET ER/PR, since one is a positive
+score ranging from 0 to 8 and the other is a score ranging from
+-1 to 1. If we were to rescale SET ER/PR to an interval between
+0 to 10 by multiplying by 5 and then summing 5, we would get 
+hazard ratios in the range of 0.8. Moreover, estrogen signaling
+is not the only thing fully explaining the third component as
+it can be seen from @fig-pca-mol-land-pathways. In this case,
+G2M Checkpoint and PI3K signaling have also a role in the third
+component.
+
+## High risk patients
+
+The Prosigna risk of recurrence score takes into account the 
+tumor stage and the molecular subtype, this is the ROR-C and 
+the formula from the original paper is presented below:
+
+$$
+ROR-C = 0.05\times basal + 0.11 \times HER2 - 0.23 \times LumA + 0.09 \times 
+LumB  + 0.17 \times Tumor size
+$$
+
+We see that if a tumor sample has a high correlation to the
+luminal A subtype it will decrease the score,
+whereas for all other cases there is an increase in the risk. We 
+want to evaluate if the position in the molecular landscape is 
+somehow correlated with the risk score, specially in the forth component
+for luminal A patients.
+
+In [@SCANB2022] they showed that they are able to predict the 
+Prosigna binary categories high or low/intermediate risk for 
+the patients based only on the RNA-seq provided by their pipeline.
+We use these categories here to understand the molecular scores 
+of the samples and also their correlation with the position and
+risk groups.  All the following analysis are done for ER+ BC patients 
+**only**.
+
+First we stratify the risk groups by the molecular subtype.
+
+```{r}
+sub_df_scanb <- df_pca_coordinates %>%
+    dplyr::filter(
+        cohort == "scanb" & 
+            er_status == "pos" & 
+            !is.na(SSP.ROR.binary.risk.cat)
+    )
+
+sub_df_scanb %>% 
+    dplyr::mutate(pam50 = droplevels(pam50)) %>%
+    janitor::tabyl(pam50, SSP.ROR.binary.risk.cat) %>%
+    janitor::adorn_totals() %>%
+    janitor::adorn_percentages(na.rm = TRUE) %>%
+    janitor::adorn_pct_formatting(digits = 0) %>%
+    janitor::adorn_ns() %>%
+    DT::datatable()
+```
+
+As expected the majority of luminal A patients are low/intermediate
+risk, on the other hand most of the luminal B patients are considered
+of high risk. 
+
+If we look more specifically for luminal A patients and stratify 
+on the tumor stage we get the following numbers.
+
+```{r}
+sub_df_scanb %>% 
+    dplyr::filter( 
+            pam50 == "luma" & 
+            !is.na(tumor_stage)
+    ) %>%
+    janitor::tabyl(tumor_stage, SSP.ROR.binary.risk.cat) %>%
+    janitor::adorn_totals() %>%
+    janitor::adorn_percentages(na.rm = TRUE) %>%
+    janitor::adorn_pct_formatting(digits = 0) %>%
+    janitor::adorn_ns() %>%
+    DT::datatable()
+```
+
+We see that for tumor stage 1 the number of high individuals is
+lower in percentage than in tumor stage 3, as expected. We 
+now plot (@fig-luma-scanb-g2m-ts) for all these patients the G2M 
+molecular score,
+an index of proliferation, stratified by the tumor stage. 
+
+```{r, fig.width=11, fig.height=6}
+#| label: fig-luma-scanb-g2m-ts
+#| fig-cap: Luminal A BC patients G2M scores stratified by tumor stage.
+sub_df_scanb %>% 
+    dplyr::filter(
+            pam50 == "luma" & 
+            !is.na(tumor_stage)
+    ) %>%
+    ggplot2::ggplot(aes(
+        fill = SSP.ROR.binary.risk.cat, 
+        y = HALLMARK_G2M_CHECKPOINT,
+        x = SSP.ROR.binary.risk.cat 
+    )) +
+    ggplot2::geom_jitter() + 
+    ggplot2::geom_violin(alpha = 0.3) +
+    ggplot2::facet_wrap(~tumor_stage) +
+    ggplot2::theme_bw(base_size = 20) +
+    ggplot2::labs(
+        x = "ROR binary risk category (SSP)",
+        title = paste0(
+            "G2M scores stratified by risk category.\n",
+            "Only luminal A, ER+ BC, ET treated only patients from SCANB"
+        ),
+        y = "G2M"
+    ) + 
+    ggplot2::theme(legend.position = "none") + 
+    change_plot_aes_point()
+```
+
+We see that in all three cases in average the G2M scores are 
+higher in the high risk groups than in the Low/Intermediate.
+
+We saw previously that some of the G2M checkpoint genes have higher
+loadings for the fourth component. We now plot the PC4 components stratified
+by the risk groups for the luminal A patients (@fig-luma-scanb-pc4).
+
+```{r, fig.width=6, fig.height=4}
+#| label: fig-luma-scanb-pc4
+#| fig-cap: Luminal A BC patients PC4 values stratified by risk category.
+sub_df_scanb %>% 
+    dplyr::filter(pam50 == "luma") %>%
+    ggplot2::ggplot(aes(x = SSP.ROR.binary.risk.cat, y = PC4)) +
+    ggplot2::geom_jitter() + 
+    ggplot2::geom_violin(alpha = 0.3) +
+    ggplot2::geom_boxplot(
+        width=0.1, 
+        color = "black", 
+        alpha = 0.3,
+        outlier.shape = NA
+    ) +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        x = "ROR binary risk category (SSP)",
+        title = paste0(
+            "Molecular scores stratified by risk category.\n",
+            "Only luminal A, ER+ BC patients from SCANB"
+        )
+    ) + 
+    ggplot2::theme(legend.position = "bottom") + 
+    change_plot_aes_point()
+```
+
+Indeed, in average the higher the PC4, the more likely it is to be
+in the High risk group. And now we compare the 
+G2M Checkpoint, Estrogen response early and random 200 signature 
+for each molecular subtype separately (@fig-all-scanb-g2m-ere) of 
+ER+ BC patients.
+
+```{r, fig.width=14,fig.height=10}
+#| label: fig-all-scanb-g2m-ere
+#| fig-cap: ER+ BC patients and molecular scores stratified by
+#|     molecular subtype and binary risk categories.
+sub_df_scanb %>% 
+    tidyr::pivot_longer(
+        cols = c(
+            "HALLMARK_G2M_CHECKPOINT", 
+            "HALLMARK_ESTROGEN_RESPONSE_EARLY",
+            "random_200"
+        ),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    ggplot2::ggplot(aes(
+        fill = SSP.ROR.binary.risk.cat, 
+        x = score
+    )) +
+    ggplot2::geom_density(alpha = 0.3) + 
+    ggplot2::facet_grid(
+        pathway~pam50, 
+        scales = "free_y",
+        labeller = as_labeller(c(
+            "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen early",
+            "HALLMARK_G2M_CHECKPOINT" = "G2M",
+            "random_200" = "Random 200",
+            "luma" = "luma",
+            "lumb" = "lumb",
+            "her2" = "her2",
+            "normal" = "normal",
+            "basal" = "basal"
+        ))
+    ) +
+    ggplot2::theme_bw(base_size = 20) +
+    ggplot2::labs(
+        fill = "ROR binary risk category (SSP)",
+        x = "Molecular score",
+        title = paste0(
+            "Molecular scores stratified by risk category and PAM50.\n",
+            "Only ER+ BC patients from SCANB"
+        ),
+        y = "Density"
+    ) + 
+    ggplot2::theme(legend.position = "bottom") + 
+    change_plot_aes_point()
+```
+
+We see that in this case the binary risk category has distinct distributions
+for the G2M checkpoint for all molecular subtypes, in particular with the 
+basal like. 
 

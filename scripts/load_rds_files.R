@@ -54,6 +54,19 @@ db_files <- list(
         df_pca = "df_pca_coordinates",
         pca_fit = "pca_fit",
         datasets_normalized_og = "datasets_normalized"
+    ),
+    risk_score = c(
+        datasets = "datasets_with_scores",
+        stable_genes = "stable_genes",
+        which_exp = "which_exp",
+        which_cohorts_training = "which_cohorts_training",
+        merged_col_data = "merged_col_data",
+        gene_sets = "gene_sets",
+        genes_for_pca = "genes_for_pca",
+        df_pca = "poetic_df_pca_with_scores",
+        pca_fit = "pca_fit",
+        datasets_normalized_og = "datasets_normalized",
+        poetic_normalized = "poetic_normalized"
     )
 )
 

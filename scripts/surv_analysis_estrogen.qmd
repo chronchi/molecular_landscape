@@ -75,7 +75,7 @@ options(bitmapType = 'cairo')
 # and save the intermediate results so loading all the dataset again
 # is not necessary
 tcga <- readRDS("../data/tcga_brca_tumor_filtered.rds")
-metabric <- readRDS("../data/metabric_filtered.rds")
+metabric <- readRDS("../data/metabric_filtered_complete.rds")
 scanb <- readRDS("../data/scanb_2022/scanb_sumexp.rds")
 
 # we want to have common variables across datasets. so for tcga
@@ -201,7 +201,7 @@ scanb$node_stage <- ifelse(
         grepl("4toX", node_stage),
         "N2and3",
         ifelse(
-            grepl("NodeNegative", node_stage),
+            grepl("N0", node_stage),
             "N0",
             "NX"
         )
@@ -1226,11 +1226,15 @@ tables_survival <- lapply(
             function(y)
                 lapply(
                     y,
-                    function(z) broom::tidy(z)
+                    function(z) broom::tidy(
+                        z, 
+                        exponentiate = TRUE, 
+                        conf.int = TRUE
+                    )
                 ) %>% dplyr::bind_rows(.id = "score")
         ) %>% dplyr::bind_rows(.id = "cohort")
 ) %>% dplyr::bind_rows(.id = "type_analysis") %>%
-    dplyr::mutate(HR = exp(estimate))
+    dplyr::mutate(HR = estimate)
 
 write.csv(
     tables_survival,
@@ -1551,7 +1555,8 @@ gridExtra::grid.arrange(
 The problem now is that the number of events is much smaller, so the
 confidence intervals for the estimates will be bigger. We see
 that for both signatures the HR is way below 1, meaning that 
-the higher the score the better it is for the patient. 
+the higher the score the better it is for the patient. Also the 
+hazard ratio decreased in this case.
 
 ## Conclusion
 

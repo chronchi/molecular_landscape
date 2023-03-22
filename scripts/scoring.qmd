@@ -559,6 +559,22 @@ poetic_df_pca %>%
     change_guides_point()
 ```
 
+### Differences in PC3 for responders and non responders
+
+We now also compare the differences in non responders vs responders
+according to the third component. 
+
+```{r}
+poetic_df_pca_baseline %>%
+    dplyr::filter(cohort == "poetic") %>%
+    ggplot2::ggplot(aes(x = is_responder, y = PC3, color = is_responder)) +
+    ggplot2::geom_boxplot() +
+    ggplot2::geom_jitter() +
+    ggplot2::labs(title = "Third component score")
+    ggplot2::theme_bw()
+```
+
+
 ## Scoring all samples 
 
 In the last chapters scores were showed for TCGA, SCANB and 
@@ -627,32 +643,26 @@ if (!load_at_setup){
 }
 ```
 
-```{r}
+```{r, fig.width=13, fig.height=8}
 #| label: fig-scores-poetic-er
 #| fig-cap: Baseline scores for all treated patients in the POETIC trial. 
 #|     G2M corresponds to a proliferation score, EMT to epithelial to 
 #|     mesenchymal transition score and the others are related to ER 
 #|     signaling. 
-gene_sets <- readRDS(
-    "../results/rds_files/surv_analysis_estrogen/gene_sets.rds"
-)
-
 which_scores <- c(
     "SET_ERPR" = "SET ER/PR",
     "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early",
     "HALLMARK_ESTROGEN_RESPONSE_LATE" = "Estrogen Late",
     "HALLMARK_G2M_CHECKPOINT" = "G2M",
-    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" = "EMT"
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" = "EMT",
+    "PC3" = "PC3"
 )
 df_pca_coordinates %>% 
     dplyr::filter(cohort == "poetic" & timepoint == "baseline") %>%
     tidyr::pivot_longer(
-        gene_sets$gs_name %>% unique,
+        names(which_scores),
         names_to = "pathway",
         values_to = "score"
-    ) %>%
-    dplyr::filter(
-        pathway %in% names(which_scores)
     ) %>%
     dplyr::mutate(
         pathway = which_scores[pathway]
@@ -660,16 +670,208 @@ df_pca_coordinates %>%
     ggplot2::ggplot(aes(x = is_responder, y = score, fill = is_responder)) +
     ggplot2::geom_violin(color = "black") +
     ggplot2::geom_jitter(size = 0.5) + 
-    ggplot2::facet_wrap(~pathway) +
-    ggplot2::theme_bw() + 
+    ggplot2::coord_flip() +
+    ggplot2::facet_wrap(~pathway, scale = "free_x") +
+    ggplot2::theme_bw(base_size = 20) + 
     ggplot2::labs(
         x = "Is responder?", y = "Score", fill = "Is responder?",
         title = "Distribution of some scores for samples at baseline timepoint"
     ) +
-    ggplot2::theme(
-        axis.text.x = element_blank(),
-        legend.position = c(0.85, 0.3)
+    change_plot_aes_point() + 
+    change_guides_point()
+```
+
+We see that for PC3 and SET ER/PR There are some
+differences in terms of the responders and non responders.
+
+Let us take a closer look at those patients. We start
+by plotting the scatter plot of PC3 vs SET ER/PR and color
+by response status defined by the POETIC trial. 
+
+```{r}
+#| label: fig-scores-poetic-responders
+#| fig-cap: Comparison of the third component with SET ER/PR scores colored
+#|     by response status.
+df_pca_coordinates %>% 
+    dplyr::filter(cohort == "poetic" & timepoint == "baseline") %>%
+    dplyr::filter(is_responder != "not_available") %>%
+    ggplot2::ggplot(aes(x = PC3, y = SET_ERPR, color = is_responder)) +
+    ggplot2::geom_point() + 
+    ggplot2::geom_smooth(
+        method = "gam",
+        color = "black"
+    ) + 
+    ggplot2::theme_bw(base_size = 20) + 
+    ggplot2::labs(
+        x = "PC3", 
+        y = "SET ER/PR", 
+        color = "Is responder?",
+        title = paste0(
+            "Scores for responders and non\nresponders of ",
+            "POETIC trial samples"
+        )
+    ) +
+    change_plot_aes_point() + 
+    change_guides_point()
+```
+
+This figure shows that there is a correlation between
+third component and SET ER/PR for the POETIC trial data
+as well as it was already seen from the other cohorts. 
+Moreover, it seems that the responders have higher PC scores
+in general. We now correlate for each subgroup (responder and non 
+responders) the PC3 and the change in percentage for Ki67.
+
+```{r, fig.width=10, fig.height=6}
+#| label: fig-scores-corr-poetic
+#| fig-cap: Correlation between change in Ki67 versus PC3 stratified by
+#|     response group.
+responder_non_responder_base <- df_pca_coordinates %>% 
+    dplyr::filter(
+        cohort == "poetic" & timepoint == "baseline" &
+            is_responder %in% c("non_responder", "responder")
+    ) %>% 
+    dplyr::mutate(is_responder = factor(
+        is_responder, levels = c("responder", "non_responder")
+    ))
+
+# calculates the correlation and also get the p-values
+cor_tests <- responder_non_responder_base %>% 
+    tidyr::nest(data = -is_responder) %>%
+    dplyr::mutate(
+        test = map(data, ~ cor.test(.x$change_ki67, .x$PC3)),
+        tidied = map(test, broom::tidy)
+    ) %>% 
+    tidyr::unnest(tidied) %>% 
+    dplyr::select(-dplyr::all_of("data")) %>%
+    dplyr::mutate(
+        label = paste0(
+            "\U03C1: ", 
+            format(estimate, digits = 2), 
+            "\n p-val: ", 
+            format(p.value, digits = 2)
+        ),
+        x = c(-90, -20),
+        y = c(-5, 4)
     )
+
+p <- responder_non_responder_base %>%
+    ggplot2::ggplot(aes(x = change_ki67, y = PC3)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_smooth(method = "lm") + 
+    ggplot2::facet_wrap(~is_responder, scale = "free_x") +
+    ggplot2::labs(
+        x = "Change in Ki67",
+        title = "Pearson correlation for each subgroup separately"
+    ) +
+    ggplot2::theme_bw(base_size = 20) + 
+    change_plot_aes_point() + 
+    change_guides_point()
+
+p + ggplot2::geom_label(
+    data = cor_tests,
+    mapping = aes(x = x, y = y, label = label)
+)
+```
+
+Now another metric we can calculate from our dataset is the difference
+of the embedding positions 
+between the different samples of the same patient. The idea is that if a 
+patient responded well, there were bigger changes as well in the
+transcriptomics and that is reflected in the embedding. 
+
+```{r, fig.width=10, fig.height=7}
+#| label: fig-diff-embedding-poetic
+#| fig-cap: Differences of the embeddings for each patient individually
+#|     stratified by response status. Each dot corresponds to a single patient.
+diff_positions_poetic <- df_pca_coordinates %>%
+    dplyr::filter(cohort == "poetic" & 
+                      is_responder %in% c("responder", "non_responder")) %>%
+    tidyr::pivot_wider(
+        id_cols = c(patient_nb, is_responder, change_ki67),
+        names_from = timepoint, 
+        values_from = c(PC3, PC4)
+    ) %>%
+    dplyr::summarise(
+        diff_positions = sqrt(
+            (PC3_baseline - PC3_surgery)^2 + 
+                (PC4_baseline - PC4_surgery)^2 
+        ),
+        is_responder = is_responder,
+        change_ki67 = change_ki67
+    ) %>%
+    dplyr::mutate(is_responder = factor(
+        is_responder, levels = c("responder", "non_responder")
+    ))
+
+diff_positions_poetic %>%
+    ggplot2::ggplot(aes(x = is_responder, y = diff_positions)) +
+    ggplot2::geom_boxplot() +
+    ggplot2::geom_jitter() + 
+    ggplot2::labs(
+        x = "Is responder?",
+        y = "Difference in positions of the embedding"
+    ) +
+    ggplot2::theme_bw(base_size = 20) +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+And now we perform a comparison of these positions by using
+rstanarm to get the posterior distributions of the differences.
+
+```{r}
+fit_differences <- rstanarm::stan_glm(
+    formula = diff_positions ~ is_responder,
+    data = diff_positions_poetic, 
+    refresh = 0 
+)
+
+diff_means <- fit_differences %>%
+    tidybayes::spread_draws(is_respondernon_responder)
+
+means <- diff_positions_poetic %>%
+    modelr::data_grid(is_responder) %>%
+    tidybayes::add_epred_draws(fit_differences)
+```
+
+The figure below shows the distribution of the averages of the differences
+in the embedding of the projections.
+
+```{r}
+#| label: fig-diff-embedding-poetic-averages
+#| fig-cap: Differences of the embeddings for each patient individually
+#|     stratified by response status. Each dot corresponds to a single patient.
+means %>%
+    ggplot2::ggplot(aes(x = .epred, y = is_responder)) +
+    tidybayes::stat_dotsinterval(quantiles = 100) + 
+    ggplot2::labs(
+        x = "Average distance of embedding positions",
+        y = ""
+    ) + 
+    ggplot2::theme_bw() + 
+    change_plot_aes_point()
+```
+
+And the figure below shows the posterior distribution of the differences
+in average.
+
+```{r}
+#| label: fig-diff-embedding-poetic-averages-diff
+#| fig-cap: Differences of the average differences in the embedding for 
+#|    each patient individually. The comparison made was non responder vs 
+#|    responder, which means that if non responder has a lower difference in
+#|    average, the difference in difference will be negative.
+diff_means %>%
+    ggplot2::ggplot(aes(x = is_respondernon_responder)) +
+    tidybayes::stat_dotsinterval(quantiles = 100) +
+    ggplot2::theme_bw() + 
+    ggplot2::labs(
+        x = "Average difference of the embedding differences",
+        y = "Density",
+        title = ""
+    ) +
+    change_plot_aes_point()
 ```
 
 ## Analysing patient neighborhoods
