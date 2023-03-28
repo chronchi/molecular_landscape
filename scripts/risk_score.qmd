@@ -300,7 +300,7 @@ that the higher the score the worse it is for the patient.
 We now visualize a bit the risk scores developed here in terms 
 of the molecular landscape. @fig-risk-endo-pam50
 
-```{r}
+```{r, fig.width=7, fig.height=5}
 #| label: fig-risk-endo-pam50
 #| fig-cap: Molecular landscape of SCANB patients treated with only
 #|     endocrine therapy and that have ER+ breast cancer. Only patients
@@ -308,14 +308,15 @@ of the molecular landscape. @fig-risk-endo-pam50
 #|     patients out of 2829 with risk score higher than 2 that would skew 
 #|     the color scale.
 endo_only_scanb %>%
-    ggplot2::ggplot(aes(x = PC3, y = PC4, color = risk_score)) +
-    ggplot2::geom_point(size = 2, alpha = 0.8) + 
-    ggplot2::scale_color_viridis_c() + 
+    dplyr::filter(risk_score <= 2) %>%
+    ggplot2::ggplot(aes(x = PC3, y = PC4, z = risk_score)) +
+    ggplot2::stat_summary_hex(bins = 25) +
+    ggplot2::scale_fill_viridis_c() +
     ggplot2::theme_bw(base_size = 15) +
     ggplot2::labs(
-        color = "Risk score",
+        fill = "Risk score",
         title = paste0(
-            "Clinical risk score for SCANB patients treated with ET only"
+            "Clinical risk score for SCANB patients treated\nwith ET only"
         )
     ) +
     change_plot_aes_point()
@@ -395,7 +396,10 @@ the risk score and compare the likelihood of the two models using anova.
 risk_score_scanb_ROR <- survival::coxph(
     as.formula(paste0(
         "Surv(time = rfs_months, event = rfs_status) ~ ",
-        paste(c("risk_score", "SSP.ROR.binary.risk.cat", clin_vars), collapse = "+")
+        paste(
+            c("risk_score", "SSP.ROR.binary.risk.cat", clin_vars), 
+            collapse = "+"
+        )
     )),
     data = endo_only_scanb
 )
@@ -403,7 +407,10 @@ risk_score_scanb_ROR <- survival::coxph(
 risk_score_scanb_onlyROR <- survival::coxph(
     as.formula(paste0(
         "Surv(time = rfs_months, event = rfs_status) ~ ",
-        paste(c(clin_vars, "SSP.ROR.binary.risk.cat"), collapse = "+")
+        paste(
+            c(clin_vars, "SSP.ROR.binary.risk.cat"), 
+            collapse = "+"
+        )
     )),
     data = endo_only_scanb
 )
@@ -439,8 +446,14 @@ endo_only_scanb %>%
     ggplot2::labs(
         x = "Risk score",
         y = "ROR (by NC)",
-        title = "Clinical risk score vs ROR for SCANB\npatients treated with ET only"
+        title = paste0(
+            "Clinical risk score vs ROR for SCANB\n",
+            "patients treated with ET only"
+        )
     ) +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(endo_only_scanb)
+    ) + 
     change_guides_point() +
     change_plot_aes_point()
 ```
@@ -507,7 +520,7 @@ df_pca %>%
     ggplot2::labs(
         x = "Response status",
         y = "Risk score (PCs only)",
-        title = "Risk score (PCs only) based on response status"
+        title = "Risk score (PCs only) based on\nresponse status"
     ) +
     ggplot2::theme_bw(base_size = 20) +
     change_plot_aes_point()
@@ -624,7 +637,7 @@ the signatures and the risk scores derived only from the principal components.
 #|     to a different pathway. 
 endo_only_sm %>%
     tidyr::pivot_longer(
-        cols = names(pathways_of_interest),
+        cols = c(names(pathways_of_interest)),
         names_to = "pathway",
         values_to = "score"
     ) %>%
