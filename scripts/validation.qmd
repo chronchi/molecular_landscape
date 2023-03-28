@@ -1383,7 +1383,7 @@ luminal A and B subtypes and we use PC3 as a score in the survival analysis.
 scanb_samples <- df_pca_coordinates %>% 
     dplyr::filter(cohort == "scanb") %>%
     dplyr::filter(
-        node_stage != "NXs" &
+        node_stage != "NX" &
         !(tumor_stage %in% c("T4", "Tis", "TX")) & 
         er_status == "pos" & 
         TreatGroup == "Endo" & 
@@ -1738,6 +1738,27 @@ saveRDS(
     "../results/rds_files/validation/forest_plots.rds"
 )
 
+analysis_code <- list(
+    os = "Overall survival",
+    rfs = "Recurrence free survival"
+)
+
+# get all the results together
+tidy_survival <- survival_results %>%
+    lapply(
+        ., 
+        function(x){
+            lapply(
+                x,
+                get_df_survival,
+                pathways_of_interest = c("PC3", "PC4")
+            ) %>%
+                dplyr::bind_rows(.id = "cohort")
+        }
+    ) %>%
+    dplyr::bind_rows(.id = "type_analysis")
+
+
 # and now we fetch the tables that will be used later on including the
 # confidence intervals and other parameters from the fit
 tables_survival <- lapply(
@@ -1767,11 +1788,21 @@ write.csv(
     "../results/tables/validation/survival_results.csv",
     row.names = FALSE
 )
+
+write.csv(
+    tidy_survival,
+    "../results/tables/validation/tidy_survival.csv",
+    row.names = FALSE
+)
 ```
 
 ```{r}
 tables_survival <- read.csv(
     "../results/tables/validation/survival_results.csv"
+)
+
+tidy_survival <- read.csv(
+    "../results/tables/validation/tidy_survival.csv"
 )
 
 forest_plots <- readRDS(
@@ -1808,13 +1839,12 @@ tables_survival %>%
     DT::formatSignif(columns = c("p.value"))
 ```
 
-We see that in all cases the HR for PC3 is below 1, for OS it ranges
-from 0.95 to 0.97 the HR and for RFS from 0.88 to 0.89. What is 
+We see that in all cases the HR for PC3 is below 1, for OS the values are
+0.98 and 0.97 and the HR and for RFS from 0.80 to 0.93. What is 
 interesting to note here is that in all cases the confidence interval
 is crossing 1, as expected due to the variability of the 
-correlation with SET ER/PR and estrogen response early. Also it is interesting
-to note that the confidence interval does not cross so much into 
-the values higher than 1. Remember that the hazard ratio scale is not
+correlation with SET ER/PR and estrogen response early. 
+Remember that the hazard ratio scale is not
 linear. Indeed it seems that the more a sample is on the right side
 of the plot the better is its outcome. Notice that the 
 scale for HR is different for PC3 and SET ER/PR, since one is a positive
@@ -1826,6 +1856,85 @@ is not the only thing fully explaining the third component as
 it can be seen from @fig-pca-mol-land-pathways. In this case,
 G2M Checkpoint and PI3K signaling have also a role in the third
 component.
+
+The following figures correspond to the overall survival analysis and
+recurrence free survival analysis from the SCANB and METABRIC.
+
+```{r, fig.width=8,fig.height=6}
+plot_combined_scores(
+    tidy_survival %>%
+        dplyr::filter(type_analysis == "os") %>%
+        dplyr::mutate(pathway = paste0(pathway, "_", cohort)) %>%
+        dplyr::arrange(rev(pathway)) %>%
+        dplyr::mutate(pathway = factor(pathway)),
+    range_hr = 1.1,
+    range_min = 0.9
+) + 
+    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::labs(
+        title = paste0("Overall survival analysis"),
+        subtitle = "SCANB, METABRIC and SCANB high ER% (>= 90%)"  
+    ) + 
+    change_plot_aes_point()
+```
+
+```{r, fig.width=8,fig.height=6}
+plot_combined_scores(
+    tidy_survival %>%
+        dplyr::filter(type_analysis == "rfs") %>%
+        dplyr::mutate(pathway = paste0(pathway, "_", cohort)) %>%
+        dplyr::arrange(rev(pathway)) %>%
+        dplyr::mutate(pathway = factor(pathway)),
+    range_hr = 1.12,
+    range_min = 0.7
+) + 
+    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::labs(
+        title = paste0("Recurrence free survival (RFS) analysis"),
+        subtitle = "SCANB, METABRIC and SCANB high ER% (>= 90%)"  
+    ) + 
+    change_plot_aes_point()
+```
+
+```{r, fig.width=10,fig.height=6}
+#| label: fig-os-rfs-pcs
+#| fig-cap: Overall and recurrence free survival analysis of the
+#|     principal components PC3 and PC4. The rows correspond to a different
+#|     PC and cohort and if the case sub cohort. 
+tidy_survival %>%
+    dplyr::mutate(pathway = paste0(pathway, "_", cohort)) %>%
+    dplyr::arrange(rev(pathway)) %>%
+    dplyr::mutate(pathway = factor(pathway)) %>%
+    ggplot2::ggplot(aes(
+        y = pathway, 
+        x = estimate, 
+        xmin = conf.low, 
+        xmax = conf.high
+    )) +
+    ggplot2::geom_pointrange() + 
+    ggplot2::geom_vline(xintercept = 1, lty = 2) + 
+    ggplot2::labs(
+        x = "Hazard ratio (95% CI)",
+        y = ""
+    ) +
+    ggplot2::facet_wrap(
+        ~type_analysis, 
+        scales = "free_x", 
+        labeller = as_labeller(c(
+            "os" = "Overall survival (OS)",
+            "rfs" = "Recurrence free survival (RFS)"
+        ))
+    ) +
+    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::labs(
+        title = paste0("Survival (RFS) analysis of the principal components"),
+        subtitle = paste0(
+            "SCANB, METABRIC and SCANB high ER% (>= 90%).\n",
+            "ER+ BC, ET treated only patients."
+        )
+    ) + 
+    change_plot_aes_point()
+```
 
 ## High risk patients
 

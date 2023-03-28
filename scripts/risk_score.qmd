@@ -16,7 +16,17 @@ the information the molecular landscape is providing us. Also it avoids
 any kind of binning for patients based on molecular subtype, thus not being
 necessary calculating correlations with pre-defined molecular subtypes.
 
-```{r}
+Later in the chapter we compare the risk score with the ROR binary 
+categories: high and low/intermediate risk. We also compare the risk score
+with the ROR continuous value obtained by the SCANB team using nearest
+centroid classification (NCN). We use samples from patients that were treated
+with endocrine therapy only for the training of the risk score. Even though 
+the ROR was trained on a cohort of patients that received no treatment, we 
+can still compare the signatures. @Buus2021 showed that the EndoPredict 
+signature is highly correlated to ROR ($\rho = 0.68$), therefore we can 
+to some extent take conclusions based on the ROR signature.
+
+```{r setup}
 renv::restore()
 
 library(tidyverse)
@@ -152,7 +162,7 @@ risk_score_model <- survival::coxph(
 
 saveRDS(
     risk_score_model,
-    "../results/risk_score/risk_score_model.rds"
+    "../results/rds_files/risk_score/risk_score_model.rds"
 )
 ```
 
@@ -185,7 +195,7 @@ risk_score_model_clins <- survival::coxph(
 
 saveRDS(
     risk_score_model_pcs,
-    "../results/risk_score/risk_score_model_pcs.rds"
+    "../results/rds_files/risk_score/risk_score_model_pcs.rds"
 )
 ```
 
@@ -211,24 +221,38 @@ coefs_risk_model_pcs <- coef(risk_score_model_pcs)
 # let us save them so they can be used later as well
 saveRDS(
     coefs_risk_model,
-    "../results/risk_score/coefs_risk_model.rds"
+    "../results/rds_files/risk_score/coefs_risk_model.rds"
 )
 saveRDS(
     coefs_risk_model_pcs,
-    "../results/risk_score/coefs_risk_model_pcs.rds"
+    "../results/rds_files/risk_score/coefs_risk_model_pcs.rds"
 )
 
 # now we can calculate the scores for all the patients. For TCGA and POETIC
 # we do not have tumor size, so for those we calculate the risk score based
 # on the components only.
-endo_only_scanb$risk_score <- calculate_risk_score(coefs_risk_model, endo_only_scanb)
-endo_only_metabric$risk_score <- calculate_risk_score(coefs_risk_model, endo_only_metabric)
+endo_only_scanb$risk_score <- calculate_risk_score(
+    coefs_risk_model, endo_only_scanb
+)
+endo_only_scanb$risk_score_pcs <- calculate_risk_score(
+    coefs_risk_model_pcs, endo_only_scanb, is_node = FALSE
+)
+endo_only_metabric$risk_score <- calculate_risk_score(
+    coefs_risk_model, endo_only_metabric
+)
+endo_only_metabric$risk_score_pcs <- calculate_risk_score(
+    coefs_risk_model_pcs, endo_only_metabric, is_node = FALSE
+)
 
 df_pca_metabric$risk_score <- calculate_risk_score(coefs_risk_model, df_pca_metabric) 
 df_pca_scanb$risk_score <- calculate_risk_score(coefs_risk_model, df_pca_scanb)
 
 # we can now calculate the score for all samples based on PC3 and PC4
-df_pca$risk_score_pcs <- calculate_risk_score(coefs_risk_model_pcs, df_pca, is_node = FALSE)
+df_pca$risk_score_pcs <- calculate_risk_score(
+    coefs_risk_model_pcs, 
+    df_pca, 
+    is_node = FALSE
+)
 
 test_set <- endo_only_metabric %>%
     dplyr::filter(!(sample_name %in% training_set$sample_name))
@@ -270,7 +294,7 @@ risk_score_scanb <- survival::coxph(
 summary(risk_score_scanb)
 ```
 
-Again the risk score is predictive with a high coefficient, meaning
+Again the risk score is prognostic with a high coefficient, meaning
 that the higher the score the worse it is for the patient. 
 
 We now visualize a bit the risk scores developed here in terms 
@@ -284,12 +308,16 @@ of the molecular landscape. @fig-risk-endo-pam50
 #|     patients out of 2829 with risk score higher than 2 that would skew 
 #|     the color scale.
 endo_only_scanb %>%
-    dplyr::filter(risk_score < 2) %>%
     ggplot2::ggplot(aes(x = PC3, y = PC4, color = risk_score)) +
-    ggplot2::geom_point() + 
+    ggplot2::geom_point(size = 2, alpha = 0.8) + 
     ggplot2::scale_color_viridis_c() + 
-    ggplot2::theme_bw() +
-    ggplot2::labs(color = "Risk score") +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        color = "Risk score",
+        title = paste0(
+            "Clinical risk score for SCANB patients treated with ET only"
+        )
+    ) +
     change_plot_aes_point()
 ```
 
@@ -311,11 +339,150 @@ risk_score_scanb_highER <- survival::coxph(
 summary(risk_score_scanb_highER)
 ```
 
-We see that the score is still predictive, meaning that even patients
+We see that the score is still prognostic, meaning that even patients
 that have high ER IHC percentage, there are those with higher risk. Note
 though that the analysis still is a bit limited due to the followup time
 that in median is `r format(median(endo_only_scanb$rfs_month)/12, digits = 2)` 
 years.
+
+We also compare the risk score for the high risk group and low/intermediate
+risk group of the ROR signature (@fig-risk-ror) 
+obtained by the SCANB team using single 
+sample predictor models, where rule based algorithms are used to determine
+if a patient is high or low/intermediate risk. They validate this on
+prosigna's own sequencing and showed good results [@SCANB2022].
+
+```{r, fig.width=7, fig.height=6}
+#| label: fig-risk-ror
+#| fig-cap: Risk score stratified by binary category risk as defined 
+#|     by the SCANB team at [@SCANB2022]. ER+ BC patients that received 
+#|     only ET were considered.
+endo_only_scanb %>% 
+    ggplot2::ggplot(aes(x = SSP.ROR.binary.risk.cat, y = risk_score, color = pam50)) +
+    ggplot2::geom_jitter() + 
+    ggplot2::geom_violin(color = "black", alpha = 0.3) +
+    ggplot2::geom_boxplot(
+        width=0.1, 
+        color = "black", 
+        alpha = 0.3,
+        outlier.shape = NA
+    ) +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        x = "ROR binary risk category (SSP)",
+        title = paste0(
+            "Risk score stratified by the risk category.\n",
+            "ER+ BC patients from SCANB treated only with ET"
+        ),
+        y = "Risk score"
+    ) + 
+    ggplot2::scale_color_manual(
+       values = get_colors_pam50(endo_only_scanb)
+    ) +
+    change_plot_aes_point() + 
+    change_guides_point()
+```
+
+As expected most of the patients in the high risk group are luminal B.
+The ROR signature was developed in such a way to get luminal B patients to be
+of high risk. But here we see that there is still an overlap between
+low/intermediate patients and high risk patients, suggesting that the
+new risk score has additional information. For assessing this hypothesis
+we perform recurrence free survival analysis with both variables and just
+the risk score and compare the likelihood of the two models using anova. 
+
+```{r}
+risk_score_scanb_ROR <- survival::coxph(
+    as.formula(paste0(
+        "Surv(time = rfs_months, event = rfs_status) ~ ",
+        paste(c("risk_score", "SSP.ROR.binary.risk.cat", clin_vars), collapse = "+")
+    )),
+    data = endo_only_scanb
+)
+
+risk_score_scanb_onlyROR <- survival::coxph(
+    as.formula(paste0(
+        "Surv(time = rfs_months, event = rfs_status) ~ ",
+        paste(c(clin_vars, "SSP.ROR.binary.risk.cat"), collapse = "+")
+    )),
+    data = endo_only_scanb
+)
+
+anova_out <- anova(risk_score_scanb_onlyROR, risk_score_scanb_ROR)
+write.csv(
+    broom::tidy(anova_out),
+    "../results/tables/risk_score/anova_ROR_RR.csv"
+)
+```
+
+```{r}
+anova_out
+```
+
+
+We see that by adding the risk score it provides aditional value on top of 
+the binary category from prosigna. On top of that the SCANB team calculated
+also the ROR score based on the original paper. So we actually have the 
+actual scores derived from the nearest centroid technique for all patients.  
+
+@fig-ror-riskscore-comparison shows the comparison between risk score 
+and the ROR score from prosigna calculated by using NC. 
+
+```{r}
+#| label: fig-ror-riskscore-comparison
+#| fig-cap: Comparison of the risk score developed here with the ROR from
+#|     Prosigna. 
+endo_only_scanb %>% 
+    ggplot2::ggplot(aes(x = risk_score, NCN.ROR.asT0, color = pam50)) +
+    ggplot2::geom_point(alpha = 0.7) +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        x = "Risk score",
+        y = "ROR (by NC)",
+        title = "Clinical risk score vs ROR for SCANB\npatients treated with ET only"
+    ) +
+    change_guides_point() +
+    change_plot_aes_point()
+```
+
+There is a correlation but we see that among the luminal A patients 
+there are still those that have high risk score besides a ROR lower than
+50. We now evaluate the risk score only on luminal A patients that 
+received just endocrine therapy.
+
+```{r}
+risk_score_scanb_luma <- survival::coxph(
+    as.formula(paste0(
+        "Surv(time = rfs_months, event = rfs_status) ~ ",
+        paste(c("risk_score", clin_vars), collapse = "+")
+    )),
+    data = endo_only_scanb %>%
+        dplyr::filter(pam50 == "luma")
+)
+
+risk_score_scanb_luma
+```
+
+Even among these patients the score is prognostic, despite the number of 
+events, the hazard ratio is relatively high here. If we do the survival
+analysis by using overall survival as endpoint the results are shown below.
+
+```{r}
+risk_score_scanb_luma_os <- survival::coxph(
+    as.formula(paste0(
+        "Surv(time = os_months, event = os_status) ~ ",
+        paste(c("risk_score", clin_vars), collapse = "+")
+    )),
+    data = endo_only_scanb %>%
+        dplyr::filter(pam50 == "luma")
+)
+
+risk_score_scanb_luma_os
+```
+
+Risk score still an estimated hazard ratio higher than 1, with 
+more variability though, still in the expected direction. So we see that 
+this signature provides aditional information to the PAM50 ROR signature. 
 
 ## Risk score and POETIC trial
 
@@ -382,6 +549,179 @@ df_pca %>%
         title = "Risk score (PCs only)",
         color = "Is responder?"
     ) +
+    ggplot2::scale_color_viridis_d() + 
     ggplot2::theme_bw(base_size = 20) +
     change_plot_aes_point()
 ```
+
+## Risk score vs pathways 
+
+We now compare the risk score with pathways of interest as discussed in the
+previous sections. Again we only look at the patients that received only
+endocrine therapy in both SCANB and METABRIC.
+
+```{r}
+pathways_of_interest <- c(
+    "HALLMARK_G2M_CHECKPOINT" = "G2M checkpoint",
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" = "EMT",
+    "HALLMARK_DNA_REPAIR" = "DNA repair",
+    "HALLMARK_ANDROGEN_RESPONSE" = "Androgen response",
+    "HALLMARK_PI3K_AKT_MTOR_SIGNALING" = "PI3K AKT MTOR signaling",
+    "SET_ERPR" = "SET ER/PR",
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen early"
+)
+
+endo_only_sm <- dplyr::bind_rows(
+    endo_only_scanb,
+    endo_only_metabric
+) %>% 
+    dplyr::select(dplyr::all_of(c(
+        names(pathways_of_interest),
+        "cohort",
+        "pam50",
+        "risk_score",
+        "risk_score_pcs"
+    )))
+```
+
+```{r, fig.width=12, fig.height=10}
+#| label: fig-cor-risk-pathways
+#| fig-cap: Risk score versus pathways of interest. Each subplot corresponds
+#|     to a different pathway. 
+endo_only_sm %>%
+    tidyr::pivot_longer(
+        cols = names(pathways_of_interest),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    ggplot2::ggplot(aes(x = risk_score, y = score)) +
+    ggplot2::geom_point() +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(endo_only_sm)
+    ) +
+    ggplot2::facet_wrap(
+        ~pathway,
+        labeller = as_labeller(pathways_of_interest),
+        scales = "free_y"
+    ) + 
+    ggplot2::labs(
+        x = "Risk score",
+        y = "Pathway score"
+    ) +
+    ggplot2::theme_bw(base_size = 20) +
+    change_plot_aes_point()
+```
+
+@fig-cor-risk-pathways shows that in general the signatures are not 
+strongly associated with one of the main pathways displayed here.
+On the other hand, @fig-cor-riskpcs-pathways shows the association between
+the signatures and the risk scores derived only from the principal components.
+
+```{r, fig.width=12, fig.height=10}
+#| label: fig-cor-riskpcs-pathways
+#| fig-cap: Risk score derived from the principal components only
+#|     versus pathways of interest. Each subplot corresponds
+#|     to a different pathway. 
+endo_only_sm %>%
+    tidyr::pivot_longer(
+        cols = names(pathways_of_interest),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    ggplot2::ggplot(aes(x = risk_score_pcs, y = score)) +
+    ggplot2::geom_point() +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(endo_only_sm)
+    ) +
+    ggplot2::facet_wrap(
+        ~pathway,
+        labeller = as_labeller(pathways_of_interest),
+        scales = "free_y"
+    ) + 
+    ggplot2::labs(
+        x = "Risk score (principal components only)",
+        y = "Pathway score"
+    ) +
+    ggplot2::theme_bw(base_size = 20) +
+    change_plot_aes_point()
+```
+
+In this case we see some associations with G2M checkpoint in general and a bit
+with estrogen signaling. We now calculate the correlation plots 
+for each one of these pathways with both risk scores. 
+
+```{r}
+corr_values <- cor(endo_only_sm[
+    , 
+    c("risk_score", "risk_score_pcs", names(pathways_of_interest))
+], method = "spearman") 
+names_corr <- c(
+    "RS", "RS_PC", 
+    pathways_of_interest[rownames(corr_values)[3:nrow(corr_values)]]
+)
+rownames(corr_values) <- names_corr
+colnames(corr_values) <- names_corr
+```
+
+```{r, fig.width=10, fig.height=8}
+#| label: fig-corr-risk-pathways
+#| fig-cap: Correlation matrix for all pathways of interest and the two 
+#|     risk scores, both including the clinical factors and without the 
+#|     clinical factors.
+ggcorrplot::ggcorrplot(
+    corr_values,
+    hc.order = TRUE, 
+    type = "lower",
+    lab = TRUE, 
+    lab_size = 6, 
+    ggtheme = ggplot2::theme_bw(base_size = 15), 
+    tl.cex = 20
+) + 
+    change_plot_aes_point() + 
+    ggplot2::labs(x = "", y = "")
+```
+
+@fig-corr-risk-pathways shows that G2M checkpoint is highly correlated
+with the risk score using only the principal components ($\rho = 0.72$). 
+When you include the clinical factors this value decreases. Moreover,
+DNA repair is highly associated with RS PC. Estrogen signaling was not 
+so important here in the signatures surprisingly. 
+
+If we subselect only the SCANB samples we can recalculate those values
+and compare with the NCN ROR score. 
+
+```{r}
+corr_values <- cor(
+    endo_only_scanb %>% 
+        dplyr::select(dplyr::all_of(c(
+            "risk_score", "risk_score_pcs", "NCN.ROR.asT0",
+            names(pathways_of_interest)
+        ))), 
+    method = "spearman"
+) 
+names_corr <- c(
+    "RS", "RS PC", "NCN ROR",
+    pathways_of_interest[rownames(corr_values)[4:nrow(corr_values)]]
+)
+rownames(corr_values) <- names_corr
+colnames(corr_values) <- names_corr
+```
+
+```{r, fig.width=10, fig.height=8}
+#| label: fig-corr-risk-pathways-scanb
+#| fig-cap: Correlation matrix for all pathways of interest and the two 
+#|     risk scores, both including the clinical factors and without the 
+#|     clinical factors.
+ggcorrplot::ggcorrplot(
+    corr_values,
+    hc.order = TRUE, 
+    type = "lower",
+    lab = TRUE, 
+    lab_size = 6, 
+    ggtheme = ggplot2::theme_bw(base_size = 15), 
+    tl.cex = 20
+) + 
+    change_plot_aes_point() + 
+    ggplot2::labs(x = "", y = "")
+```
+

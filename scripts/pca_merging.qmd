@@ -1737,7 +1737,7 @@ forest_plots <- mapply(
                     pathways_of_interest = names(names_signatures)
                 )
                 
-                plot_combined_scores(tidy_survival, range_hr = 4.5) + 
+                plot_combined_scores(tidy_survival, range_hr = 6) + 
                     ggplot2::labs(
                         title = paste0(
                             toupper(name_cohort), ", PC3 > 0\n", 

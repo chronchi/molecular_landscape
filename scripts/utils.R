@@ -1458,7 +1458,12 @@ get_df_survival <- function(results_cox, pathways_of_interest){
 #' @return A ggplot object with either only the 
 #'     forest plot of the pathways or both the forest plot and table 
 #'     with hazard ratio and confidence intervals. 
-plot_combined_scores <- function(tidy_results, range_hr = 6.5, cowplot_table = FALSE){
+plot_combined_scores <- function(
+    tidy_results, 
+    range_hr = 6.5,
+    range_min = 0,
+    cowplot_table = FALSE
+){
     
     tidy_results$pathway <- factor(
         tidy_results$pathway, 
@@ -1484,7 +1489,7 @@ plot_combined_scores <- function(tidy_results, range_hr = 6.5, cowplot_table = F
             x = "Hazard ratio (95% CI)",
             y = ""
         ) +
-        ggplot2::coord_cartesian(xlim = c(0, range_hr))
+        ggplot2::coord_cartesian(xlim = c(range_min, range_hr))
     
     # sometimes the confidence intervals are tight and don't 
     # cross the specified range_hr, so we check this before 
@@ -2032,3 +2037,23 @@ calculate_risk_score <- function(
     
 }
     
+
+#' Format dataframe to compare scores
+#' 
+#' @param df1 GSVA dataframe output
+#' @param df2 A dataframe whose columns contain the pathway of interest.
+#' 
+#' @return A dataframe with two columns each corresponding from one 
+#'      dataframe, ordered by the rownames of the second dataframe
+get_merged_df_scores <- function(df1, df2, pathway){
+    
+    common_samples <- intersect(colnames(df1), df2$sample_name)
+
+    data.frame(
+        df1 = df1[pathway, common_samples],
+        df2 = df2 %>%
+            dplyr::filter(sample_name %in% common_samples) %>%
+            dplyr::arrange(factor(sample_name, levels = common_samples)) %>%
+            dplyr::pull(pathway)
+    )
+}

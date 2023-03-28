@@ -570,7 +570,7 @@ poetic_df_pca_baseline %>%
     ggplot2::ggplot(aes(x = is_responder, y = PC3, color = is_responder)) +
     ggplot2::geom_boxplot() +
     ggplot2::geom_jitter() +
-    ggplot2::labs(title = "Third component score")
+    ggplot2::labs(title = "Third component score") +
     ggplot2::theme_bw()
 ```
 

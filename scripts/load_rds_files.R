@@ -44,7 +44,7 @@ db_files <- list(
         pipeline_scores_plots = "pipeline_scores_plots"
     ),
     trying = c(
-        datasets = "datasets_with_scores",
+        datasets = "datasets_with_poetic",
         stable_genes = "stable_genes",
         which_exp = "which_exp",
         which_cohorts_training = "which_cohorts_training",
@@ -53,7 +53,19 @@ db_files <- list(
         genes_for_pca = "genes_for_pca",
         df_pca = "df_pca_coordinates",
         pca_fit = "pca_fit",
-        datasets_normalized_og = "datasets_normalized"
+        datasets_normalized_og = "datasets_normalized",
+        datasets_normalized = "datasets_normalized_all_genes",
+        pca_fit_all_genes = "pca_fit_all_genes",
+        pca_fit_all_genes_wo_outliers = "pca_fit_all_genes_wo_outliers",
+        df_pca_coordinates = "df_pca_coordinates_all_genes",
+        df_pca_coordinates_wo_outliers = "df_pca_coordinates_wo_outliers",
+        df_pca_wo_pcs = "df_pca_wo_pcs",
+        pca_removed_pcs = "pca_removed_pcs",
+        df_pcs_regressed = "df_pcs_regressed",
+        gsva_scores_embeddings_tcga = "gsva_scores_embeddings_tcga",
+        gsva_scores_embeddings_scanb = "gsva_scores_embeddings_scanb",
+        gsva_scores_embeddings_scanb_within_tcga = "gsva_scores_embeddings_scanb_within_tcga",
+        gsva_scores_embeddings_scanb_within_tcga_scanb = "gsva_scores_embeddings_scanb_within_tcga_scanb"
     ),
     risk_score = c(
         datasets = "datasets_with_scores",
