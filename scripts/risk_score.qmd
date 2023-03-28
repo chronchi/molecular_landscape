@@ -164,6 +164,12 @@ saveRDS(
     risk_score_model,
     "../results/rds_files/risk_score/risk_score_model.rds"
 )
+
+write.csv(
+    broom::tidy(risk_score_model, exponentiate = TRUE, conf.int = TRUE) %>%
+        dplyr::rename(hazard_ratio = estimate),
+    "../results/tables/risk_score/risk_score_model.csv"
+)
 ```
 
 ```{r}
