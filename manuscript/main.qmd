@@ -491,14 +491,24 @@ knitr::include_graphics("images/png/figure05.png")
 ```{r}
 #| label: fig-06
 #| fig-cap: > 
-#|     Average scores in hex regions using all three cohorts together and
-#|     survival analysis in each cohort individually.
-#|     (a) Biplots of all samples from TCGA, SCANB and METABRIC that were
-#|     grouped in small hex regions. Colors are depicted as the average 
-#|     score value in each hex region. Selected pathways are shown.
-#|     (b) Survival analysis results obtained for each pathway individually.
-#|     The pathways were adjusted as described in the methods section.
-#|     CI: confidence interval.
+#|     Motivation for the development of risk score and validation of the
+#|     results.
+#|     (a) Forest plot of PC3 and PC4 for SCANB and METABRIC overall survival
+#|     and recurrence free survival. 
+#|     (b) Average posterior distribution of the differences in position
+#|     of the embedding for the two groups, responders and non-responders,
+#|     in the POETIC trial dataset. 
+#|     (c) Hex plot of the risk scores from the SCANB ER+ BC patients treated
+#|     with only endocrine therapy. 
+#|     (d) Risk score developed by the risk of recurrence (ROR) calculated using
+#|     the nearest centroid algorithm and colored by the PAM50 molecular
+#|     subtype.
+#|     (e) Risk score comparison between the high risk and low/intermediate
+#|     risk based on ROR.
+#|     (f) Comparison of the risk scores from POETIC trial patients
+#|     based on the principal components only and colored by response status.
+#|     Risk scores were calculated for baseline and surgery samples. Each dot
+#|     corresponds to one patient sample.
 
 knitr::include_graphics("images/png/figure06.png")
 ```
