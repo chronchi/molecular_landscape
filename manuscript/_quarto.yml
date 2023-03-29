@@ -1,7 +1,11 @@
 project:
-    output-dir: docx
-    render:
-        - main.qmd
+  output-dir: docx
+  render:
+    - main.qmd
+
+author: Carlos Ronchi, Cathrin Brisken
+
+output-dir: docx
 
 format:
   docx: default
@@ -18,10 +22,7 @@ execute:
   warning: false
   error: false
 
-
 title: > 
-    Transcriptional signatures enable a personalized approach 
-    for estrogen receptor positive breast cancer treatment
-
-    
-author: Carlos Ronchi, Cathrin Brisken
+  Transcriptional signatures and machine learning 
+  provide a framework for better understanding 
+  estrogen receptor positive breast cancer
