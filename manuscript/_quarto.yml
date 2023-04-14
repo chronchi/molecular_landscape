@@ -23,6 +23,6 @@ execute:
   error: false
 
 title: > 
-  Transcriptional signatures and machine learning 
-  provide a framework for better understanding 
-  estrogen receptor positive breast cancer
+  Transcriptomic and machine learning based molecular landscape 
+  provides a framework for better understanding estrogen receptor
+  positive breast cancer
