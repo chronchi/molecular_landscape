@@ -13,7 +13,8 @@ db_files <- list(
         which_cohorts_training = "which_cohorts_training",
         df_pca_coordinates = "df_pca_coordinates",
         new_pcas = "new_pcas",
-        pca_fit_no_norm = "pca_fit_no_norm"
+        pca_fit_no_norm = "pca_fit_no_norm",
+        jaccard_indices = "jaccard_indices"
     ),
     validation = c(
         df_pca_coordinates = "df_pca_coordinates",
@@ -30,7 +31,9 @@ db_files <- list(
         pdx_df_pca = "pdx_df_pca",
         pdx_normalized = "pdx_normalized",
         normal_swiss_df_pca = "normal_swiss_df_pca",
-        normal_swiss_normalized = "normal_swiss_normalized"
+        normal_swiss_normalized = "normal_swiss_normalized",
+        pdx_tpm = "pdx_tpm",
+        gene_sets = "gene_sets"
     ),
     scoring = c(
         df_pca_coordinates = "poetic_df_pca_with_scores",
@@ -48,10 +51,10 @@ db_files <- list(
         stable_genes = "stable_genes",
         which_exp = "which_exp",
         which_cohorts_training = "which_cohorts_training",
-        merged_col_data = "merged_col_data",
+        merged_col_data = "merged_col_data_trying",
         gene_sets = "gene_sets",
         genes_for_pca = "genes_for_pca",
-        df_pca = "df_pca_coordinates",
+        df_pca = "poetic_df_pca_with_scores",
         pca_fit = "pca_fit",
         datasets_normalized_og = "datasets_normalized",
         datasets_normalized = "datasets_normalized_all_genes",
@@ -65,7 +68,20 @@ db_files <- list(
         gsva_scores_embeddings_tcga = "gsva_scores_embeddings_tcga",
         gsva_scores_embeddings_scanb = "gsva_scores_embeddings_scanb",
         gsva_scores_embeddings_scanb_within_tcga = "gsva_scores_embeddings_scanb_within_tcga",
-        gsva_scores_embeddings_scanb_within_tcga_scanb = "gsva_scores_embeddings_scanb_within_tcga_scanb"
+        gsva_scores_embeddings_scanb_within_tcga_scanb = "gsva_scores_embeddings_scanb_within_tcga_scanb",
+        df_pca_scores = "df_pca_scores",
+        pipeline_scores_plots_new_scores = "pipeline_scores_plots_new_scores",
+        singscore_dfs = "singscore_dfs",
+        gene_sets_gsea = "gene_sets_gsea",
+        singscore_dfs_regressed = "singscore_dfs_regressed",
+        gsva_one_pathway = "gsva_one_pathway",
+        gsva_scores = "gsva_scores_trying",
+        gsva_scores_embeddings_scanb_within_tcga_regressed = "gsva_scores_embeddings_scanb_within_tcga_regressed",
+        datasets_nanostring = "datasets_with_scores_nanostring",
+        scores_nanostring = "scores_nanostring_only",
+        pdx_tpm = "pdx_tpm",
+        pdx_regressed = "pdx_regressed",
+        scores = "scores_regressed_only"
     ),
     risk_score = c(
         datasets = "datasets_with_scores",
@@ -78,19 +94,23 @@ db_files <- list(
         df_pca = "poetic_df_pca_with_scores",
         pca_fit = "pca_fit",
         datasets_normalized_og = "datasets_normalized",
-        poetic_normalized = "poetic_normalized"
+        poetic_normalized = "poetic_norm:%alized",
+        risk_score_model = "risk_score_model",
+        coefs_risk_model = "coefs_risk_model",
+        coefs_risk_model_pcs = "coefs_risk_model_pcs"
     )
 )
 
 # find where the files are in the results folder
 path_to_files <- sapply(
-    paste0(db_files[[name_document]], "\\.rds$"),
+    paste0("^", db_files[[name_document]], "\\.rds$"),
     list.files,
-    path = "..",
+    path = "../results",
+    full.names = TRUE,
     recursive = TRUE, 
     USE.NAMES = FALSE
 )
-path_to_files <- paste0("../", path_to_files)
+#path_to_files <- paste0("../", path_to_files)
 names(path_to_files) <- names(db_files[[name_document]])
 
 # check if they have the same length, if not stop. it means there are more

@@ -16,6 +16,7 @@ book:
     - validation.qmd
     - scoring.qmd
     - risk_score.qmd
+    - trying.qmd
     - discussion.qmd
     - references.qmd
   page-footer: 

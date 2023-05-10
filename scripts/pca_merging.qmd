@@ -1246,6 +1246,144 @@ plots_new_pcas_all
 translation and reflection. Therefore, the subset of samples used for the
 embedding does not really matter.
 
+```{r, eval = first_run}
+jaccard_indices <- sapply(
+    c("metabric", "scanb", "tcga"), 
+    function(which_cohort, nb_samples){
+        
+        # set the dataframe to be used
+        df_jaccard <- datasets_pca_coordinates[[which_cohort]]
+        
+        # use same seed for sampling to reproduce these results
+        set.seed(213)
+        sample_names <- sample(rownames(df_jaccard), size = nb_samples)
+        
+        # calculate the jaccard index. notice here we are using
+        # a single seed only and a fixed radius. we iterate 
+        # this process with different seeds
+        jaccard_index_neighbors <- parallel::mclapply(
+            sample_names,
+            function(sample_name, radius, which_seed, which_cohort){
+        
+                # samples in original embedding
+                components_sample <- df_jaccard[sample_name, c("PC3", "PC4")] 
+                samples_neighborhood_og <- get_samples_neighborhood(
+                    components_sample,
+                    sample_name,
+                    radius = radius,
+                    df_pca = df_jaccard %>%
+                        data.frame %>%
+                        tibble::rownames_to_column(var = "sample_name")
+                )
+                
+                # get samples in new embedding
+                samples_neighborhood_new <- sapply(
+                    names(new_pcas),
+                    function(which_seed){
+                        components_sample <- new_pcas[[which_seed]]$test[[which_cohort]][
+                            sample_name, 
+                            c("PC3", "PC4")
+                        ] 
+                        samples_neighborhood_new <- get_samples_neighborhood(
+                            components_sample,
+                            sample_name,
+                            radius = radius,
+                            df_pca = new_pcas[[which_seed]]$test[[which_cohort]] %>%
+                                data.frame %>%
+                                tibble::rownames_to_column(var = "sample_name")
+                        )
+                                
+                    },
+                    USE.NAMES = TRUE,
+                    simplify = FALSE
+                )
+                
+                
+                sapply(
+                    samples_neighborhood_new,
+                    function(neighborhood_new){
+                        
+                        # calculate the jaccard indices for all seeds
+                        length(intersect(
+                            samples_neighborhood_og$samples,
+                            neighborhood_new$samples
+                        )) / length(unique(c(
+                            samples_neighborhood_og$samples,
+                            neighborhood_new$samples
+                        ))) %>%
+                            data.frame(jaccard = .)
+                    },
+                    simplify = FALSE,
+                    USE.NAMES = TRUE
+                ) %>%
+                    dplyr::bind_rows(., .id = "which_seed") %>%
+                    dplyr::mutate(sample_name = sample_name)
+            },
+            radius = 1,
+            which_seed = "0",
+            which_cohort = which_cohort,
+            mc.cores = 10
+        ) %>%
+            dplyr::bind_rows()
+    }, 
+    USE.NAMES = TRUE, 
+    simplify = FALSE,
+    nb_samples = 1000
+) %>%
+    dplyr::bind_rows(., .id = "cohort")
+
+saveRDS(
+    jaccard_indices,
+    "../results/rds_files/pca_merging/jaccard_indices.rds"
+)
+```
+
+@fig-jac-index shows the jaccard index distributions for each cohort
+separately when comparing the sample neighborhoods of
+the new embeddings with the
+original embedding. The jaccard index is counting the 
+number of samples in the intersection of the neighborhoods in the original
+and the new embedding divided by the total number of unique samples in both
+neighborhoods. A high value means a good agreement with the 
+neighborhoods. 
+
+A thousand samples were randomly selected from each
+cohort individually and the jaccard index for each new embedding was 
+calculated.
+
+```{r, fig.width=5, fig.height=8}
+#| label: fig-jac-index
+#| fig-cap: Jaccard index distribution for 1000 samples in each cohort
+#|     individually. Each color corresponds to a different seed and 
+#|     embedding, with a total of 18 seeds.
+jaccard_indices %>% 
+    tidyr::drop_na() %>%
+    ggplot2::ggplot(aes(x = jaccard, fill = which_seed)) + 
+    ggplot2::geom_density(position = "identity", alpha = 0.3) + 
+    ggplot2::facet_wrap(
+        ~cohort, 
+        scales = "free_y", 
+        ncol = 1,
+        labeller = as_labeller(c(
+            "tcga" = "TCGA",
+            "metabric" = "METABRIC",
+            "scanb" = "SCANB"
+        ))
+    ) +
+    ggplot2::labs(
+        x = "Jaccard Index",
+        y = "Density",
+        title = paste0(
+            "Comparison of neighborhoods\nfor 1000 samples"
+        ),
+        caption = "Neighborhood with radius 1"
+    ) +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::theme(legend.position = "none") +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
 ## Normalization is necessary to reduce batch effects in other components
 
 Since PCA is removing batch effects from the datasets, one could argue it could

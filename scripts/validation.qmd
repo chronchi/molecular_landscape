@@ -594,7 +594,6 @@ pca_coords_random <- parallel::mclapply(
             sum_exp = sum_exp, 
             pca_fit = pca_fit, 
             assay_to_use = assay_to_use, 
-            stable_genes = stable_genes, 
             most_variable_genes = most_variable_genes
         )
     },
@@ -1032,11 +1031,16 @@ highly_expressed <- rowSums(log2_pdx_tpm > 1) > 0.3
 # load the metadata so we can create later the summarized
 # experiment object for the downstream analysis
 metadata <- readr::read_csv(file.path(path_data, "metadata.csv")) %>%
-    dplyr::mutate(pdx = sapply(
-        sample_name,
-        function(x) stringr::str_split(x, "_", simplify = TRUE)[1] %>%
-            as.character
-    ))
+    dplyr::mutate(
+        pdx = sapply(
+            sample_name,
+            function(x){
+                stringr::str_split(x, "_", simplify = TRUE)[1] %>%
+                as.character
+            }
+        ),
+        treatment = ifelse(treatment == "P20", "P4", treatment)
+    )
 rownames(metadata) <- metadata$sample_name
 
 pdx_tpm <- SummarizedExperiment::SummarizedExperiment(
@@ -1046,6 +1050,35 @@ pdx_tpm <- SummarizedExperiment::SummarizedExperiment(
         ),
     colData = metadata[colnames(pdx_tpm), ]
 )
+
+
+p4_pathways <- msigdbr::msigdbr() %>%
+    dplyr::filter(gs_name %in% c(
+        "WILCOX_RESPONSE_TO_PROGESTERONE_UP",
+        "GOBP_RESPONSE_TO_PROGESTERONE"
+    ))
+
+gene_sets_prog <- dplyr::bind_rows(
+    gene_sets, 
+    p4_pathways
+)
+
+gene_sets_ <- sapply(
+    gene_sets_prog$gs_name %>% unique,
+    function(x, gene_sets) gene_sets %>% dplyr::filter(gs_name == x) %>% 
+        dplyr::pull(gene_symbol),
+    gene_sets = gene_sets_prog,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+gsva_pdx <- GSVA::gsva(
+    assay(pdx_tpm, "log2tpm"),
+    gset.idx.list = gene_sets_,
+    parallel.sz = 10
+)
+
+colData(pdx_tpm)[, rownames(gsva_pdx)] <- t(gsva_pdx)
 
 pdx_normalized <- get_final_ranking_values(
     sum_exp = pdx_tpm,
@@ -1193,6 +1226,198 @@ p +
     change_plot_aes_point() +
     change_guides_point(shape = TRUE)
 ```
+
+And we check the PDXs response to estrogen and see how much they move
+away from the untreated sample.
+
+```{r, fig.width=10, fig.height=8}
+#| label: fig-pdx-p4-control-components
+#| fig-cap: Comparison of position in the molecular landscape between
+#|     CTRL and P4 treated samples
+
+pdxs_to_use <- c("METS15", "T113", "T111") #, "T105", "T109", "T110")
+names(pdxs_to_use) <- pdxs_to_use
+pdx_df_pca_sub <- pdx_df_pca %>%
+    dplyr::filter(
+        cohort == "pdx" & 
+            treatment %in% c("CTRL", "P4", "P20")
+    ) %>%
+    dplyr::mutate(pam50 = "nc") %>%
+    dplyr::mutate(pdx = factor(pdx, levels = c(
+        "METS15", "T113", "T109",
+        "T105", "T111", "T110"
+    ))) %>%
+    dplyr::filter(pdx %in% pdxs_to_use)
+
+pdx_df_pca_sub %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(c("PC3", "PC4")),
+        names_to = "pc",
+        values_to = "components"
+    ) %>%
+    ggplot2::ggplot(aes(x = treatment, y = components)) +
+    ggplot2::geom_boxplot(outlier.shape = NA) + 
+    ggplot2::geom_jitter(
+        size = 3, 
+        alpha = 0.9, 
+        mapping = aes(color = treatment)
+    ) +
+    ggplot2::scale_color_viridis_d(option = "H") +
+    ggplot2::facet_wrap(
+        ~ pc + pdx, 
+        nrow = 2, 
+        scales = "free_y"
+    ) +
+    ggplot2::labs(
+        y = "Component", 
+        x = "Treatment"
+    ) +
+    ggplot2::theme_bw(base_size = 20) +
+    ggplot2::theme(legend.position = "none") +
+    change_guides_point() +
+    change_plot_aes_point()
+```
+
+It looks like some of the PDXs had a bigger shift towards the left
+when treated with estrogen or at least some stabilization. On the
+other hand, another set of PDXs, the last three, they didn't see
+much change. 
+
+```{r, fig.width=10, fig.height=12}
+#| label: fig-pdx-p4-control-pathways
+#| fig-cap: Comparison of position in the molecular landscape between
+#|     CTRL, E2 and P4 treated samples
+pathways <- c(
+    #"HALLMARK_ANDROGEN_RESPONSE" = "Androgen Response",
+    #"HALLMARK_E2F_TARGETS" = "E2F",
+    "HALLMARK_G2M_CHECKPOINT" = "G2M",
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early",
+    #"SET_ERPR" = "SET ER/PR",
+    #"HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" = "EMT",
+    "GOBP_RESPONSE_TO_PROGESTERONE" = "GO Progesterone"
+)
+
+pdxs_to_use <- c("METS15", "T113", "T111") #, "T105", "T109", "T110")
+names(pdxs_to_use) <- pdxs_to_use
+
+pdx_df_pca_sub <- pdx_df_pca %>%
+    dplyr::filter(
+        cohort == "pdx" & 
+            treatment %in% c("CTRL", "P4", "E2")
+    ) %>%
+    dplyr::mutate(pam50 = "nc") %>%
+    dplyr::mutate(pdx = factor(pdx, levels = c(
+        "METS15", "T113", "T109",
+        "T105", "T111", "T110"
+    ))) %>% 
+    dplyr::filter(pdx %in% pdxs_to_use)
+
+plots_pathways <- mapply(
+    function(pathways, pathway_names, i){
+        names(pathways) <- pathway_names 
+        pdx_df_pca_sub %>%
+            tidyr::pivot_longer(
+                cols = dplyr::all_of(pathway_names),
+                names_to = "pathway",
+                values_to = "score"
+            ) %>%
+            dplyr::mutate(pathway = factor(pathway, levels = pathway_names)) %>%
+            ggplot2::ggplot(aes(x = treatment, y = score)) +
+            ggplot2::geom_boxplot(outlier.shape = NA) + 
+            ggplot2::geom_jitter(
+                size = 3, 
+                alpha = 0.9, 
+                mapping = aes(color = treatment)
+            ) + 
+            ggplot2::scale_color_viridis_d(option = "H") +
+            ggplot2::facet_wrap(
+                ~ pdx + pathway, 
+                scales = "fixed", 
+                nrow = length(pathway_names),
+                labeller = as_labeller(c(pathways, pdxs_to_use))
+            ) +
+            ggplot2::labs(
+                x = ifelse(i == 4, "Treatment", ""),
+                y = "GSVA scores"
+            ) +
+            ggplot2::scale_y_continuous(labels = scales::number_format(
+                accuracy = 0.01,
+                decimal.mark = '.'
+            )) + 
+            ggplot2::theme_bw(base_size = 20) +
+            ggplot2::theme(legend.position="none") +
+            change_guides_point() +
+            change_plot_aes_point()
+    },
+    pathways = pathways,
+    pathway_name = names(pathways),
+    i = 1:length(pathways),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+)
+
+cowplot::plot_grid(
+    plotlist = plots_pathways,
+    nrow = length(plots_pathways) 
+)
+```
+
+What we can see from these scores is that if there is an increase
+in G2M checkpoint and the control samples have scores below 0,
+then the fourth principal component will change it is value, it 
+will go upwards and to the left in the molecular landscape,
+reflecting the biological response of the tumors to the
+given hormones. 
+
+We now further validate the results with the stainings performed
+on those samples. We will compare the differences with the stainings and
+the number of Ki67+ tumors cells.
+
+```{r}
+staining_pdxs <- read.csv("../data/quantification.csv") %>%
+    janitor::clean_names() %>%
+    dplyr::select(-dplyr::all_of(c("type_corrected"))) %>%
+    dplyr::rename(pdx = tumor) %>%
+    dplyr::mutate(treatment = dplyr::case_when(
+        treatment == "P20" ~ "P4",
+        treatment == "P20+E2" ~ "E2P4",
+        treatment == "P4+E2" ~ "E2P4",
+        treatment == "E2+P4" ~ "E2P4",
+        treatment == "E2+P20" ~ "E2P4",
+        TRUE ~ as.character(.$treatment)
+    )) %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(positive_percentage = 
+        sum(c(num1, num2, num3))/sum(c(num1, num2, num3, num_negative))
+    ) %>%
+    dplyr::filter(!is.na(positive_percentage))
+```
+
+```{r, fig.height=4}
+#| label: fig-quantification-pdx-ki67
+#| fig-cap: Quantification of Ki67+ cells based on DAB stainings performed
+#|     on the patient derived xenografts.
+plot_quantification(
+    staining_pdxs %>%
+        dplyr::filter(pdx %in% unique(pdx_df_pca_sub$pdx)) %>%
+        dplyr::filter(treatment %in% c("CTRL", "P4")),
+    "Ki67",
+    base_size = 18
+)
+```
+
+We see that T111 has a big increase in absolute values. T113 as well
+has a big increase, but has a baseline level already low and it does
+not go to higher values. Probably the reason there is not much
+difference in the fourth component of the PDX T113 is because of the
+low Ki67 index. 
+
+Based on the data shown here we see that there is an increase in 
+proliferation upon P4 treatment for T111 and T113. Moreover,
+P4 reduced estrogen signaling and also change the third component of the
+three PDXs to a smaller value, towards a more basal like region. Overall,
+the molecular landscape is able to capture the differences between
+the treatments.
 
 ## Normal samples
 
@@ -2127,4 +2352,3 @@ sub_df_scanb %>%
 We see that in this case the binary risk category has distinct distributions
 for the G2M checkpoint for all molecular subtypes, in particular with the 
 basal like. 
-

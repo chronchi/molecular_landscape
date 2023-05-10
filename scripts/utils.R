@@ -143,7 +143,7 @@ forest_plot_fits <- function(
         dplyr::across(
             where(is.numeric), 
             round, 
-            3
+            5
         )
     )
     
@@ -240,7 +240,6 @@ forest_plot_fits <- function(
 #'     genes.
 #' @param assay_to_use A string. Which assay to use when calculating the
 #'     average expression of the stable genes.
-#' @param stable_genes A vector. Stable genes.
 #' @param stable_genes A vector. Most variable genes determined by some 
 #'     procedure.
 #' @param verbose. An integer. If verbose equals to 1, then it prints the
@@ -317,7 +316,8 @@ prepare_data_normalization <- function(
 #'     genes.
 #' @param assay_to_use A string. Which assay to use when calculating the
 #'     average expression of the stable genes.
-#' @param stable_genes A vector. Stable genes.
+#' @param stable_genes A vector. Most variable genes determined by some 
+#'     procedure.
 #' @examples
 #' \dontrun{
 #' avg_ranking(tcga, "logFPKM_TMM", c("GAPDH"))
@@ -958,7 +958,10 @@ plots_estimates <- function(
         function(x) x %>% tidybayes::spread_draws(`(Intercept)`)
     ) %>% dplyr::bind_rows(
         .id = "pathway"
-    ) 
+    ) #%>% 
+        #dplyr::filter(
+        #    pathway != "SET_ERPR"
+        #)
     
     tidy_draws$pathway <- scores_to_use[tidy_draws$pathway] %>% as.character
     
@@ -967,7 +970,8 @@ plots_estimates <- function(
         aes(x = `(Intercept)`)
     ) + 
         ggplot2::geom_vline(
-            data = scores_patient,
+            data = scores_patient, #%>%
+                #dplyr::filter(pathway != "SET ER/PR"),
             mapping = aes(xintercept = score),
             linetype = "dashed",
             color = "red"
@@ -1145,11 +1149,17 @@ get_patient_scores_distributions <- function(
         dplyr::mutate(
             pathway = scores_to_use[pathway]
         )
-
+    
     list(
         average_scores_neighborhood = average_scores_neighborhood,
         samples_distance = samples_and_distance_neighborhood,
-        scores_patient = scores_patient
+        scores_patient = scores_patient,
+        raw_scores = df_pca %>%
+            dplyr::filter(
+                sample_name %in% 
+                    samples_and_distance_neighborhood$samples
+            ) %>%
+            dplyr::select(dplyr::all_of(names(scores_to_use)))
     )
 }
 
@@ -1186,6 +1196,8 @@ get_patient_scores_distributions_all <- function(
     base_size = 15
 ){
 
+    print(patient_name)
+    
     components_sample <- df_pca %>% 
         dplyr::filter(sample_name == patient_name) %>%
         dplyr::select(all_of(components)) %>%
@@ -1238,7 +1250,15 @@ get_patient_scores_distributions_all <- function(
         average_scores_neighborhood = average_scores_neighborhood,
         samples_distance = samples_and_distance_neighborhood,
         scores_patient = scores_patient,
-        plot = p
+        plot = p,
+        raw_score = df_pca %>%
+            dplyr::filter(
+                sample_name %in% 
+                    samples_and_distance_neighborhood$samples
+            ) %>%
+            dplyr::select(dplyr::all_of(
+                c(names(scores_to_use), "sample_name")
+            ))
     )
 }
 
@@ -1462,7 +1482,8 @@ plot_combined_scores <- function(
     tidy_results, 
     range_hr = 6.5,
     range_min = 0,
-    cowplot_table = FALSE
+    cowplot_table = FALSE,
+    names_signatures = NULL
 ){
     
     tidy_results$pathway <- factor(
@@ -1490,6 +1511,13 @@ plot_combined_scores <- function(
             y = ""
         ) +
         ggplot2::coord_cartesian(xlim = c(range_min, range_hr))
+    
+    if(!is.null(names_signatures)){
+        p <- p +
+            ggplot2::scale_y_discrete(
+                labels = names_signatures
+            )
+    }
     
     # sometimes the confidence intervals are tight and don't 
     # cross the specified range_hr, so we check this before 
@@ -2056,4 +2084,125 @@ get_merged_df_scores <- function(df1, df2, pathway){
             dplyr::arrange(factor(sample_name, levels = common_samples)) %>%
             dplyr::pull(pathway)
     )
+}
+
+plot_quantification <- function(
+        processed_data, 
+        which_staining,
+        base_size = 15
+){
+    processed_data %>%
+        dplyr::filter(staining == which_staining) %>%
+        ggplot2::ggplot(aes(x = treatment, y = positive_percentage*100)) +
+        ggplot2::geom_boxplot(outlier.shape = NA) + 
+        ggplot2::geom_jitter(mapping=aes(color=treatment)) + 
+        ggplot2::scale_color_viridis_d(option = "H") +
+        ggplot2::facet_wrap(~pdx, scales = "free") +
+        ggplot2::labs(
+            x = "Treatment",
+            y = paste0("Percentage of ", which_staining, "+ cells"),
+            title = paste0(which_staining, " quantification")
+        ) +
+        ggplot2::theme_bw(base_size = base_size) + 
+        ggplot2::theme(legend.position = "none")
+}
+
+#' Get regressed data
+#' 
+#' @param sum_exp A summarized experiment. It 
+#'     should have sample_name as a column indicating the name of the
+#'     samples in the colData slot.
+#' @param which_exp The name of the assay to be used when normalizing
+#'     the data.
+#' @param pca_fit A PCAtools object with the fitting from where the 
+#'     loadings are used
+#' @param stable_genes A vector. Most variable genes determined by some 
+#'     procedure.
+#' @param remove_components A vector with the principal components
+#'     to be removed. Default is PC1, PC2 and PC5
+#'     
+#' @return A summarized experiment with the regressed data and the
+#'     pca coordinates.
+#' @export
+get_regressed_data <- function(
+    sum_exp, 
+    which_exp,
+    pca_fit, 
+    stable_genes,
+    remove_components = c("PC1", "PC2", "PC5")
+){
+    
+    # we first normalize the dataset and then get the pca coordinates
+    # to later regress out the batch effects
+    sum_exp <- get_final_ranking_values(
+        sum_exp = sum_exp,
+        assay_to_use = which_exp,
+        stable_genes = stable_genes,
+        most_variable_genes = rownames(pca_fit$loadings)
+    )
+    
+    print("Normalization done.")
+    
+    # the steps for this function is to first get the pca coordinates 
+    # from the normalized dataset and then convert it back. 
+    pca_coordinates <- get_pca_coordinates(
+        sum_exp = sum_exp,
+        pca_fit = pca_fit,
+        genes_for_pca = rownames(pca_fit$loadings)
+    )
+    
+    
+    name_components <- colnames(pca_fit$loadings)
+    keep_components <- setdiff(name_components, remove_components)
+    
+    df_regressed <- as.matrix(
+        pca_coordinates[, keep_components]
+    ) %*% t(pca_fit$loadings[, keep_components]) %>%
+        t
+    
+    sum_exp <- SummarizedExperiment::SummarizedExperiment(
+            assays = list(regressed = df_regressed),
+            colData = colData(sum_exp)
+        )
+    
+    colData(sum_exp)[, colnames(pca_coordinates)] <- 
+        pca_coordinates[colnames(sum_exp), ]
+    
+    sum_exp
+
+}
+
+#' Calculate scores for samples with regressed data
+#' 
+#' @param sum_exp A summarized experiment object with the
+#'     assay "regressed" 
+#' @param gene_sets A list with gene sets that will be used to
+#'     calculate the scores
+#'     
+#' @return A summarized experiment with the scores calculated
+#'    as columns in the colData slot
+get_scores_regressed <- function(
+    sum_exp, 
+    gene_sets
+){
+    gene_sets_scores <- sapply(
+        gene_sets,
+        function(gene_set, df_pcs_regressed){
+        
+            gene_set <- intersect(
+                gene_set,
+                rownames(df_pcs_regressed)
+            )
+            colSums(df_pcs_regressed[gene_set, ])
+            
+        },
+        df_pcs_regressed = assay(sum_exp, "regressed")
+    ) %>% 
+        data.frame 
+    
+    colData(sum_exp)[, paste0("regressed_", names(gene_sets))] <-
+        gene_sets_scores
+    
+    sum_exp
+    
 }

@@ -63,6 +63,7 @@ library(GSVA)
 library(SummarizedExperiment)
 
 library(rstanarm)
+library(glmnet)
 
 source("utils.R")
 source("first_run.R")
@@ -790,7 +791,7 @@ diff_positions_poetic <- df_pca_coordinates %>%
     tidyr::pivot_wider(
         id_cols = c(patient_nb, is_responder, change_ki67),
         names_from = timepoint, 
-        values_from = c(PC3, PC4)
+        values_from = c(PC3, PC4, ki67, SET_ERPR, HALLMARK_G2M_CHECKPOINT)
     ) %>%
     dplyr::summarise(
         diff_positions = sqrt(
@@ -798,7 +799,13 @@ diff_positions_poetic <- df_pca_coordinates %>%
                 (PC4_baseline - PC4_surgery)^2 
         ),
         is_responder = is_responder,
-        change_ki67 = change_ki67
+        change_ki67 = change_ki67,
+        ki67_baseline = ki67_baseline,
+        diff_pc4 = PC4_baseline - PC4_surgery,
+        SET_ERPR = SET_ERPR_baseline,
+        G2M = HALLMARK_G2M_CHECKPOINT_baseline,
+        diff_G2M = HALLMARK_G2M_CHECKPOINT_baseline - 
+            HALLMARK_G2M_CHECKPOINT_surgery
     ) %>%
     dplyr::mutate(is_responder = factor(
         is_responder, levels = c("responder", "non_responder")
@@ -998,26 +1005,37 @@ to deal with posterior data. For the average we use a
 normal prior centered at 0 with 1 standard deviation, 
 since all scores are between -1 and 1.
 
-```{r, eval = first_run}
-patients <- c("treated_nb63_baseline", "treated_nb236_baseline")
+```{r}
 scores_to_use <- c(
     "Estrogen response early",
     "E2F targets",
     "P53 pathway",
     "EMT",
     "Androgen response",
-    "TGFb signaling"
+    "TGFb signaling",
+    "SET ER/PR"
 ) %>% `names<-`(c(
     "HALLMARK_ESTROGEN_RESPONSE_EARLY",
     "HALLMARK_E2F_TARGETS",
     "HALLMARK_P53_PATHWAY",
     "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION",
     "HALLMARK_ANDROGEN_RESPONSE",
-    "HALLMARK_TGF_BETA_SIGNALING"
+    "HALLMARK_TGF_BETA_SIGNALING",
+    "SET_ERPR"
 ))
+```
+
+
+```{r, eval = first_run}
+patients_all <- df_pca_coordinates %>%
+    dplyr::filter(timepoint == "baseline" & 
+                      grepl("^treated", sample_name)) %>%
+    dplyr::pull(sample_name)
+
+patients <- c("treated_nb63_baseline", "treated_nb236_baseline")
 
 pipeline_scores_plots <- sapply(
-    patients, 
+    patients_all, 
     get_patient_scores_distributions_all,
     df_pca = poetic_df_pca,
     scores_to_use = scores_to_use,
@@ -1025,7 +1043,6 @@ pipeline_scores_plots <- sapply(
     USE.NAMES = TRUE, 
     simplify = FALSE
 )
-
 
 saveRDS(
     pipeline_scores_plots,
@@ -1037,7 +1054,7 @@ Patient 63 @fig-pt63 is considered a responder. According to
 the scores, when comparing the estrogen early signature to its average 
 distribution in the neighborhood, the score is higher.
 
-```{r, fig.height=6, fig.width=10}
+```{r, fig.height=7, fig.width=10}
 #| label: fig-pt63
 #| fig-cap: Posterior distribution of the average scores in the neighborhood
 #|     of patient 236 from POETIC trial. Each dot corresponds to a 1% quantile.
@@ -1050,7 +1067,7 @@ the scores, when comparing the estrogen early signature to its average
 distribution in the neighborhood, the score is lower, being in the
 5% quantile.
 
-```{r, fig.height=6, fig.width=10}
+```{r, fig.height=7, fig.width=10}
 #| label: fig-pt236
 #| fig-cap: Posterior distribution of the average scores in the neighborhood
 #|     of patient 236 from POETIC trial. Each dot corresponds to a 1% quantile.
@@ -1060,3 +1077,665 @@ pipeline_scores_plots$treated_nb236_baseline$plot +
 
 When comparing these two patients, there is also a difference in the androgen
 response score, which could be a reflection of different estrogen signaling.
+
+### Analysing all patients
+
+We now try to extend this comparison to something more systematic. Instead
+of looking just for these two patients we will compare the neighborhoods
+for the top responders and 
+non-responder patients. The first thing we
+have to have in mind is that some non 
+responders they did respond to the drug, just the reduction in Ki67
+was not so big. For example patient 209 has a reduction of 40% in Ki67
+going from 16% to 9%. Still this patient is considered a non-responder.
+
+```{r}
+# first we calculate the distance to distributions of the scores
+distance_to_distribution <- lapply(
+    pipeline_scores_plots,
+    function(patient_data){
+        
+        # get the draws from the pathway of interest and then subtract 
+        # the score of the patient. we will then compare the results for
+        # responders and non responders
+        
+        mapply(
+            function(pathway, pathway_name){
+                score_patient <- patient_data$scores_patient %>%
+                    dplyr::filter(pathway == pathway_name) %>%
+                    dplyr::pull(score)
+                
+                # we split it in two lines here so the code is easier to read
+                # afterwards
+                scores_neighborhood <- patient_data$average_scores_neighborhood
+                scores_neighborhood <- scores_neighborhood[[pathway]]
+                
+                scores_neighborhood %>%
+                    tidybayes::spread_draws(`(Intercept)`) %>%
+                    dplyr::rename(intercept = `(Intercept)`) %>%
+                    dplyr::mutate(intercept_diff = score_patient - intercept) %>%
+                    dplyr::select(intercept, intercept_diff)       
+            }, 
+            pathway = names(patient_data$scores_patient$pathway),
+            pathway_name = patient_data$scores_patient$pathway,
+            USE.NAMES = TRUE, 
+            SIMPLIFY = FALSE
+        ) %>% 
+            dplyr::bind_rows(.id = "pathway")
+    }
+)
+
+is_mismatch <- lapply(
+    pipeline_scores_plots,
+    function(patient_data){
+        
+        # get the draws from the pathway of interest and then subtract 
+        # the score of the patient. we will then compare the results for
+        # responders and non responders
+        
+        is_mismatch <- mapply(
+            function(pathway, pathway_name){
+                score_patient <- patient_data$scores_patient %>%
+                    dplyr::filter(pathway == pathway_name) %>%
+                    dplyr::pull(score)
+                
+                # we split it in two lines here so the code is easier to read
+                # afterwards
+                scores_neighborhood <- patient_data$average_scores_neighborhood
+                scores_neighborhood <- scores_neighborhood[[pathway]]
+                
+                top_quantiles <- scores_neighborhood %>%
+                    tidybayes::spread_draws(`(Intercept)`) %>%
+                    dplyr::rename(intercept = `(Intercept)`) %>%
+                    dplyr::pull(intercept) %>%
+                    quantile(., prob = c(.05, .95))
+                
+                data.frame(
+                    lower = top_quantiles[1],
+                    upper = top_quantiles[2]
+                ) %>%
+                    dplyr::mutate(
+                        is_between = dplyr::between(
+                            x = score_patient,
+                            left = lower,
+                            right = upper
+                        ),
+                        is_above = score_patient > upper,
+                        is_below = score_patient < lower
+                    )
+            }, 
+            pathway = names(patient_data$scores_patient$pathway),
+            pathway_name = patient_data$scores_patient$pathway,
+            USE.NAMES = TRUE, 
+            SIMPLIFY = FALSE
+        ) %>% 
+            dplyr::bind_rows(.id = "pathway") %>%
+            dplyr::mutate(dplyr::across(
+                .cols = c(is_between, is_above, is_below),
+                .fns = as.numeric
+            ))
+        
+        estrogen_early_above <- is_mismatch %>% 
+            dplyr::filter(pathway == "HALLMARK_ESTROGEN_RESPONSE_EARLY") %>%
+            dplyr::pull(is_above)
+        
+        estrogen_early_below <- is_mismatch %>% 
+            dplyr::filter(pathway == "HALLMARK_ESTROGEN_RESPONSE_EARLY") %>%
+            dplyr::pull(is_below)
+        
+        set_erpr_above <- is_mismatch %>% 
+            dplyr::filter(pathway == "SET_ERPR") %>%
+            dplyr::pull(is_above)
+        
+        list(
+            mismatch = estrogen_early_above != set_erpr_above,
+            is_above = estrogen_early_above,
+            df = is_mismatch,
+            is_below = estrogen_early_below
+        )
+    }
+)
+```
+
+We don't select all patients for the comparisons. We select only patients that 
+are at least in the HER2 enriched region to the right, so we 
+exclude the basal like patients. The reason for this as well is because
+they all either have low Estrogen response early scores or low SET ER/PR.
+
+```{r}
+remove_patients <- df_pca_coordinates %>% 
+    dplyr::filter(
+        cohort == "poetic" & 
+            PC3 < -4 & 
+            is_responder == "non_responder" &
+            timepoint == "baseline"
+    ) %>%
+    dplyr::pull(sample_name)
+    
+df_pca_coordinates %>% 
+    dplyr::filter(sample_name %in% remove_patients) %>%
+    dplyr::select(dplyr::all_of(c(
+        "HALLMARK_ESTROGEN_RESPONSE_EARLY", "SET_ERPR", "PC3"
+    ))) %>%
+    dplyr::mutate(dplyr::across(.fns = format, digits = 2)) %>%
+    kableExtra::kbl() %>%
+    kableExtra::kable_classic(full_width = FALSE)
+```
+
+```{r}
+mismatch_analysis <- lapply(
+    is_mismatch,
+    \(x) c(
+        purrr::pluck(x, "mismatch"), 
+        purrr::pluck(x, "is_above"),
+        purrr::pluck(x, "is_below")
+    )  %>%
+        as.numeric
+) %>%
+    dplyr::bind_rows(.id = "sample_name") %>%
+    t %>%
+    data.frame(sample_name = rownames(.)) %>%
+    dplyr::rename(mismatch = "X1", is_above = "X2", is_below = "X3") %>%
+    dplyr::filter(!(sample_name %in% remove_patients)) %>%
+    dplyr::inner_join(
+        .,
+        df_pca_coordinates,
+        by = "sample_name"
+    )
+
+average_distances <- lapply(
+    distance_to_distribution, 
+    function(x){
+        x %>%
+            dplyr::group_by(pathway) %>%
+            dplyr::summarise(
+                avg_distance = mean(intercept_diff),
+                position = mean(intercept)
+            )
+    }
+) %>%
+    dplyr::bind_rows(.id = "sample_name")
+
+poetic_distances <- df_pca_coordinates %>%
+    dplyr::filter(!(sample_name %in% remove_patients)) %>%
+    dplyr::inner_join(., average_distances, by = "sample_name") %>%
+    dplyr::filter(is_responder %in% c("responder", "non_responder")) 
+
+non_responders_sub <- poetic_distances %>%
+    dplyr::filter(change_ki67 >= 0) %>%
+    dplyr::pull(sample_name) %>%
+    unique
+
+responders_sub <- poetic_distances %>%
+    dplyr::arrange(change_ki67) %>%
+    dplyr::distinct(sample_name) %>%
+    dplyr::slice_head(n = 8) %>% 
+    dplyr::pull(sample_name) %>%
+    unique
+
+responders_middle <- poetic_distances %>%
+    dplyr::arrange(change_ki67) %>%
+    dplyr::distinct(sample_name, .keep_all = TRUE) %>%
+    dplyr::filter(is_responder == "responder") %>%
+    dplyr::filter(PC3 < 0 & PC4 > -0.5 & PC4 < 0.5) %>%
+    dplyr::pull(sample_name) %>%
+    unique
+
+plot_scores_patient <- function(nb_patient, list_patients, distances){
+    
+    ki67_patient <- distances %>%
+        dplyr::filter(sample_name == list_patients[[nb]]) %>%
+        dplyr::select(change_ki67, ki67, PC3, PC4) %>%
+        dplyr::slice_head(n=1) %>%
+        dplyr::mutate(dplyr::across(.fns = format, digit = 3))
+    
+    pipeline_scores_plots[[list_patients[nb]]]$plot +
+        ggplot2::labs(
+            subtitle = paste0(
+                "Ki67: ", ki67_patient$ki67, 
+                ", change Ki67: ", ki67_patient$change_ki67,
+                ", PC3: ", ki67_patient$PC3, ", PC4: ", ki67_patient$PC4
+            )
+        )
+}
+```
+
+#### Non-responders
+
+```{r, fig.width=10, fig.height=7}
+nb <- 1
+plot_scores_patient(nb, non_responders_sub, poetic_distances)
+```
+
+Estrogen score still close to 0, high proliferation at baseline and higher
+androgen score. But in this case SET ER/PR is lower than average. There is
+a mismatch.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 2
+plot_scores_patient(nb, non_responders_sub, poetic_distances)
+```
+
+This patient has a score close to 0 still but low proliferation in general. 
+This is a case where the EMT signaling is really at average and 
+TGFb is super low. Again SET ER/PR is much lower, mismatch with ER 
+signaling.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 3
+plot_scores_patient(nb, non_responders_sub, poetic_distances)
+```
+
+Estrogen signaling close to 0, high androgen and E2F targets and high
+EMT. Intriguing patient, both ER and SET ER/PR are going in 
+the same direction and above average. 
+
+```{r, fig.width=10, fig.height=7}
+nb <- 4
+plot_scores_patient(nb, non_responders_sub, poetic_distances)
+```
+
+Low ER signaling and super high EMT with an increase P53 pathway
+expression. Super low ER signaling here in terms of SET ER/PR. 
+
+```{r, fig.width=10, fig.height=7}
+nb <- 5
+plot_scores_patient(nb, non_responders_sub, poetic_distances)
+```
+
+Low ER score, even lower than average and low EMT signaling. Average 
+E2F targets and lower than average for SET ER/PR.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 6
+plot_scores_patient(nb, non_responders_sub, poetic_distances)
+```
+
+This case is a bit different, the ER signaling is higher, E2F targets at
+baseline is not so high, even lower than the average, but in this
+case androgen response is much higher and EMT is extremely high. There is
+a relative mismatch between ER early and SET ER/PR. SET ER/PR is 
+relatively small and close to the average.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 7
+plot_scores_patient(nb, non_responders_sub, poetic_distances)
+```
+
+Androgen score lower than the average and high E2F targets at baseline. 
+In this case we see a very small EMT signature. In this case there is 
+again a mismatch between ER signaling and SET ER/PR.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 8
+plot_scores_patient(nb, non_responders_sub, poetic_distances)
+```
+
+This one has a low ER signaling as well and higher E2F targets score. 
+Massive difference in SET ER/PR here when comparing to the average.
+
+In general all these non responders with no change in Ki67 had a low
+ER signaling score or a mismatch between ER early and SET ER/PR
+
+#### Top responders
+
+We now investigate the top responders with the
+biggest decrease in Ki67.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 1
+plot_scores_patient(nb, responders_sub, poetic_distances)
+```
+
+First thing is that this patient had already a positive score
+and a very low Androgen signaling score. Moreover the Ki67
+is low. This is one of the furthest patients to the
+right and still has a low ER signaling score.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 2
+plot_scores_patient(nb, responders_sub, poetic_distances)
+```
+
+A bit high E2F targets but higher than average of the estrogen
+signaling score. High SET ER/PR.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 3
+plot_scores_patient(nb, responders_sub, poetic_distances)
+```
+
+Here the ER signaling is above average and androgen response is similar
+to the average. E2F targets is high. Also super high SET ER/PR.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 4
+plot_scores_patient(nb, responders_sub, poetic_distances)
+```
+
+Very low E2F targets and low Androgen response. ER is about the
+average. SET ER/PR is still positive. This sample is in 
+the luminal A region also.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 5
+plot_scores_patient(nb, responders_sub, poetic_distances)
+```
+
+In this case ER signaling is also above average and E2F targets is 
+similar to the average of neighbors. SET ER/PR on average and in the 
+expected direction.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 6
+plot_scores_patient(nb, responders_sub, poetic_distances)
+```
+
+This one is intriguing, ER signaling is extremely low, E2F targets is
+very low as well but the patient responded pretty well. But there is a 
+big mismatch between Ki67 and transcriptomics for this patient. Further
+investigation should be performed. Actually probably the samples have mixed
+names. Below are the values of the pathways after treatment:
+
+```{r}
+df_pca_coordinates %>% 
+    dplyr::filter(patient_nb == "89") %>% 
+    dplyr::select(
+        ki67,
+        HALLMARK_E2F_TARGETS,
+        SET_ERPR,
+        HALLMARK_ESTROGEN_RESPONSE_EARLY,
+        PC3, 
+        PC4
+    ) %>%
+    DT::datatable(options = list(scrollX = TRUE))
+```
+
+It looks super weird that there is a big increase in proliferation based
+on the transcriptomic data considering the reduction in the Ki67 percentage.
+Not only that, ER signaling increases. It is very likely that the sample 
+has a mixed label. 
+
+Moving to the next one.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 7
+plot_scores_patient(nb, responders_sub, poetic_distances)
+```
+
+This one also is intriguing, estrogen signaling is very low but the patient
+is a responder with a good decrease in Ki67. Below is a table with the values
+for surgery and baseline. We see that there is indeed a decrease in 
+proliferation and also in estrogen signaling. Also this sample 
+is closer to the normal like and luminal A region.
+
+```{r}
+df_pca_coordinates %>% 
+    dplyr::filter(patient_nb == "90") %>% 
+    dplyr::select(
+        PC3, 
+        PC4, 
+        HALLMARK_ESTROGEN_RESPONSE_EARLY, 
+        HALLMARK_E2F_TARGETS, 
+        ki67
+    ) %>%
+    DT::datatable(options = list(scrollX = TRUE))
+```
+
+And last patient.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 8
+plot_scores_patient(nb, responders_sub, poetic_distances)
+```
+
+This patient has a score slightly higher than the average, but still negative.
+Nonetheless, the patient responded well to the therapy. One note is 
+that this patient is close to the HER2 enriched region. 
+
+In general non responders had more mismatches between SET ER/PR and 
+below average values than responders.
+
+#### Responders in the middle of embedding 
+
+We lastly check the responders that are in the middle of the 
+molecular landscape to see how they are. 
+
+```{r, fig.width=10, fig.height=7}
+nb <- 2
+plot_scores_patient(nb, responders_middle, poetic_distances)
+```
+
+Low ER signaling in both cases. This patient
+specifically had very high Ki67 levels at baseline.
+
+```{r, fig.width=10, fig.height=7}
+nb <- 3
+plot_scores_patient(nb, responders_middle, poetic_distances)
+```
+
+Also ER signaling is low here compared to the average, but a very low
+Ki67 proliferation index at baseline.
+
+#### Conclusion
+
+In general what we can see is that when comparing responders and
+non responders the main difference is in the position of 
+the molecular landscape. If we select the top responders and the
+top non-responders in terms of decrease of Ki67 index, we see
+that non responders have way lower third principal 
+component (@fig-high-respnon).
+
+```{r, fig.width=6, fig.height=5}
+#| label: fig-high-respnon
+#| fig-cap: PC3 comparison of the top non responders and responders
+
+df_pca_coordinates %>% 
+    dplyr::filter(sample_name %in% c(responders_sub, non_responders_sub)) %>% 
+    ggplot2::ggplot(aes(x = is_responder, y = PC3, color = is_responder)) + 
+    ggplot2::geom_boxplot() + 
+    ggplot2::geom_jitter(size = 3, alpha = 0.7) +
+    ggplot2::scale_color_viridis_d(option = "H") +
+    ggplot2::labs(
+        x = "Is responder?",
+        title = "Top non-responders and responders"
+    ) +
+    ggplot2::theme_bw(base_size = 18) +
+    ggplot2::theme(legend.position = "none") +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+## Predicting response to endocrine therapy
+
+We now try to use a penalized logistic regression to predict patient
+response, as defined by the POETIC trialists using the principal
+components. For this we already saw that in average the patients further
+to the left are non-responders and further to the right would be responders,
+suggesting a predictive power of the molecular landscape. The landscape still
+is not perfect as there is a lot of overlap between the responders and 
+non-responders. So we try to use more principal components to 
+capture the differences. 
+
+Just when randomizing the train test split, we need to make sure that
+we include some of the samples that are in the basal like region in 
+both splits, since they are in small numbers. Due to the small sample
+size, we use the components starting from 3 and going up to 20.
+
+```{r}
+nb_components <- 3:20
+poetic_pcs_response <- poetic_df_pca %>%
+    dplyr::filter(
+        cohort == "poetic" & 
+            timepoint == "baseline" & 
+            is_responder %in% c("responder", "non_responder")
+    ) %>%
+    dplyr::select(dplyr::all_of(c(
+        "sample_name",
+        "is_responder",
+        paste0("PC", nb_components)
+    )))
+```
+
+In this dataset the total of responders vs non responder is:
+
+```{r}
+poetic_pcs_response %>% 
+    janitor::tabyl(is_responder) %>%
+    DT::datatable() %>%
+    DT::formatPercentage("percent")
+```
+
+More than 2/3 are responders. Using a set seed for the randomization, 
+the numbers of responders and non responders are shown below for the training
+set.
+
+```{r}
+set.seed(123)
+train_poetic <- sample(
+    rownames(poetic_pcs_response), 
+    size = floor(2/3 * nrow(poetic_pcs_response))
+)
+
+poetic_pcs_response %>% 
+    dplyr::filter(sample_name %in% train_poetic) %>%
+    janitor::tabyl(is_responder) %>%
+    DT::datatable() %>%
+    DT::formatPercentage("percent")
+```
+
+And for the test set.
+
+```{r}
+poetic_pcs_response %>% 
+    dplyr::filter(!(sample_name %in% train_poetic)) %>%
+    janitor::tabyl(is_responder) %>%
+    DT::datatable() %>%
+    DT::formatPercentage("percent")
+```
+
+And we compare the PC3 values distributions to see if they are 
+equally distributed.
+
+```{r}
+poetic_pcs_response <- poetic_pcs_response %>%
+    dplyr::mutate(train_or_test = ifelse(
+        sample_name %in% train_poetic,
+        "train",
+        "test"
+    ))
+
+poetic_pcs_response %>%
+    tidyr::pivot_longer(
+        cols = paste0("PC", 3:4),
+        names_to = "pc",
+        values_to = "position"
+    ) %>%
+    ggplot2::ggplot(aes(x = position, fill = train_or_test)) +
+    ggplot2::geom_histogram(
+        position = "identity", 
+        alpha = 0.4,
+        bins = 20
+    ) + 
+    ggplot2::facet_wrap(~pc, scales = "free_x") +
+    ggplot2::theme_bw()
+```
+
+They are similarly distributed, so we can proceed with the training and
+testing strategy. 
+
+```{r}
+x_train <- poetic_pcs_response %>%
+    dplyr::filter(train_or_test == "train") %>%
+    dplyr::select(dplyr::all_of(
+        paste0("PC", nb_components)
+    )) %>%
+    as.matrix
+
+x_test <- poetic_pcs_response %>%
+    dplyr::filter(train_or_test == "test") %>%
+    dplyr::select(dplyr::all_of(
+        paste0("PC", nb_components)
+    )) %>%
+    as.matrix
+
+y_all <- poetic_pcs_response %>%
+    dplyr::mutate(is_responder = ifelse(
+        is_responder == "responder",
+        1,
+        0
+    ))
+
+y_train <- y_all %>%
+    dplyr::filter(train_or_test == "train") %>%
+    dplyr::pull(is_responder)
+
+y_test <- y_all %>%
+    dplyr::filter(train_or_test == "test") %>%
+    dplyr::pull(is_responder)
+    
+fit_responders <- glmnet::cv.glmnet(
+    x_train,
+    y_train, 
+    family = "binomial", 
+    type.measure = "class"
+)
+
+coefs_vals <- coef(fit_responders, s = "lambda.1se") %>%
+    as.matrix
+coefs_vals <- coefs_vals[coefs_vals[, 1] != 0, ]
+```
+
+The plot below shows the misclassification error versus the 
+lambda used for the penalization term in the logistic regression. 
+
+The plot below shows the misclassification error for different $\lambda$
+values and number of components.
+
+```{r}
+plot(fit_responders, xlab = "log(lambda)")
+```
+
+Overall the misclassification is pretty similar for all number of variables.
+We select the variables obtained with the lambda that is 1 SE away 
+from the minimum. So in total we have three variables: 
+The intercept and `r names(coefs_vals)[2:length(coefs_vals)]`. 
+
+And below we show the confusion matrix.
+
+```{r}
+cnf_test <- glmnet::confusion.glmnet(
+    fit_responders, 
+    newx = x_test, 
+    newy = y_test,
+    s = "lambda.1se"
+)
+
+cnf_test
+```
+
+We see that the accuracy is very low and most of the patients are 
+classified as responders. This could be potentially due to the
+class imbalance, but the results are still underwhelming. 
+
+Let us take a look on the patients that were predicted to be
+non responders and check their Ki67 differences in baseline and
+surgery.
+
+```{r}
+y_pred <- predict(
+    fit_responders, 
+    newx = x_test, 
+    type = "class",
+    lambda = "lambda.1se"
+)
+patients_non_responder <- rownames(x_test)[which(y_pred == "0")]
+poetic_df_pca %>%
+    dplyr::filter(sample_name %in% patients_non_responder) %>%
+    dplyr::select(PC3, change_ki67, ki67)
+```
+
+All the patients that were misclassified as non responders they have a 
+very low third principal component and their baseline Ki67 is quite high, so
+the decrease in proliferation is not actually big enough. It is still
+considered a responder. 
