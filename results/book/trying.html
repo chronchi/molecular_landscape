@@ -613,8 +613,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="htmlwidget-93806035c6b8082ad801" style="width:100%;height:auto;" class="datatables html-widget"></div>
-<script type="application/json" data-for="htmlwidget-93806035c6b8082ad801">{"x":{"filter":"none","vertical":false,"data":[["1"],["80"],[43.2412247946229],[-5.64942273914443],[26.832381276351],["pos"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>patient_nb<\/th>\n      <th>ki67<\/th>\n      <th>PC3<\/th>\n      <th>change_ki67<\/th>\n      <th>er_status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-a3e0a4ab34c157389b8a" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-a3e0a4ab34c157389b8a">{"x":{"filter":"none","vertical":false,"data":[["1"],["80"],[43.2412247946229],[-5.64942273914443],[26.832381276351],["pos"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>patient_nb<\/th>\n      <th>ki67<\/th>\n      <th>PC3<\/th>\n      <th>change_ki67<\/th>\n      <th>er_status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
 <p>It is a patient that is far to the left on the molecular landscape, among the basal like, and had an increase in Ki67 upon ET. So the new scoring system was able to capture this patient as with low score.</p>
@@ -4058,7 +4058,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb8-2427"><a href="#cb8-2427" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-2428"><a href="#cb8-2428" aria-hidden="true" tabindex="-1"></a>We start by comparing with the GSVA scores.</span>
 <span id="cb8-2429"><a href="#cb8-2429" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-2430"><a href="#cb8-2430" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16}</span></span>
+<span id="cb8-2430"><a href="#cb8-2430" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16, dev='png'}</span></span>
 <span id="cb8-2431"><a href="#cb8-2431" aria-hidden="true" tabindex="-1"></a>df_all_scores <span class="ot">&lt;-</span> singscore_dfs <span class="sc">%&gt;%</span> </span>
 <span id="cb8-2432"><a href="#cb8-2432" aria-hidden="true" tabindex="-1"></a>    t <span class="sc">%&gt;%</span></span>
 <span id="cb8-2433"><a href="#cb8-2433" aria-hidden="true" tabindex="-1"></a>    data.frame <span class="sc">%&gt;%</span></span>
@@ -4094,7 +4094,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb8-2463"><a href="#cb8-2463" aria-hidden="true" tabindex="-1"></a>The next two figures are the distributions of the singscore and GSVA</span>
 <span id="cb8-2464"><a href="#cb8-2464" aria-hidden="true" tabindex="-1"></a>filled by cohort.</span>
 <span id="cb8-2465"><a href="#cb8-2465" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-2466"><a href="#cb8-2466" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16}</span></span>
+<span id="cb8-2466"><a href="#cb8-2466" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16, dev='png'}</span></span>
 <span id="cb8-2467"><a href="#cb8-2467" aria-hidden="true" tabindex="-1"></a>df_all_scores <span class="sc">%&gt;%</span></span>
 <span id="cb8-2468"><a href="#cb8-2468" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
 <span id="cb8-2469"><a href="#cb8-2469" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> singscore, <span class="at">fill =</span> cohort, <span class="at">alpha =</span> <span class="fl">0.5</span></span>
@@ -4106,7 +4106,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb8-2475"><a href="#cb8-2475" aria-hidden="true" tabindex="-1"></a>For several pathways in the singscore the distributions are similar,</span>
 <span id="cb8-2476"><a href="#cb8-2476" aria-hidden="true" tabindex="-1"></a>but that is not always the case.</span>
 <span id="cb8-2477"><a href="#cb8-2477" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-2478"><a href="#cb8-2478" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16}</span></span>
+<span id="cb8-2478"><a href="#cb8-2478" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16, dev='png'}</span></span>
 <span id="cb8-2479"><a href="#cb8-2479" aria-hidden="true" tabindex="-1"></a>df_all_scores <span class="sc">%&gt;%</span></span>
 <span id="cb8-2480"><a href="#cb8-2480" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
 <span id="cb8-2481"><a href="#cb8-2481" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> gsva, <span class="at">fill =</span> cohort</span>
@@ -4135,7 +4135,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb8-2504"><a href="#cb8-2504" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-2505"><a href="#cb8-2505" aria-hidden="true" tabindex="-1"></a>We start by comparing with the GSVA scores.</span>
 <span id="cb8-2506"><a href="#cb8-2506" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-2507"><a href="#cb8-2507" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16}</span></span>
+<span id="cb8-2507"><a href="#cb8-2507" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16, dev='png'}</span></span>
 <span id="cb8-2508"><a href="#cb8-2508" aria-hidden="true" tabindex="-1"></a>df_all_scores_regressed <span class="ot">&lt;-</span> singscore_dfs_regressed <span class="sc">%&gt;%</span> </span>
 <span id="cb8-2509"><a href="#cb8-2509" aria-hidden="true" tabindex="-1"></a>    t <span class="sc">%&gt;%</span></span>
 <span id="cb8-2510"><a href="#cb8-2510" aria-hidden="true" tabindex="-1"></a>    data.frame <span class="sc">%&gt;%</span></span>
@@ -4171,7 +4171,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb8-2540"><a href="#cb8-2540" aria-hidden="true" tabindex="-1"></a>The next two figures are the distributions of the singscore and GSVA</span>
 <span id="cb8-2541"><a href="#cb8-2541" aria-hidden="true" tabindex="-1"></a>filled by cohort.</span>
 <span id="cb8-2542"><a href="#cb8-2542" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-2543"><a href="#cb8-2543" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16}</span></span>
+<span id="cb8-2543"><a href="#cb8-2543" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=20, fig.height=16, dev='png'}</span></span>
 <span id="cb8-2544"><a href="#cb8-2544" aria-hidden="true" tabindex="-1"></a>df_all_scores_regressed <span class="sc">%&gt;%</span></span>
 <span id="cb8-2545"><a href="#cb8-2545" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
 <span id="cb8-2546"><a href="#cb8-2546" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> singscore, <span class="at">fill =</span> cohort</span>
