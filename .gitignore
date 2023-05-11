@@ -13,3 +13,4 @@ results/*
 scripts/tests.qmd
 scripts/trying.qmd
 !results/tables/risk_score/risk_score_model.csv
+corrections/
