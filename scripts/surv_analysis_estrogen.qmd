@@ -938,6 +938,31 @@ scanb_high_er <- colData(datasets$scanb) %>% data.frame %>%
     ) %>% 
     dplyr::pull(sample_name)
 
+# and we test if the er signaling score is protective for the low 
+# ER IHC. low meaning less than 90%
+scanb_low_er <- colData(datasets$scanb) %>% data.frame %>%
+    dplyr::filter(
+        node_stage != "NX" &
+        !(tumor_stage %in% c("T4", "Tis", "TX")) & 
+        er_status == "pos" & 
+        TreatGroup == "Endo" & 
+        ER.pct < 90
+    ) %>% 
+    dplyr::pull(sample_name)
+
+scanb_high_esr1 <- colData(datasets$scanb) %>% data.frame %>%
+    dplyr::mutate(esr1 = log2(assay(datasets$scanb, "FPKM")["ESR1",] + 1)) %>%
+    dplyr::filter(
+        node_stage != "NX" &
+        !(tumor_stage %in% c("T4", "Tis", "TX")) & 
+        er_status == "pos" & 
+        TreatGroup == "Endo" & 
+        esr1 > 7.5
+    ) %>% 
+    dplyr::pull(sample_name)
+
+# and lastly we only select patients with high ESR1 levels
+
 metabric_samples <- colData(datasets$metabric) %>% data.frame %>%
     dplyr::filter(
         CHEMOTHERAPY == "NO" &
@@ -946,13 +971,36 @@ metabric_samples <- colData(datasets$metabric) %>% data.frame %>%
     ) %>% 
     dplyr::pull(sample_name)
 
+metabric_high_esr1 <- colData(datasets$metabric) %>% data.frame %>%
+    dplyr::mutate(esr1 = as.matrix(assay(
+            datasets$metabric, 
+            "median_intensity"
+        ))["ESR1", ]
+    ) %>%
+    dplyr::filter(
+        CHEMOTHERAPY == "NO" &
+        er_status == "pos" & 
+        HORMONE_THERAPY == "YES" &
+        esr1 > 11.5
+    ) %>% 
+    dplyr::pull(sample_name)
+
+
 nb_pts_events <- data.frame(
-    cohort = c("TCGA", "SCANB", "METABRIC", "SCANB High ER"),
+    cohort = c(
+        "TCGA", "SCANB", "METABRIC", 
+        "SCANB High ER", "SCANB Low ER",
+        "SCANB High ESR1",
+        "METABRIC High ESR1"
+    ),
     number_patients = c(
         length(tcga_samples),
         length(scanb_samples),
         length(metabric_samples),
-        length(scanb_high_er)
+        length(scanb_high_er),
+        length(scanb_low_er),
+        length(scanb_high_esr1),
+        length(metabric_high_esr1)
     ),
     nb_events = c(
         datasets$tcga %>% colData %>% data.frame %>%
@@ -969,6 +1017,18 @@ nb_pts_events <- data.frame(
             dplyr::pull(n),
        datasets$scanb %>% colData %>% data.frame %>%
             dplyr::filter(sample_name %in% scanb_high_er & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n),
+       datasets$scanb %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% scanb_low_er & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n),
+       datasets$scanb %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% scanb_high_esr1 & os_status == 2) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n),
+       datasets$metabric %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% metabric_high_esr1 & os_status == 2) %>%
             dplyr::summarise(n = n()) %>%
             dplyr::pull(n)
     )
@@ -987,10 +1047,16 @@ formulas_survival <- c(
     "os_tcga" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb_low_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb_high_esr1" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
+    "os_metabric_high_esr1" = "Surv(os_months, os_status) ~ age + npi",
     "rfs_metabric" = "Surv(rfs_months, rfs_status) ~ age + npi",
     "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
-    "rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage"
+    "rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_scanb_low_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_scanb_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_metabric_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + npi"
 )
 
 type_survival <- c("os", "rfs")
@@ -1063,12 +1129,21 @@ survival_results <- sapply(
     },
     datasets = mapply(
         function(dataset, patients) dataset[, patients],
-        dataset = c(datasets, scanb_high_er = datasets$scanb),
+        dataset = c(
+            datasets, 
+            scanb_high_er = datasets$scanb,
+            scanb_low_er = datasets$scanb,
+            scanb_high_esr1 = datasets$scanb,
+            metabric_high_esr1 = datasets$metabric
+        ),
         patients = list(
             tcga_samples, 
             scanb_samples, 
             metabric_samples, 
-            scanb_high_er
+            scanb_high_er,
+            scanb_low_er,
+            scanb_high_esr1,
+            metabric_high_esr1
         ),
         USE.NAMES = TRUE,
         SIMPLIFY = FALSE
@@ -1078,6 +1153,9 @@ survival_results <- sapply(
     USE.NAMES = TRUE,
     simplify = FALSE
 )
+
+survival_results$rfs$scanb_high_esr1$ER.pct <- NULL
+survival_results$rfs$metabric_high_esr1$ER.pct <- NULL
 
 survival_results$rfs <- survival_results$rfs[
     !sapply(survival_results$rfs, is.null)
@@ -1093,6 +1171,15 @@ survival_results$os <- purrr::discard(
     ),
     is.null
 )
+
+survival_results$rfs <- purrr::discard(
+    purrr::map(
+        survival_results$rfs, 
+        ~ purrr::discard(.x, is.null),
+    ),
+    is.null
+)
+
 
 # we cannot simply save the models as each model has some 
 # environment variables, which adds up to over 20GB. 
@@ -1153,11 +1240,23 @@ names_coefficients <- list(
     )
 )
 
+names_coefficients <- c(
+    names_coefficients,
+    list(
+        scanb_low_er = names_coefficients$scanb_high_er,
+        scanb_high_esr1 = names_coefficients$scanb_high_er,
+        metabric_high_esr1 = names_coefficients$metabric
+    )
+)
+
 patients <- list(
     tcga = "Lum A/B, ER+ BC",
     scanb = "Endo Only, ER+ BC",
     metabric = "Endo Only, ER+ BC",
-    scanb_high_er = "Endo Only, ER+ BC, ER% >= 90"
+    scanb_high_er = "Endo Only, ER+ BC, ER% >= 90",
+    scanb_low_er = "Endo Only, ER+ BC, ER% < 90",
+    scanb_high_esr1 = "Endo Only, ER+ BC, ESR1 (log2FPKM) >= 7.5",
+    metabric_high_esr1 = "Endo Only, ER+ BC,\nESR1 (median intensity) >= 11.5"
 )
 
 sapply(
@@ -1262,7 +1361,7 @@ and overall survival (OS), the results for both analysis are presented here.
 
 ```{r}
 tables_survival %>% 
-    dplyr::filter(cohort != "scanb_high_er") %>%
+    dplyr::filter(cohort %in% c("scanb", "tcga", "metabric")) %>%
     dplyr::filter(term %in% c("HALLMARK_ESTROGEN_RESPONSE_EARLY", "SET_ERPR")) %>%
     DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
     DT::formatRound(
@@ -1512,7 +1611,13 @@ risk of dying. The table with the values is shown below.
 
 ```{r}
 tables_survival %>%
-    dplyr::filter(cohort == "scanb" & term == "ER.pct")
+    dplyr::filter(cohort == "scanb" & term == "ER.pct") %>%
+    DT::datatable(options = list(scrollX = TRUE)) %>%
+    DT::formatSignif(c(
+        "estimate", "std.error", "statistic",
+        "p.value", "conf.low", "conf.high",
+        "HR"
+    ))
 ```
 
 Next we selected only patients that had 90% or more ER IHC percentage 
@@ -1557,6 +1662,117 @@ confidence intervals for the estimates will be bigger. We see
 that for both signatures the HR is way below 1, meaning that 
 the higher the score the better it is for the patient. Also the 
 hazard ratio decreased in this case.
+
+We now evaluate the protective effect of the estrogen signaling signatures
+in the patients that have tumors with ER IHC lower than 90%. 
+
+```{r, fig.height=9.5, fig.width = 6}
+#| label: fig-er-ihc-low-rfs
+#| fig-cap: Survival analysis using ER IHC percentage, 
+#|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 
+#|     patients with less than 90% in the ER IHC were selected.
+gridExtra::grid.arrange(
+    ggplotify::grid2grob(print(forest_plots$rfs$scanb_low_er$ER.pct)),
+    ggplotify::grid2grob(print(forest_plots$rfs$scanb_low_er$HALLMARK_ESTROGEN_RESPONSE_EARLY)),
+    ggplotify::grid2grob(print(forest_plots$rfs$scanb_low_er$SET_ERPR))
+)
+```
+
+The number of patients now is very low, but the effect is still there. 
+When we look at the survival. Below we show the results for the 
+overall survival.
+
+```{r, fig.height=9.5, fig.width = 6}
+#| label: fig-er-ihc-low-os
+#| fig-cap: Survival analysis using ER IHC percentage, 
+#|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 
+#|     patients with less than 90% in the ER IHC were selected.
+gridExtra::grid.arrange(
+    ggplotify::grid2grob(print(forest_plots$os$scanb_low_er$ER.pct)),
+    ggplotify::grid2grob(print(forest_plots$os$scanb_low_er$HALLMARK_ESTROGEN_RESPONSE_EARLY)),
+    ggplotify::grid2grob(print(forest_plots$os$scanb_low_er$SET_ERPR))
+)
+```
+
+The hazard ratio is still below 1 but the uncertainty is much 
+higher, probably due to the number of patients and events. 
+
+Another way of evaluating the effect of estrogen signaling and not only
+the presence of the estrogen receptor protein or the mRNA transcripts, is
+to check the patients whose tumor samples have high expression of ESR1. 
+We can perform such analysis in both METABRIC and SCANB. 
+
+```{r, fig.height=9.5, fig.width = 7}
+#| label: fig-er-ihc-highesr1-rfs
+#| fig-cap: Survival analysis using ER IHC percentage, 
+#|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 
+#|     patients with more than 7.5 units of ESR1 
+#|     in the logFPKM scale were selected.
+gridExtra::grid.arrange(
+    ggplotify::grid2grob(print(
+        forest_plots$rfs$scanb_high_esr1$HALLMARK_ESTROGEN_RESPONSE_EARLY
+    )),
+    ggplotify::grid2grob(print(forest_plots$rfs$scanb_high_esr1$SET_ERPR))
+)
+```
+
+The number of events is very small but the HR is very small also and confidence
+interval is far away from 1. And now for METABRIC when we select all patients
+of 3rd quantile and above (median intensity higher than 11.5).
+
+```{r, fig.height=9.5, fig.width = 6}
+#| label: fig-er-ihc-highesr1-rfs-metabric
+#| fig-cap: Survival analysis using  
+#|     HALLMARK_ESTROGEN_RESPONSE_EARLY and SET_ERPR as the scores. Only 
+#|     patients with more than 11 units of ESR1 
+#|     in the log median intensity scale were selected.
+gridExtra::grid.arrange(
+    ggplotify::grid2grob(print(
+        forest_plots$rfs$metabric_high_esr1$HALLMARK_ESTROGEN_RESPONSE_EARLY
+    )),
+    ggplotify::grid2grob(print(forest_plots$rfs$metabric_high_esr1$SET_ERPR))
+)
+```
+
+The variability is way higher but the hazard ratio is still below 1 as 
+expected. In this case probably there are patients that have low score and
+don't benefit as much from the treatment. @fig-er-signaling-highesr1-metabric
+shows the distribution of ER signaling scores for those patients. We notice
+that the average is very close to the peak of the distributions.
+
+```{r, fig.width=10, fig.height=4}
+#| label: fig-er-signaling-highesr1-metabric
+colData(datasets$metabric) %>%
+    data.frame %>%
+    dplyr::filter(sample_name %in% metabric_high_esr1) %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(c("SET_ERPR", "HALLMARK_ESTROGEN_RESPONSE_EARLY")),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    ggplot2::ggplot(aes(x = score)) +
+    ggplot2::geom_histogram(bins = 20) +
+    ggplot2::facet_wrap(~pathway, scales = "free") +
+    ggplot2::theme_bw(base_size = 15)
+```
+
+And below for all patients used for the full analysis on METABRIC.
+
+```{r, fig.width=10, fig.height=4}
+#| label: fig-er-signaling-all-metabric
+colData(datasets$metabric) %>%
+    data.frame %>%
+    dplyr::filter(sample_name %in% metabric_samples) %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(c("SET_ERPR", "HALLMARK_ESTROGEN_RESPONSE_EARLY")),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    ggplot2::ggplot(aes(x = score)) +
+    ggplot2::geom_histogram(bins = 20) +
+    ggplot2::facet_wrap(~pathway, scales = "free") +
+    ggplot2::theme_bw(base_size = 15)
+```
 
 ## Conclusion
 

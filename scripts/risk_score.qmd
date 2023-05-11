@@ -744,3 +744,226 @@ ggcorrplot::ggcorrplot(
     ggplot2::labs(x = "", y = "")
 ```
 
+## ABiM and nCounter data
+
+In [@SCANB2022], the authors validated their approach of using 
+RNA-seq instead of nCounter data by showing how one can get the 
+ROR and compared to nCounter data sequenced at their facility and
+sent to prosigna for the calculation of the risk of recurrence. 
+They have matched RNA-seq data as well. Here we will use the 
+ROR obtained from the nCounter data and use the RNA-seq to 
+calculate the risk score here developed. 
+
+```{r}
+# load the data and perform the normalization + embedding
+load("../data/scanb_2022/ABiM.100.mymatrix.Rdata")
+load("../data/scanb_2022/Gene.ID.ann.Rdata")
+metadata <- readxl::read_excel(
+    "../data/scanb_2022/sup_data_20230113.xlsx", 
+    sheet = "ABiM.100"
+)
+abim_100 <- ABiM.100.mymatrix
+gene_id_ann <- Gene.ID.ann
+rownames(abim_100) <- gene_id_ann[rownames(abim_100), "Gene.Name"]
+abim_100 <- abim_100[!duplicated(rownames(abim_100)), ]
+
+# add information so the risk score can be calculated later on
+metadata$age <- 0
+metadata$node_status <- ifelse(
+    metadata$LN > 1,
+    "pos",
+    "neg"
+)
+metadata$tumor_size <- metadata$Size.mm
+
+abim_100 <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(
+            fpkm = abim_100,
+            log2fpkm = log2(abim_100 + 1)
+        ),
+    colData = metadata %>%
+        data.frame %>%
+        `rownames<-`(.$GEX.assay) %>%
+        dplyr::mutate(
+            sample_name = GEX.assay,
+            pam50 = tolower(SSP.PAM50),
+            ER.pct = NULL
+        )
+)
+
+abim_100_normalized <- get_final_ranking_values(
+    sum_exp = abim_100,
+    assay_to_use = "log2fpkm",
+    stable_genes = stable_genes,
+    most_variable_genes = setdiff(rownames(pca_fit$loadings), stable_genes)
+)
+
+# calculate the embedding
+abim_100_df_pca <- get_pca_coordinates(abim_100_normalized, pca_fit) %>%
+    dplyr::bind_cols(
+        ., 
+        data.frame(cohort = rep("abim_100", ncol(abim_100_normalized)))
+    ) %>%
+    dplyr::mutate(sample_name = colnames(abim_100_normalized)) %>%
+    dplyr::inner_join(
+        .,
+        colData(abim_100) %>% data.frame,
+        by = "sample_name"
+    ) %>%
+    dplyr::bind_rows(., df_pca)
+
+# save all the results
+saveRDS(
+    abim_100,
+    "../results/rds_files/validation/abim_100.rds"
+)
+
+saveRDS(
+    abim_100_df_pca %>% data.frame,
+    "../results/rds_files/validation/abim_100_df_pca.rds"
+)
+
+saveRDS(
+    abim_100_normalized,
+    "../results/rds_files/validation/abim_100_normalized.rds"
+)
+```
+
+@fig-pca-abim100-cohort shows the embedding of the ABiM cohort, it 
+matches perfectly the molecular landscape.
+
+```{r, fig.width=9, fig.height=6}
+#| label: fig-pca-abim100-cohort
+#| fig-cap: Embedding of all samples from TCGA, SCNAB and METABRIC including
+#|     the samples from ABiM 100 that have matched nCounter data. 
+abim_100_df_pca %>%
+    ggplot2::ggplot(
+        aes(x = PC3, y = PC4, color = cohort)
+    ) +
+    ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+    ggplot2::scale_size_manual(values = c(
+        "abim_100" = 3, 
+        "tcga" = 1,
+        "scanb" = 1,
+        "metabric" = 1
+    ), guide = "none") +
+    ggplot2::scale_alpha_manual(values = c(
+        "abim_100" = 1, 
+        "tcga" = 0.1,
+        "scanb" = 0.1,
+        "metabric" = 0.1
+    ), guide = "none") +
+    ggplot2::labs(
+        color = "Cohort",
+        alpha = "Cohort",
+        size = "Cohort",
+        title = paste0(
+            "ABiM 100 cohort embedding"
+        ),
+        subtitle = "All samples from TCGA, SCANB and METABRIC are plotted"
+    ) + 
+    ggplot2::theme_bw(base_size = 18) +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+@fig-abim100-cohort shows how well the ABiM cohort actually overlays 
+with the SCANB dataset, which makes sense as the processing pipeline
+is all similar. 
+
+```{r}
+#| label: fig-abim100-cohort
+#| fig-cap: Biplot of first two PCA components from ABiM 100, 
+#|     TCGA, SCANB and 
+#|     METABRIC. The normal cohort is highlighted in the plot and
+#|     has bigger dot size.
+abim_100_df_pca %>% 
+    dplyr::filter(cohort != "poetic") %>%
+    dplyr::slice(sample(1:n())) %>%
+    ggplot2::ggplot(
+        aes(x = PC1, y = PC2, color = cohort)
+    ) +
+    ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +
+    ggplot2::scale_size_manual(values = c(
+        "abim_100" = 2, 
+        "tcga" = 1,
+        "scanb" = 1,
+        "metabric" = 1
+    ), guide = "none") +
+    ggplot2::scale_alpha_manual(values = c(
+        "abim_100" = 1, 
+        "tcga" = 0.1,
+        "scanb" = 0.1,
+        "metabric" = 0.1
+    ), guide = "none") +
+    ggplot2::labs(
+        color = "Cohort",
+        alpha = "Cohort",
+        size = "Cohort",
+        title = paste0(
+            "First two components of ABiM 100",
+            " cohort overlayed on all\nthe three ",
+            "big cohorts in the the molecular landscape"
+        ),
+        subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
+    ) + 
+    ggplot2::theme_bw(base_size = 14) +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+And now we move on and calculate the risk scores for the ABiM 
+cohort. 
+
+```{r}
+abim_100$risk_score <- calculate_risk_score(
+    coefs_risk_model,
+    abim_100_df_pca %>%
+        dplyr::filter(cohort == "abim_100"),
+    is_node = TRUE
+)
+```
+
+```{r}
+#| label: fig-rorft-riskscore-abim
+#| fig-cap: Correlation between risk score calculated based on 
+#|     the principal components and clinical factors versus the Prosigna
+#|     ROR obtained from the nCounter data and evaluated by Prosigna. Cohort
+#|     used is the ABiM 100 samples. 
+df_abim_100 <- colData(abim_100) %>%
+    data.frame
+
+df_abim_100 %>%
+    dplyr::filter(!is.na(risk_score)) %>%
+    ggplot2::ggplot(aes(
+        x = risk_score,
+        y = ProsignaFT.ROR,
+        color = pam50
+    )) + 
+    ggplot2::geom_point() + 
+    ggplot2::scale_color_manual(values = get_colors_pam50(df_abim_100)) +
+    ggplot2::geom_smooth(
+        color = "black",
+        method = "gam",
+        formula = y ~ s(x, bs = "cs")
+    ) +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        x = "Risk score",
+        y = "ROR Prosigna FT", 
+        color = "PAM50",
+        title = "ABiM 100 samples and risk scores",
+        caption = "FT: fresh-frozen tissue"
+    ) +
+    change_guides_point() + 
+    change_plot_aes_point()
+```
+
+@fig-rorft-riskscore-abim shows that there is a positive correlation
+between the risk score and ROR obtained from Prosigna. We see
+that some of the luminal A patients have higher ROR but lower 
+ROR. Also, among luminal B patients there were some with the same 
+ROR but different risk score, showing that the risk. Also some
+of the basal samples have smaller ROR than some of the luminal
+B and A samples, and the risk score captures these differences, i.e.,
+all basal samples have risk scores higher than 0.75.
