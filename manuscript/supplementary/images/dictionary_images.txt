@@ -23,3 +23,6 @@ figure caption names:
 
 # Figure 4
 - scoring_file/fig-poetic-cohort-1
+
+# Figure S4
+- trying/unnamed-chunk-59-1
