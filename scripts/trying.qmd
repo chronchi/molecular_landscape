@@ -4066,3 +4066,200 @@ datasets_nanostring$tcga %>%
     ggplot2::theme_bw()
 ```
 
+## Risk stratification and the molecular landscape
+
+One common problem in the clinics is what to do with patients that are 
+in the so called intermediate risk group. Here we use the SSP 
+classification from the SCANB team to check what is the position of these
+patients in the molecular landscape.
+
+```{r}
+#| label: fig-scanb-risk-embedding
+#| fig-cap: Embedding of the SCANB samples colored by their predicted
+#|     ROR risk category.
+df_pca %>%
+    dplyr::filter(cohort == "scanb" & !is.na(SSP.ROR.risk.cat)) %>%
+    dplyr::slice_sample(n = nrow(.)) %>%
+    dplyr::mutate(sample_name = factor(sample_name)) %>%
+    ggplot2::ggplot(aes(x = PC3, y = PC4, color = SSP.ROR.risk.cat)) +
+    ggplot2::geom_point(alpha = 0.5) + 
+    ggplot2::scale_color_viridis_d(option = "H") + 
+    ggplot2::theme_bw() + 
+    change_plot_aes_point() + 
+    change_guides_point()
+```
+
+@fig-scanb-risk-embedding shows that the embedding detects the positions
+where the intermediate risk patients are, namely they are in the
+intersection of the luminal A and B subtypes.
+
+And @fig-intermediate-pca-position below shows that there is a shift in
+PC4 for the intermediate to the high risk group, which makes sense as this is
+exactly where the distinction between luminal A and B are.
+
+```{r, fig.height=4, fig.width=8}
+#| label: fig-intermediate-pca-position
+#| fig-cap: Distribution of the principal components for the different
+#|     risk groups defined by the SSP ROR scores.
+df_pca %>%
+    dplyr::filter(cohort == "scanb" & !is.na(SSP.ROR.risk.cat)) %>%
+    tidyr::pivot_longer(
+        cols = c(PC3, PC4), 
+        names_to = "pcs", 
+        values_to = "pc_scores"
+    ) %>%
+    ggplot2::ggplot(aes(y = SSP.ROR.risk.cat, x = pc_scores, color = SSP.ROR.risk.cat)) +
+    ggplot2::geom_jitter(alpha = 0.4, size = 0.1) + 
+    ggplot2::geom_violin(alpha = 0.1, color = "black", linewidth = 0.6) + 
+    ggplot2::facet_wrap(~pcs) +
+    ggplot2::scale_color_viridis_d(option = "H") +
+    ggplot2::labs(x = "PC") + 
+    ggplot2::theme_bw(base_size = 20) + 
+    ggplot2::theme(legend.position = "none") + 
+    change_plot_aes_point() + 
+    change_guides_point()
+```
+
+## Late distant recurrence: trying to find biomarkers
+
+One of the key problems in breast cancer research is finding patients that
+will develop late recurrence. Here we use METABRIC as it has a long follow-up
+history. We start by plotting the embedding of all METABRIC patients that
+had a followup longer than 10 years and received only ET. We then try to 
+predict which patients recurr or not based on the molecular data by
+using lasso regression. For this we use the package `glmnet` that 
+provides such functionality. 
+
+```{r}
+p <- get_base_plot(
+    df_pca %>% 
+        dplyr::filter(cohort != "poetic") 
+) + 
+    ggplot2::theme(legend.position = "none")
+
+et_metabric_late_data <- df_pca %>%
+    dplyr::filter(
+        cohort == "metabric" &
+            rfs_months >= 10 * 12 & 
+            is.numeric(rfs_status) & 
+            HORMONE_THERAPY == "YES" & 
+            er_status == "pos"
+    ) %>%
+    dplyr::mutate(is_there_recurrence = ifelse(
+        rfs_status == 2,
+        "yes",
+        "no"
+    ))
+
+ggplot2::ggplot(
+    et_metabric_late_data,
+    aes(
+        x = PC3, 
+        y = PC4, 
+        shape = is_there_recurrence, 
+        color = is_there_recurrence
+    )
+) + 
+    ggplot2::geom_point(
+        size = 4,
+        alpha = 0.5
+    ) + 
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        title = "METABRIC",
+        subtitle = "ER+ BC, ET only, over 10 years of RFS follow-up",
+        color = "Recurrence?",
+        shape = "Recurrence?"
+    ) +
+    ggplot2::coord_cartesian(
+        xlim = c(min(df_pca$PC3), max(df_pca$PC3)),
+        ylim = c(min(df_pca$PC4), max(df_pca$PC4))
+    ) + 
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+In general there is no distinction in terms of the molecular
+landscape among the patients that recurred, both in terms of
+molecular subtype and position in the molecular landscape. 
+
+We now compare their molecular scores. 
+
+```{r, fig.width=20, fig.height=40}
+pathways_to_compare <- colnames(df_pca)[grepl("^HALLMARK", colnames(df_pca))]
+et_metabric_late_data %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(pathways_to_compare),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    ggplot2::ggplot(aes(x = is_there_recurrence, y = score)) + 
+    ggplot2::geom_jitter(size = 0.1) + 
+    ggplot2::geom_boxplot(alpha = 0.5, outlier.shape = NA) + 
+    ggplot2::facet_wrap(
+        ~pathway, 
+        ncol = 5,
+        labeller = as_labeller(
+            stringr::str_replace_all(pathways_to_compare, "^HALLMARK_", "") %>%
+                `names<-`(pathways_to_compare)
+        )
+    ) + 
+    ggplot2::labs(
+        x = "Recurrence?",
+        title = "METABRIC",
+        subtitle = "ER+ BC, ET only, over 10 years of RFS follow-up"    
+    ) + 
+    ggplot2::theme_bw(base_size = 15)
+```
+ 
+Even here we don't see much difference. Unless there is some kind of 
+linear combination of pathways, I don't think it would be possible
+to classify these two groups by using only transcriptomic data
+and these pathways. In any case we proceed now with the 
+lasso regression using the 50 pathways. 
+
+```{r}
+fit_recurrence <- glmnet::cv.glmnet(
+    x = as.matrix(et_metabric_late_data[, pathways_to_compare]),
+    y = et_metabric_late_data$is_there_recurrence,
+    family = "binomial",
+    type.measure = "class"
+)
+
+plot(fit_recurrence)
+```
+
+We see that actually it does not work. And when we predict all the 
+samples are predicted as there is no recurrence.
+
+```{r}
+predict(
+    fit_recurrence, 
+    new = et_metabric_late_data[, pathways_to_compare] %>%
+            as.matrix,
+    s = "lambda.1se",
+    type = "class"
+) %>% table
+```
+
+This is probably because of the unbalanced dataset. Next we 
+try with random forest as well.
+
+```{r}
+rf <- randomForest::randomForest(
+    as.factor(is_there_recurrence) ~ ., 
+    data = et_metabric_late_data[, c(
+        "is_there_recurrence",
+        pathways_to_compare,
+        "AGE_AT_DIAGNOSIS",
+        "LYMPH_NODES_EXAMINED_POSITIVE", 
+        "npi"
+    )],
+    ntree = 500
+)
+
+print(rf)
+```
+
+That is not the case, still we can't predict if a patient will develop
+recurrence or not in this cohort. 
