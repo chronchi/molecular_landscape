@@ -1428,10 +1428,12 @@ First we start by comparing the molecular score with the percentages
 #|     by using the signature HALLMARK_ESTROGEN_RESPONSE_EARLY and SET ER/PR.
 esr1_levels <- assay(datasets$scanb, "logFPKM")["ESR1", ]
     
-df <- datasets$scanb %>%
+df_wide <- datasets$scanb %>%
     colData %>%
     data.frame %>%
-    dplyr::mutate(`log2(ESR1)` = esr1_levels) %>%
+    dplyr::mutate(`log2(ESR1)` = esr1_levels)
+
+df <- df_wide %>%
     tidyr::pivot_longer(
         cols = c(HALLMARK_ESTROGEN_RESPONSE_EARLY, SET_ERPR, `log2(ESR1)`),
         names_to = "pathway",
@@ -1445,8 +1447,8 @@ df %>%
         #color = TreatGroup
         color = pam50
     )) +
-    ggplot2::geom_smooth(color = "black", method = "gam") +
     ggplot2::geom_point(size = 2, alpha = 0.8) + #, mapping = aes(shape = pam50)) +
+    ggplot2::geom_smooth(color = "black", method = "gam") +
     ggplot2::labs(
         x = "ER percentage",
         y = "Molecular score",
@@ -1469,6 +1471,39 @@ pathologists probably don't assign non rounded percentage values, which
 makes sense. Another thing to notice is that for high ER percentage 
 patients you have a whole spectrum of molecular ER signaling score.
 
+The spearman correlation for Estrogen early and ER IHC is:
+
+```{r}
+cor.test(
+    df_wide$ER.pct,
+    df_wide$HALLMARK_ESTROGEN_RESPONSE_EARLY,
+    method = "spearman", 
+    exact = FALSE
+)
+```
+
+For SET ER/PR is:
+
+```{r}
+cor.test(
+    df_wide$ER.pct,
+    df_wide$SET_ERPR,
+    method = "spearman", 
+    exact = FALSE
+)
+```
+
+And finally for log(ESR1) is:
+
+```{r}
+cor.test(
+    df_wide$ER.pct,
+    df_wide$`log2(ESR1)`,
+    method = "spearman", 
+    exact = FALSE
+)
+```
+
 Now we look speficially at the high ER percentage patients and compare
 their ER signaling scores. We previously saw that the distribution
 of these scores seems to be wide.
@@ -1476,25 +1511,28 @@ of these scores seems to be wide.
 ```{r, fig.width=7, fig.height=10}
 #| label: fig-scores-high-er
 #| fig-cap: Scores for high ER percentage breast cancer patients.
-datasets$scanb %>%
+df_scores_scanb_high_er <- datasets$scanb %>%
     colData %>%
     data.frame %>%
-    dplyr::mutate(`log2(ESR1)` = esr1_levels) %>%
+    dplyr::filter(ER.pct >= 90) %>%
+    dplyr::mutate(`log2(ESR1)` = esr1_levels) 
+
+df_scores_scanb_high_er %>%
     tidyr::pivot_longer(
         cols = c(HALLMARK_ESTROGEN_RESPONSE_EARLY, SET_ERPR, `log2(ESR1)`),
         names_to = "pathway",
         values_to = "score"
     ) %>%
-    dplyr::filter(ER.pct >= 90) %>%
     ggplot2::ggplot(aes(
         x = score
     )) +
     ggplot2::geom_histogram(bins = 30) + 
+    #ggplot2::geom_density(alpha = 0.5) + 
     ggplot2::labs(
         x = "Score",
         title = paste0(
             "Scores for high ER IHC (over 90%)\npercentage BC patients",
-            " (", length(scanb_high_er), " pts)"
+            " (", nrow(df_scores_scanb_high_er), " pts)"
         ),
         y = "Count"
     ) + 
