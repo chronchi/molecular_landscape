@@ -1044,9 +1044,26 @@ pipeline_scores_plots <- sapply(
     simplify = FALSE
 )
 
+pipeline_scores_plots_er_only <- sapply(
+    patients_all, 
+    get_patient_scores_distributions_all,
+    df_pca = poetic_df_pca,
+    scores_to_use = scores_to_use[
+        c("HALLMARK_ESTROGEN_RESPONSE_EARLY", "SET_ERPR")
+    ],
+    base_size = 20,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
 saveRDS(
     pipeline_scores_plots,
     "../results/rds_files/scoring/pipeline_scores_plots.rds"
+)
+
+saveRDS(
+    pipeline_scores_plots_er_only,
+    "../results/rds_files/scoring/pipeline_scores_plots_er_only.rds"
 )
 ```
 
@@ -1077,6 +1094,310 @@ pipeline_scores_plots$treated_nb236_baseline$plot +
 
 When comparing these two patients, there is also a difference in the androgen
 response score, which could be a reflection of different estrogen signaling.
+
+### Matching other responders and non-responders
+
+In this section we now match all the responders and non-responders in a 
+close neighbourhood and try to do a similar analysis. We use
+a threshold of 0.5 for samples close enough, which corresponds to the
+1% percentile.
+
+```{r}
+distances_samples_poetic <- dist(
+    df_pca_coordinates %>%
+        dplyr::filter(
+            cohort == "poetic" & 
+                timepoint == "baseline" & 
+                is_responder %in% c("responder", "non_responder")
+        ) %>%
+        dplyr::select(dplyr::all_of(c("PC3", "PC4"))), 
+    method = "euclidean",
+    diag = TRUE, 
+    upper = FALSE
+) %>% as.matrix %>%
+    data.frame 
+
+distances_samples_poetic[upper.tri(distances_samples_poetic)] <- 0
+
+distances_samples_poetic <- distances_samples_poetic %>%
+    tibble::rownames_to_column(var = "first_sample_name") %>%
+    dplyr::mutate(sample_name = first_sample_name)
+```
+
+```{r}
+cols_to_not_pivot <- c(
+    "sample_name", "is_responder", "ki67", "change_ki67", "first_sample_name"
+)
+distances_samples_poetic_long <- dplyr::inner_join(
+        distances_samples_poetic, 
+        df_pca_coordinates %>%
+            dplyr::select(dplyr::all_of(c(
+                "sample_name", "is_responder", "ki67", "change_ki67"
+            ))),
+        by = "sample_name"
+    ) %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(setdiff(colnames(.), cols_to_not_pivot)),
+        names_to = "second_sample_name",
+        values_to = "distance"
+    ) %>% 
+    dplyr::filter(distance != 0) %>%
+    dplyr::inner_join(
+        ., 
+        df_pca_coordinates %>%
+            dplyr::mutate(second_sample_name = sample_name) %>%
+            dplyr::select(dplyr::all_of(c(
+                "second_sample_name", "is_responder", "ki67", "change_ki67"
+            ))),
+        by = "second_sample_name",  
+        suffix = c("_first", "_second")
+    ) 
+close_samples_poetic <- distances_samples_poetic_long %>%
+    dplyr::filter(
+        distance < 0.5 & 
+            is_responder_first != is_responder_second
+    ) %>% 
+    dplyr::select(
+        first_sample_name, 
+        second_sample_name, 
+        is_responder_first, 
+        is_responder_second,
+        change_ki67_first,
+        change_ki67_second,
+        ki67_first,
+        ki67_second
+    ) 
+
+close_samples_poetic %>%
+    DT::datatable()
+```
+
+```{r}
+unique_samples <- c(
+    close_samples_poetic$first_sample_name, 
+    close_samples_poetic$second_sample_name
+) %>% unique 
+```
+
+In total there is number of 38 neighborhoods that we will analyse with
+a total of `r length(unique_samples)` unique samples, with a total of 
+32 responders and 24 non-responders, meaning that some responders
+they share non-responders.
+
+```{r, eval = first_run}
+plots_scores_close_patients <- apply(
+    close_samples_poetic, 
+    MARGIN = 1,
+    FUN = function(info_patients, plots){
+        
+        # get the plots and modify the titles so we can put them together
+        # for visualization. let us stick with responder first and
+        # non-responder as second to make it easier to analyse afterwards
+        
+        if (which(info_patients == "responder") == 3){
+            which_responder <- "first"
+            which_non_responder <- "second"
+        } else {
+            which_responder <- "second"
+            which_non_responder <- "first"
+        }
+        
+        plot_responder <- plots[[
+            info_patients[paste0(which_responder, "_sample_name")]
+        ]]$plot
+        
+        plot_non_responder <- plots[[
+            info_patients[paste0(which_non_responder, "_sample_name")]
+        ]]$plot
+        
+        # now we change the titles to include the information of interest.
+        
+        plot_responder <- plot_responder +
+            ggplot2::labs(
+                title = paste0(
+                    info_patients[paste0(which_responder, "_sample_name")],
+                    ", ",
+                    info_patients[paste0("is_responder_", which_responder)]
+                ),
+                subtitle = paste0(
+                    "Ki67 baseline: ", info_patients[paste0("ki67_", which_responder)],
+                    ", Change Ki67: ", info_patients[paste0("change_ki67_", which_responder)]
+                )
+            )
+        
+        plot_non_responder <- plot_non_responder +
+            ggplot2::labs(
+                title = paste0(
+                    info_patients[paste0(which_non_responder, "_sample_name")],
+                    ", ",
+                    info_patients[paste0("is_responder_", which_non_responder)]
+                ),
+                subtitle = paste0(
+                    "Ki67 baseline: ", 
+                    info_patients[paste0("ki67_", which_non_responder)],
+                    ", Change Ki67: ", 
+                    info_patients[paste0("change_ki67_", which_non_responder)]
+                )
+            )
+        
+        cowplot::plot_grid(
+            plot_responder,
+            plot_non_responder,
+            nrow = 2
+        )
+        
+    }, 
+    plots = pipeline_scores_plots_er_only,
+    simplify = FALSE
+)
+
+# a means above, m means middle and b means below
+comparison_to_average_neighbors <- data.frame(
+    responder_er_early = c("a", "a", "m", "m", "a", "b", "a", "a", "b",
+                           "b", "b", "b", "a", "a", "b", "a", "a", "b", 
+                           "b", "a", "a", "a", "a", "a", "b", "b", "b", 
+                           "b", "a", "b", "m", "b", "b", "m", "m", "m", 
+                           "b", "b"),
+    responder_set_erpr = c("a", "m", "a", "m", "a", "a", "b", "b", "a", 
+                           "m", "a", "b", "a", "a", "b", "a", "b", "b", 
+                           "b", "a", "a", "a", "a", "a", "a", "b", "m", 
+                           "a", "b", "b", "b", "b", "b", "b", "b", 
+                           "a", "b", "a"),
+    non_responder_er_early = c("a", "a", "a", "a", "a", "m", "a", "b", 
+                               "b", "a", "a", "b", "b", "a", "a", "b", 
+                               "b", "b", "b", "a", "b", "a", "a", "a", 
+                               "a", "a", "b", "b", "a", "a", "a", "a", 
+                               "a", "b", "b", "b", "b", "b"),
+    non_responder_set_erpr = c("b", "b", "b", "b", "b", "a", "a", "b", 
+                               "b", "a", "a", "b", "b", "a", "a", "a", 
+                               "a", "b", "b", "a", "m", "a", "b", "b", 
+                               "b", "b", "b", "b", "b", "b", "a", "m", 
+                               "m", "a", "a", "b", "b", "b"),
+    comments = c(
+        "", "",
+        "good reduction in ki67 for non-responder and even higher baseline",
+        "",
+        "good reduction in ki67 for non-responder",
+        "",
+        "The non-responder is actually a responder, with change in ki67 as 59.67, a rounding error.",
+        "good reduction in ki67 for non-responder as well, almost 60%",
+        "",
+        "High Ki67 levels for the responder, almost 50%",
+        "Non-responder is almost a reponder with 56% of change",
+        "", "", "", 
+        "Very low ki67 levels for responder",
+        "",
+        "Very low Ki67 levels for responder",
+        "super high Ki67 levels for responder and very low SET ER/PR",
+        "", "", "", "", "", "", 
+        "ER early is close to average for responder but SET ER/PR is far away from non-responder", 
+        "", "", "", 
+        "Again non-responder is very far away from average",
+        "",
+        "Responder had a very high Ki67 and high change but low ER score surprisingly",
+        "", "", "", "", "", "", ""
+        
+    )
+)
+
+comparison_to_average_neighbors <- comparison_to_average_neighbors %>%
+    dplyr::mutate(
+        mismatch_er_responder = dplyr::case_when(
+            responder_er_early %in% c("a", "m") & responder_set_erpr %in% c("a", "m") ~ "no",
+            responder_er_early %in% c("b", "m") & responder_set_erpr %in% c("b", "m") ~ "no",
+            responder_er_early %in% c("a", "m") & responder_set_erpr == "b" ~ "yes",
+            responder_er_early %in% c("b", "m") & responder_set_erpr == "a" ~ "yes",
+            responder_er_early %in% c("a", "m") & responder_set_erpr == "a" ~ "no",
+            responder_er_early %in% c("b", "m") & responder_set_erpr == "b" ~ "no",
+            TRUE ~ "not_available"
+        ),
+        mismatch_er_non_responder = dplyr::case_when(
+            non_responder_er_early %in% c("a", "m") & non_responder_set_erpr %in% c("a", "m") ~ "no",
+            non_responder_er_early %in% c("b", "m") & non_responder_set_erpr %in% c("b", "m") ~ "no",
+            non_responder_er_early %in% c("a", "m") & non_responder_set_erpr == "b" ~ "yes",
+            non_responder_er_early %in% c("b", "m") & non_responder_set_erpr == "a" ~ "yes",
+            non_responder_er_early %in% c("a", "m") & non_responder_set_erpr == "a" ~ "no",
+            non_responder_er_early %in% c("b", "m") & non_responder_set_erpr == "b" ~ "no",
+            TRUE ~ "not_available"
+        ),
+        both_same_direction_er_early = ifelse(
+            responder_er_early == non_responder_er_early,
+            "yes",
+            "no"
+        ),
+        both_same_direction_set_erpr = ifelse(
+            responder_set_erpr == non_responder_set_erpr,
+            "yes",
+            "no"
+        )
+    )
+
+comparison_to_average_neighbors <- comparison_to_average_neighbors %>%
+    dplyr::bind_cols(., close_samples_poetic)
+
+comparison_to_average_neighbors <- comparison_to_average_neighbors %>%
+    dplyr::mutate(
+        er_early_above_responder = ifelse(
+            responder_er_early %in% c("a", "m") & non_responder_er_early == "b",
+            "yes",
+            "no"
+        ),
+        set_erpr_above_responder = ifelse(
+            responder_set_erpr %in% c("a", "m") & non_responder_set_erpr == "b",
+            "yes",
+            "no"
+        ),
+        er_early_above_non_responder = ifelse(
+            responder_er_early %in% c("b") & non_responder_er_early %in% c("a", "m"),
+            "yes",
+            "no"
+        ),
+        set_erpr_above_non_responder = ifelse(
+            responder_set_erpr == "b" & non_responder_set_erpr %in% c("a", "m"),
+            "yes",
+            "no"
+        )
+    )
+
+saveRDS(
+    comparison_to_average_neighbors,
+    "../results/rds_files/scoring/comparison_to_average_neighbors.rds"
+)
+```
+
+By analysing the table below we get the following results. The way
+the table was obtained was by manually inspecting all the 38 neighrborhoods
+and checking in which the samples scores were below (b), in the average (m) and
+above average (a). The columns with the a, m and b letters represent the
+scores ER Early and SET ER/PR along with their respective positions.
+
+```{r}
+comparison_to_average_neighbors %>%
+    DT::datatable(
+        options = list(scrollX = TRUE)
+    )
+```
+
+
+In out of the 38 neighborhoods,
+there are 8 where the responders are at average or above estrogen response
+early and non responders are below.  The total number of unique non-responders
+is 6. On the other hand, there are 9 neighborhoods with 6 unique 
+non-responders that have higher scores than average and in which 8 non-responders
+have scores below average. 
+
+The number increases to 14 when we consider SET ER/PR and out of the 14
+neighborhoods, there are 10 unique samples from non-responders.
+
+On the other hand there are 8 neighborhoods which have non responders with
+SET ER/PR higher than average and responders with scores below average.
+Out of these 8 neighborhoods, the number of unique non-responders are 
+6. In total, there are 10 non-responders that are below average,
+6 that are above average and the remaining 8 have similar direction as the
+responders.
+
+These results suggest that SET ER/PR might be a better signature to compare
+in the neighborhoods.
 
 ### Analysing all patients
 

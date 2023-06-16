@@ -44,7 +44,9 @@ db_files <- list(
         poetic_df_pca = "poetic_df_pca_with_scores",
         poetic_normalized = "poetic_normalized",
         datasets_normalized = "datasets_normalized",
-        pipeline_scores_plots = "pipeline_scores_plots"
+        pipeline_scores_plots = "pipeline_scores_plots",
+        pipeline_scores_plots_er_only = "pipeline_scores_plots_er_only",
+        comparison_to_average_neighbors = "comparison_to_average_neighbors"
     ),
     trying = c(
         datasets = "datasets_with_poetic",

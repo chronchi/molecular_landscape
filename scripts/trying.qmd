@@ -4242,7 +4242,7 @@ Here we calculate the pathway scores by using the regressed data and do
 all pairwise comparison of some of the most important pathways to see
 their correlations.
 
-```{r, fig.width=17, fig.height=13}
+```{r, fig.width=17, fig.height=13, dev='png'}
 color_by <- "pam50"
 pathways_correlation <- c(
     "G2M", "ER early", "ER late", "PI3K AKT MTOR",
