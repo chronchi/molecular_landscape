@@ -466,7 +466,20 @@ endo_only_scanb %>%
 
 There is a correlation but we see that among the luminal A patients 
 there are still those that have high risk score besides a ROR lower than
-50. We now evaluate the risk score only on luminal A patients that 
+50. Below we show the results of the spearman test on these two variables.
+We see they are correlated.
+
+```{r}
+cor.test(
+    endo_only_scanb$risk_score,
+    endo_only_scanb$NCN.ROR.asT0,
+    method = "spearman", 
+    exact = FALSE
+)
+```
+
+
+We now evaluate the risk score only on luminal A patients that 
 received just endocrine therapy.
 
 ```{r}

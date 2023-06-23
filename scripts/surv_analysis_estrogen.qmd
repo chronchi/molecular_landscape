@@ -54,6 +54,7 @@ library(gridExtra)
 
 library(SummarizedExperiment)
 library(survival)
+library(survminer)
 library(msigdbr)
 library(GSVA)
 library(uwot)
@@ -1413,6 +1414,31 @@ specially because they have different follow-up times,
 SCANB being the shortest. TCGA has very few number of events and we could
 not select based on the treatment, the results for TCGA are less reliable.
 
+Below we show the results for recurrence free survival.
+
+```{r, fig.height=7, fig.width = 6}
+#| label: fig-forest-plot-rfs
+#| fig-cap: Forest plots of the different cohorts and their hazard ratios.
+#|     The bars correspond to 95% confidence interval.
+
+# we use the workaround described here:
+# https://stackoverflow.com/questions/71266791/combine-several-forestplot-object-in-one-graph-in-r
+# we convert the forest plots to grob and then used gridExtra to 
+# plot into the output
+which_pathway <- "HALLMARK_ESTROGEN_RESPONSE_EARLY"
+plots_estrogen_early <- lapply(
+    forest_plots$rfs, 
+    function(x){
+        ggplotify::grid2grob(print(x[[which_pathway]]))
+    } 
+)
+
+gridExtra::grid.arrange(
+    plots_estrogen_early$scanb,
+    plots_estrogen_early$metabric
+)
+```
+
 ## Comparison of ER IHC and molecular ER signaling
 
 The new released dataset from the SCANB consortium contains the ER 
@@ -1700,6 +1726,270 @@ confidence intervals for the estimates will be bigger. We see
 that for both signatures the HR is way below 1, meaning that 
 the higher the score the better it is for the patient. Also the 
 hazard ratio decreased in this case.
+
+To further validate the ER signaling we partitionate the score in 
+4 different categories, low, intermediate, high, ultra high and perform
+the OS and RFS analysis.
+
+For SET ER/PR the results are:
+
+```{r}
+sig_dich_survival <- function(
+    df, 
+    signature_dichotomization,
+    samples_to_use
+){
+    
+    quantile_signature <- quantile(df[, signature_dichotomization])
+    signature_values <- df[, signature_dichotomization]
+    df$sig_dich <- dplyr::case_when(
+        dplyr::between(
+            signature_values,
+            quantile_signature[1], quantile_signature[2]
+        ) ~ "low",
+        dplyr::between(
+            signature_values,
+            quantile_signature[2], quantile_signature[3]
+        ) ~ "intermediate",
+        dplyr::between(
+            signature_values,
+            quantile_signature[3], quantile_signature[4]
+        ) ~ "high",
+        dplyr::between(
+            signature_values,
+            quantile_signature[4], quantile_signature[5]
+        ) ~ "ultra_high",
+    )
+    
+    df$sig_dich <- factor(
+        df$sig_dich,
+        levels = c("low", "intermediate", "high", "ultra_high")
+    )
+    
+    
+    df <- df %>% dplyr::filter(sample_name %in% samples_to_use) 
+    
+    list(
+        surv_results = surv_results_sig_dich <- survival::coxph(
+            Surv(rfs_months, rfs_status) ~ sig_dich +  age + 
+                node_stage + tumor_stage,
+            data = df
+        ),
+        df = df
+    )
+
+}
+
+
+sig_dich_er_survival <- function(
+    df, 
+    signature_dichotomization,
+    samples_to_use
+){
+    
+    quantile_signature <- quantile(df[, signature_dichotomization], probs = c(0, 0.5, 1))
+    signature_values <- df[, signature_dichotomization]
+    ER.pct <- df$ER.pct
+    df$sig_dich <- dplyr::case_when(
+        signature_values < quantile_signature[2] & ER.pct < 90 ~ "lowERIHC_lowERsig",
+        signature_values < quantile_signature[2] & ER.pct >= 90 ~ "highERIHC_lowERsig",
+        signature_values >= quantile_signature[2] & ER.pct >= 90 ~ "highERIHC_highERsig",
+        signature_values >= quantile_signature[2] & ER.pct < 90 ~ "lowERIHC_highERsig"
+    )
+    
+    df$sig_dich <- factor(
+        df$sig_dich,
+        levels = c(
+            "highERIHC_lowERsig",
+            "highERIHC_highERsig",
+            "lowERIHC_lowERsig",
+            "lowERIHC_highERsig"
+        )
+    )
+    
+    
+    df <- df %>% dplyr::filter(sample_name %in% samples_to_use) 
+    
+    list(
+        surv_results = surv_results_sig_dich <- survival::coxph(
+            Surv(rfs_months, rfs_status) ~ sig_dich +  age + 
+                node_stage + tumor_stage,
+            data = df
+        ),
+        df = df
+    )
+
+}
+
+results_surv_dich <- sapply(
+    c("SET_ERPR", "HALLMARK_ESTROGEN_RESPONSE_EARLY"), 
+    sig_dich_survival, 
+    df = colData(datasets$scanb) %>% data.frame,
+    samples_to_use = scanb_high_er,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+results_surv_dich_er_sig <- sapply(
+    c("SET_ERPR", "HALLMARK_ESTROGEN_RESPONSE_EARLY"), 
+    sig_dich_er_survival, 
+    df = colData(datasets$scanb) %>% data.frame,
+    samples_to_use = scanb_samples,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+results_surv_dich_er_sig$SET_ERPR$surv_results
+```
+
+For Estrogen early the results are:
+
+```{r}
+results_surv_dich_er_sig$HALLMARK_ESTROGEN_RESPONSE_EARLY$surv_results
+```
+
+High ER sig and high ER IHC have a better outcome than high ER IHC and 
+low ER sig for both signatures.
+
+The table below shows the number of RFS events for each subgroup in the
+SET ER/PR dichotomization procedure.
+
+```{r}
+results_surv_dich_er_sig$SET_ERPR$df %>%
+    janitor::tabyl(sig_dich, rfs_status) %>%
+    janitor::adorn_totals(where = "col")  %>%
+    janitor::adorn_percentages("row") %>%
+    janitor::adorn_pct_formatting(digits = 2) %>%
+    janitor::adorn_ns() %>%
+    janitor::adorn_title()
+```
+
+Next we show the Kaplan Meier estimate curves for both signatures.
+
+```{r, fig.width=8, fig.height=6}
+#| label: fig-km-seterpr
+#| fig-cap: Kaplan-Meier estimate of the categorized SET ER/PR signature
+fit <- survival::survfit(
+    survival::Surv(rfs_months, rfs_status) ~ sig_dich, 
+    data = results_surv_dich_er_sig$SET_ERPR$df
+)
+
+plot_fit_km <- survminer::ggsurvplot(
+    fit,
+    risk.table = TRUE, # Add risk table
+    risk.table.col = "strata", # Change risk table color by groups
+    linetype = "strata", # Change line type by groups
+    ggtheme = ggplot2::theme_bw(base_size = 15), 
+)
+
+labels_er_ihc <- c(
+    "high ER IHC, low ER sig" = 1, 
+    "high ER IHC, high ER sig" = 2,
+    "low ER IHC, low ER sig" = 3,
+    "low ER IHC, high ER sig" = 4
+)
+
+tidy_results_hr <- results_surv_dich_er_sig$SET_ERPR$surv_results %>% 
+    broom::tidy(exponentiate = TRUE)
+
+plot_fit_km$plot <- plot_fit_km$plot +
+    ggplot2::labs(title = "SET ER/PR\nER+ BC, Endo only") + 
+    ggplot2::scale_color_hue(labels = names(labels_er_ihc)) + 
+    ggplot2::scale_linetype_discrete(guide = "none") +
+    ggplot2::annotate(
+        "label", 
+        x = 40, 
+        y = 0.3, 
+        label = paste0(
+            "Hazard ratios\n",
+            "High ER IHC, High ER sig: ", 
+                format(pull(tidy_results_hr[1, "estimate"]), digits = 2),
+                ", p-value: ", 
+                format(pull(tidy_results_hr[1, "p.value"]), digits = 2),
+            "\nLow ER IHC, Low ER sig: ", 
+                format(pull(tidy_results_hr[2, "estimate"]), digits = 2),
+                ", p-value: ", 
+                format(pull(tidy_results_hr[2, "p.value"]), digits = 2),
+            "\nLow ER IHC, High ER sig: ", 
+                format(pull(tidy_results_hr[3, "estimate"]), digits = 2),
+                ", p-value: ", 
+                format(pull(tidy_results_hr[3, "p.value"]), digits = 2)
+        )
+    ) + 
+    ggplot2::labs(caption = paste0(
+        "Baseline group: high ER IHC and low ER sig is baseline\n",
+        "Thresholds: median of signature in the whole dataset, ER IHC 90%"
+    )) + 
+    ggplot2::guides(color = ggplot2::guide_legend(nrow=2,byrow=TRUE)) + 
+    ggplot2::theme(legend.position = "top")
+
+plot_fit_km$plot
+```
+
+
+```{r, fig.width=8, fig.height=6}
+#| label: fig-km-er-early
+#| fig-cap: Kaplan-Meier estimate of the categorized Estrogen early signature
+fit <- survival::survfit(
+    survival::Surv(rfs_months, rfs_status) ~ sig_dich, 
+    data = results_surv_dich_er_sig$HALLMARK_ESTROGEN_RESPONSE_EARLY$df
+)
+
+plot_fit_km <- survminer::ggsurvplot(
+    fit,
+    risk.table = TRUE, # Add risk table
+    risk.table.col = "strata", # Change risk table color by groups
+    linetype = "strata", # Change line type by groups
+    ggtheme = ggplot2::theme_bw(base_size = 15), 
+)
+
+labels_er_ihc <- c(
+    "high ER IHC, low ER sig" = 1, 
+    "high ER IHC, high ER sig" = 2,
+    "low ER IHC, low ER sig" = 3,
+    "low ER IHC, high ER sig" = 4
+)
+
+tidy_results_hr <- results_surv_dich_er_sig$HALLMARK_ESTROGEN_RESPONSE_EARLY$surv_results %>% 
+    broom::tidy(exponentiate = TRUE)
+
+plot_fit_km$plot <- plot_fit_km$plot +
+    ggplot2::labs(title = "Estrogen early\nER+ BC, Endo only") + 
+    ggplot2::scale_color_hue(labels = names(labels_er_ihc)) + 
+    ggplot2::scale_linetype_discrete(guide = "none") +
+    ggplot2::annotate(
+        "label", 
+        x = 40, 
+        y = 0.3, 
+        label = paste0(
+            "Hazard ratios\n",
+            "High ER IHC, High ER sig: ", 
+                format(pull(tidy_results_hr[1, "estimate"]), digits = 2),
+                ", p-value: ", 
+                format(pull(tidy_results_hr[1, "p.value"]), digits = 2),
+            "\nLow ER IHC, Low ER sig: ", 
+                format(pull(tidy_results_hr[2, "estimate"]), digits = 2),
+                ", p-value: ", 
+                format(pull(tidy_results_hr[2, "p.value"]), digits = 2),
+            "\nLow ER IHC, High ER sig: ", 
+                format(pull(tidy_results_hr[3, "estimate"]), digits = 2),
+                ", p-value: ", 
+                format(pull(tidy_results_hr[3, "p.value"]), digits = 2)
+        )
+    ) + 
+    ggplot2::labs(caption = paste0(
+        "Baseline group: high ER IHC and low ER sig is baseline\n",
+        "Thresholds: median of signature in the whole dataset, ER IHC 90%"
+    )) + 
+    ggplot2::guides(color = ggplot2::guide_legend(nrow=2,byrow=TRUE)) + 
+    ggplot2::theme(legend.position = "top")
+
+plot_fit_km$plot
+```
+
+In both cases there is a good distinction between low ER sig/High ER IHC and
+High ER sig/Low ER IHC. Interestingly, there the worst group is really the
+low ER sig/low ER IHC, as expected.
 
 We now evaluate the protective effect of the estrogen signaling signatures
 in the patients that have tumors with ER IHC lower than 90%. 

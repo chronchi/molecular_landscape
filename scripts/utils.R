@@ -142,8 +142,7 @@ forest_plot_fits <- function(
     ) %>% dplyr::mutate(
         dplyr::across(
             where(is.numeric), 
-            round, 
-            5
+            \(x) round(x, digits = 5)
         )
     )
     
@@ -165,12 +164,13 @@ forest_plot_fits <- function(
             "2" = gpar(col = "#444444", columns = 1:3, lwd = 1)
         ),
         is.summary = summary,
-        xlog = TRUE, 
+        #xlog = TRUE, 
         col = fpColors(
             box = viridis::viridis(2)[1],
             line = "black",
             summary = viridis::viridis(3)[2]
         ),
+        zero = 1,
         title = paste0(
             type_survival, " ",
             toupper(cohort), ", ", patients,

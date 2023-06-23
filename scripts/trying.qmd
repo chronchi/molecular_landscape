@@ -5029,7 +5029,7 @@ Lastly we check the CDH1 expression levels on the regressed data to
 see if the differences are still captured upon the whole process. 
 
 ```{r, fig.height = 5, fig.width = 14}
-genes_of_interest <- c("CDH1", "ESR1")
+genes_of_interest <- c("CDH1", "ESR1", "LOXL1")
 df_pcs_regressed[genes_of_interest, ] %>%
     t %>%
     data.frame %>%
@@ -5060,6 +5060,33 @@ The differences are still captured, and CDH1 is decreased when
 comparing lobular vs NST. Note also that the difference seems to be
 the biggest in the luminal B subtype.
 
+```{r, fig.height = 5, fig.width = 14}
+df_pcs_regressed[genes_of_interest, ] %>%
+    t %>%
+    data.frame %>%
+    tibble::rownames_to_column(var = "sample_name") %>%
+    dplyr::inner_join(
+        .,
+        df_pca_scanb,
+        by = "sample_name"
+    ) %>%
+    dplyr::filter(
+        InvCa.type %in% c("Lobular", "Ductal") & 
+        er_status == "pos" & 
+        HER2 == "Negative"
+    ) %>%
+    ggplot2::ggplot(aes(x = InvCa.type, y = LOXL1)) +
+    ggplot2::geom_jitter() + 
+    ggplot2::geom_violin(alpha = 0.5) + 
+    ggplot2::facet_wrap(~pam50, nrow = 1) + 
+    ggplot2::labs(
+        x = "",
+        y = "Regressed LOXL1\nexpressioon levels",
+        title = "SCANB, ER+ HER2- BC samples only"
+    ) + 
+    ggplot2::theme_bw(base_size = 20)
+```
+
 We also check the PC3 and PC4 loadings for CDH1, to see how important
 this gene is in the molecular landscape. 
 
@@ -5082,4 +5109,157 @@ ecdf_genes_pc4 <- pca_fit_all_genes_wo_outliers$loadings %>%
 ecdf_genes_pc4(0.01509738)
 ```
 
+Next we can plot the lobular samples from Ciriello's paper
+and color by the 3 subtypes they found. Note here that there is a mismatch
+between the cbioportal data and what is found in the original papers
+[@Curtis2012]. We will use the Curtis 2012 annotation as this is what 
+matches Ciriello's paper. Surprisingly the mismatch is not a systematic
+issue, rather 88 ILC samples are matching and the non-matching samples
+are NST but the other info matches usually, such as NPI.
 
+```{r}
+metabric_ilc_subtypes <- read.table(
+    "../data/2015_Ciriello_metabric_ilc_subtypes.txt",
+    header = FALSE
+)
+
+colnames(metabric_ilc_subtypes) <- c("sample_name", "cohort", "subtype")
+
+metabric_lobular <- dplyr::inner_join(
+    df_pca, 
+    metabric_ilc_subtypes,
+    by = "sample_name"
+)
+```
+
+```{r fig.width=9, fig.height=6, message=FALSE}
+#| label: fig-pca-lobular-metabric
+#| fig-cap: Embedding of the lobular samples from METABRIC on top 
+#|     SCANB and TCGA
+p <- get_base_plot(df_pca %>% dplyr::filter(cohort %in% c("tcga", "scanb")))
+
+p +
+    ggplot2::geom_point(
+        metabric_lobular,
+        mapping = aes(x = PC3, y = PC4),
+        size = 4
+    ) + 
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        title = "Lobular samples from METABRIC\non top of SCANB and TCGA samples"
+    ) + 
+    ggplot2::scale_color_manual(
+        values = c(get_colors_pam50(df_pca %>%
+                                        dplyr::filter(cohort == "metabric")))
+    ) +
+    change_plot_aes_point() +
+    change_guides_point(shape = FALSE)
+```
+
+The table below shows the number of subtypes for each molecular subtype. 
+In general there are samples in each one of the molecular subtypes.
+The reactive-like is actually more enriched in the normal region.
+
+```{r}
+metabric_lobular %>% 
+    janitor::tabyl(subtype, pam50)
+```
+
+And below is a plot of the lobular samples from Ciriello/Curtis with
+the molecular subtypes defined by Ciriello. 
+
+```{r}
+ggplot2::ggplot() + 
+    ggplot2::geom_point(
+        metabric_lobular,
+        mapping = aes(x = PC3, y = PC4, color = subtype),
+        size = 4
+    ) + 
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        title = "Lobular samples from METABRIC\non top of SCANB and TCGA samples"
+    ) +
+    change_plot_aes_point() +
+    change_guides_point(shape = FALSE)
+```
+
+It seems that more proliferative saaples are in the luminal B 
+region whereas the Reactive-like and Immune-related are not so
+distinguishable, they are in the luminal A region.
+
+Some of the samples are NST on cbioportal and Lobular on Curtis. 
+We selected the following samples and checked on 
+cbioPortal (https://www.cbioportal.org/study/clinicalData?id=brca_metabric)
+their histologic subtype directly.
+
+```{r}
+metabric_lobular %>%
+    dplyr::select(sample_name, npi) %>% 
+    dplyr::arrange(sample_name) %>%
+    head()
+```
+
+All the 6 samples are Ductal/NST and not Lobular.
+
+## Robustness to library protocol
+
+```{r}
+df_pca_scores %>% 
+    dplyr::filter(cohort == "scanb") %>%
+    ggplot2::ggplot(aes(
+        x = PC1,
+        y = PC2,
+        color = LibraryProtocol
+    )) + 
+    ggplot2::geom_point() + 
+    ggplot2::facet_wrap(~LibraryProtocol)
+```
+
+## Distance in 4th component for POETIC
+
+```{r, fig.width=16, fig.height=10}
+df_pca_scores %>% 
+    dplyr::filter(
+        cohort == "poetic" & 
+            is_responder == "non_responder" &
+            change_ki67 > 0
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = PC3,
+        y = PC4,
+        color = patient_nb,
+        shape = timepoint,
+        label = paste(change_ki67)
+    )) + 
+    ggplot2::geom_point(size = 4) + 
+    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::facet_wrap(~patient_nb) + 
+    ggrepel::geom_label_repel(max.overlaps = 10) +
+    ggplot2::coord_cartesian(
+        xlim = c(-10, 7),
+        ylim = c(-6, 6)
+    )
+```
+
+
+```{r, fig.width=16, fig.height=10}
+df_pca_scores %>% 
+    dplyr::filter(
+        cohort == "poetic" & 
+            is_responder == "responder" &
+            change_ki67 < -90
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = PC3,
+        y = PC4,
+        color = patient_nb,
+        shape = timepoint
+    )) + 
+    ggplot2::geom_point(size = 4) + 
+    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::facet_wrap(~patient_nb) + 
+    ggplot2::coord_cartesian(
+        xlim = c(-10, 6),
+        ylim = c(-6, 6)
+    )
+```
