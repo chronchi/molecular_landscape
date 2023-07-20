@@ -15,6 +15,7 @@ figure caption names:
 - pca_merging_files/fig-pca-age
 - pca_merging_files/fig-pca-npi
 - pca_merging_files/fig-pca-tumor-purity
+- pca_merging_files/fig-pca-pc-by-tumor-purity
 - pca_merging_files/fig-pca-men-status
 - pca_merging_files/fig-pca-tumor-node
 
