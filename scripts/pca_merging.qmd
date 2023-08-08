@@ -1261,7 +1261,7 @@ plot_pcas_together <- function(
 }
 ```
 
-```{r plots-pcas-random, fig.width=10, fig.height=10}
+```{r plots-pcas-random, fig.width=14, fig.height=10}
 #| label: fig-plots-pcas-random
 #| fig-cap: Selecting a random set of 1000 patients an rerunning the pipeline
 #|     to obtain other embeddings. Red color corresponds to the embedding using
@@ -1294,7 +1294,7 @@ title_new_pcas <- ggplot2::ggplot() +
             "#F8766D;'>red</span>"
         )
     ) + 
-    ggplot2::theme_bw(base_size = 20) +
+    ggplot2::theme_bw(base_size = 30) +
     ggplot2::theme(
         plot.title = element_markdown()
     ) +
@@ -1305,7 +1305,7 @@ cowplot::plot_grid(
     title_new_pcas, 
     plots_new_pcas_all, 
     ncol = 1, 
-    rel_heights = c(0.08, 1)
+    rel_heights = c(0.12, 1)
 )
 ```
 
