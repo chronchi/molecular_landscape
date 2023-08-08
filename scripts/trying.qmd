@@ -5203,6 +5203,11 @@ All the 6 samples are Ductal/NST and not Lobular.
 
 ## Robustness to library protocol
 
+The figure below shows the first two components
+for SCANB stratified by the library protocol used in the 
+study. We see that PC2 is partially capturing the
+differences due to library protocol.
+
 ```{r}
 df_pca_scores %>% 
     dplyr::filter(cohort == "scanb") %>%
@@ -5212,10 +5217,21 @@ df_pca_scores %>%
         color = LibraryProtocol
     )) + 
     ggplot2::geom_point() + 
-    ggplot2::facet_wrap(~LibraryProtocol)
+    ggplot2::facet_wrap(~LibraryProtocol) +
+    ggplot2::theme_bw()
 ```
 
 ## Distance in 4th component for POETIC
+
+We have seen previosuly that there is a bigger difference in 
+between the matched samples in the responder than to non-responder 
+patients. Hallmark G2M checkpoint is one of the signatures
+driving the PC4, meaning that the position wrt the fourth component
+might be used to define a new response status. 
+
+Below we plot the matched samples for all non responder patients
+with no change at all in Ki67 (change >= 0%)
+and their respective positions in the molecular landscape.
 
 ```{r, fig.width=16, fig.height=10}
 df_pca_scores %>% 
@@ -5241,6 +5257,7 @@ df_pca_scores %>%
     )
 ```
 
+Now we do the same for the top responders (change in Ki67 $\leq$ -90%).
 
 ```{r, fig.width=16, fig.height=10}
 df_pca_scores %>% 
@@ -5259,7 +5276,12 @@ df_pca_scores %>%
     ggplot2::theme_bw(base_size = 15) + 
     ggplot2::facet_wrap(~patient_nb) + 
     ggplot2::coord_cartesian(
-        xlim = c(-10, 6),
+        xlim = c(-10, 7),
         ylim = c(-6, 6)
     )
 ```
+
+In general the distance for the responder samples seem to be higher and not only
+that we see that the surgery sample goes to the bottom part of the embedding, 
+suggesting that the reduction of the proliferation is reflected in the
+molecular landscape.

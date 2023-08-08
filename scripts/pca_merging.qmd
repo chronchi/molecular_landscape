@@ -50,6 +50,7 @@ renv::restore()
 library(tidyverse)
 
 library(ggplot2)
+library(ggtext)
 library(PCAtools)
 
 library(singscore)
@@ -919,6 +920,26 @@ plot_pca_coordinates(
 ```
 
 It looks good, ER+ BC patients have lower NPI, which makes sense. 
+@fig-pca-npi-pc3 shows then how there is barely any correlation
+between the different subtypes and the NPI when stratified by the
+molecular subtype.
+
+```{r}
+#| label: fig-pca-npi-pc3
+#| fig-cap: PC3 and NPI correlation colored and stratified by
+#|     the intrinsic molecular subtype.
+df_pca_coordinates %>% 
+    dplyr::filter(cohort %in% c("metabric")) %>%
+    ggplot2::ggplot(aes(x = npi, y = PC3, color = pam50)) + 
+    ggplot2::geom_point() + 
+    ggplot2::geom_smooth(method = "lm") +
+    ggplot2::facet_wrap(~pam50) +
+    ggplot2::labs(color = "PAM50", x = "NPI") + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point()
+```
+
+
 @fig-pca-tumor-purity shows the biplot colored by tumor purity.
 
 ```{r}
@@ -947,6 +968,30 @@ plot_pca_coordinates(
 The tumor purity is not a factor that is affecting the embedding as samples
 with low cellularity (< 40% of tumor cells) and high cellularity
 (> 70% of tumor cells) intermingle. 
+
+Another way to visualize is the distribution of the principal components
+over the tumor purity (@fig-pca-pc-by-tumor-purity).
+
+```{r}
+#| label: fig-pca-pc-by-tumor-purity
+#| fig-cap: PC3 and PC4 stratified by tumor purity
+df_pca_coordinates %>% 
+    dplyr::filter(cohort %in% c("metabric")) %>%
+    dplyr::filter(CELLULARITY != "") %>%
+    tidyr::pivot_longer(
+        cols = c(PC3, PC4),
+        names_to = "PC",
+        values_to = "score"
+    ) %>% 
+    ggplot2::ggplot(aes(x = score, fill = CELLULARITY)) + 
+    ggplot2::geom_density(alpha = 0.5) + 
+    ggplot2::facet_wrap(~PC) + 
+    ggplot2::labs(x = "Principal component", y = "Density") + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
 
 METABRIC has also inferred menopausal status for the patients, we use
 this information to check if there is any enrichment based on the 
@@ -1155,7 +1200,7 @@ Ten random sets of 1000 patients are sampled and the embedding is calculate. A
 total of 10 PCA embeddings are obtained.
 
 ```{r, warning = FALSE, eval = first_run}
-seeds <- seq(0, 500, by = 29)
+seeds <- seq(0, 499, by = 20)
 new_pcas <- lapply(
     seeds, 
     get_new_pca, 
@@ -1209,13 +1254,14 @@ plot_pcas_together <- function(
         ggplot2::geom_line(color = "gray") + 
         ggplot2::labs(title = paste0("Seed nb: ", which_seed)) + 
         ggplot2::theme_bw(base_size = base_size) + 
-        ggplot2::theme(legend.position = c(0.2, 0.7)) +
+        #ggplot2::theme(legend.position = c(0.2, 0.7)) +
+        ggplot2::theme(legend.position="none") + 
         change_plot_aes_point() +
         change_guides_point()
 }
 ```
 
-```{r plots-pcas-random, fig.width=18, fig.height=20}
+```{r plots-pcas-random, fig.width=10, fig.height=10}
 #| label: fig-plots-pcas-random
 #| fig-cap: Selecting a random set of 1000 patients an rerunning the pipeline
 #|     to obtain other embeddings. Red color corresponds to the embedding using
@@ -1229,22 +1275,43 @@ plots_new_pcas <- sapply(
         `rownames<-`(df_pca_coordinates$sample_name),
     seed_nb = 0923, 
     size_point = 3,
-    base_size = 15,
+    base_size = 20,
     USE.NAMES = TRUE,
     simplify = FALSE
 )
 
+set.seed(0823)
 plots_new_pcas_all <- cowplot::plot_grid(
-    plotlist = plots_new_pcas, 
-    ncol = 3
+    plotlist = plots_new_pcas[sample(1:25, 4) %>% .[order(.)]], 
+    ncol = 2
 )
 
-plots_new_pcas_all
+title_new_pcas <- ggplot2::ggplot() + 
+    ggplot2::labs(
+        title = paste0(
+            "Original embedding in <span style='color:#00BFC4;'>",
+            "blue</span> and new embedding in <span style='color:",
+            "#F8766D;'>red</span>"
+        )
+    ) + 
+    ggplot2::theme_bw(base_size = 20) +
+    ggplot2::theme(
+        plot.title = element_markdown()
+    ) +
+    change_plot_aes_point()
+
+
+cowplot::plot_grid(
+    title_new_pcas, 
+    plots_new_pcas_all, 
+    ncol = 1, 
+    rel_heights = c(0.08, 1)
+)
 ```
 
 @fig-plots-pcas-random shows that the embedding is invariant for rotation,
-translation and reflection. Therefore, the subset of samples used for the
-embedding does not really matter.
+translation and reflection for 4 random sets of samples coming
+from either METABRIC or TCGA.
 
 ```{r, eval = first_run}
 jaccard_indices <- sapply(
@@ -1913,11 +1980,19 @@ tables_survival <- lapply(
             function(y)
                 lapply(
                     y,
-                    function(z) broom::tidy(z)
-                ) %>% dplyr::bind_rows(.id = "score")
-        ) %>% dplyr::bind_rows(.id = "cohort")
-) %>% dplyr::bind_rows(.id = "type_analysis") %>%
-    dplyr::mutate(HR = exp(estimate))
+                    function(z){
+                        broom::tidy(
+                            z, 
+                            conf.int = TRUE, 
+                            exponentiate = TRUE
+                        )
+                    }
+                ) %>% 
+                    dplyr::bind_rows(.id = "score")
+        ) %>% 
+            dplyr::bind_rows(.id = "cohort")
+) %>% 
+    dplyr::bind_rows(.id = "type_analysis")
 
 write.csv(
     tables_survival,
@@ -1941,4 +2016,35 @@ cowplot::plot_grid(plotlist = c(
 
 We see that G2M checkpoint has hazard ratio higher than 1.
 The other scores are a bit more
-variable and can change the sign (type S error).
+variable and can change the sign (type S error). Below is the
+table with the scores.
+
+```{r}
+survival_results_pc3_above <- read.csv(
+    "../results/tables/pca_merging/survival_results.csv"
+)
+
+survival_results_pc3_above %>% 
+    dplyr::filter(grepl("HALLMARK", term)) %>%
+    dplyr::mutate(HR = estimate) %>%
+    dplyr::select(
+        type_analysis, 
+        cohort, term, 
+        HR, conf.low, 
+        conf.high, p.value
+    ) %>%
+    dplyr::arrange(term, type_analysis, cohort) %>%
+    DT::datatable(
+        options = list(
+            scrollX = TRUE, 
+            pageLength = 20
+        ), 
+        filter = 'top'
+    ) %>% 
+    DT::formatRound(
+        columns = c("HR", "conf.low", "conf.high"), 
+        digits = 2
+    ) %>% 
+    DT::formatSignif(columns = c("p.value"))
+```
+

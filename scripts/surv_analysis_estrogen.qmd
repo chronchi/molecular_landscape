@@ -704,6 +704,24 @@ selected_data %>%
     ggplot2::theme(strip.text = element_text(size = 18))
 ```
 
+We see that there is a considerable overlap between the ER+ and ER- BC samples.
+For each cohort the numbers of ER+ BC samples that have scores below
+0 is shown below:
+
+```{r}
+selected_data %>%
+    dplyr::mutate(
+        is_below_0 = ifelse(HALLMARK_ESTROGEN_RESPONSE_EARLY < 0, "yes", "no")
+    ) %>%
+    janitor::tabyl(is_below_0, er_status, cohort) %>%
+    janitor::adorn_totals("row") %>%
+    janitor::adorn_percentages("col") %>%
+    janitor::adorn_pct_formatting(digits = 2) %>%
+    janitor::adorn_ns() %>%
+    janitor::adorn_title()
+```
+
+
 Another way to look at the data is to plot by molecular subtype instead
 of ER status.
 
@@ -935,7 +953,7 @@ scanb_high_er <- colData(datasets$scanb) %>% data.frame %>%
         !(tumor_stage %in% c("T4", "Tis", "TX")) & 
         er_status == "pos" & 
         TreatGroup == "Endo" & 
-        ER.pct >= 90
+        ER.pct >= 90    
     ) %>% 
     dplyr::pull(sample_name)
 
@@ -1039,6 +1057,7 @@ nb_pts_events <- data.frame(
 nb_pts_events
 ```
 
+
 ```{r, eval = first_run}
 # run the survival analysis for each dataset with its own formula.
 # we start by defining the base formulas, because later we sapply and 
@@ -1047,17 +1066,17 @@ nb_pts_events
 formulas_survival <- c(
     "os_tcga" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
-    "os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
-    "os_scanb_low_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
-    "os_scanb_high_esr1" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    #"os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    #"os_scanb_low_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    #"os_scanb_high_esr1" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
-    "os_metabric_high_esr1" = "Surv(os_months, os_status) ~ age + npi",
+    #"os_metabric_high_esr1" = "Surv(os_months, os_status) ~ age + npi",
     "rfs_metabric" = "Surv(rfs_months, rfs_status) ~ age + npi",
-    "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
-    "rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
-    "rfs_scanb_low_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
-    "rfs_scanb_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
-    "rfs_metabric_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + npi"
+    "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage"#,
+    #"rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    #"rfs_scanb_low_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    #"rfs_scanb_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    #"rfs_metabric_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + npi"
 )
 
 type_survival <- c("os", "rfs")
@@ -1082,13 +1101,39 @@ survival_results <- sapply(
                     return()
                 } else { 
                 
+                    
                     sapply(
                         name_scores,
-                        function(name_score, col_data, formula_str){
+                        function(name_score, col_data, formula_str, type_analysis){
                             
                             if (name_score %in% colnames(col_data)){
                                 
-                                survival::coxph(
+                                
+                                if (type_analysis == "rfs"){
+                                    col_data$rfs_status <- ifelse(
+                                        col_data$rfs_status == 2,
+                                        1,
+                                        ifelse(
+                                            col_data$rfs_status == 1,
+                                            0,
+                                            NA
+                                        )
+                                        
+                                    )
+                                } else {
+                                    col_data$os_status <- ifelse(
+                                        col_data$os_status == 2,
+                                        1,
+                                        ifelse(
+                                            col_data$os_status == 1,
+                                            0,
+                                            NA
+                                        )
+                                        
+                                    )
+                                }
+                                
+                                flexsurv::flexsurvreg(#coxph(
                                     as.formula(
                                         paste(
                                             formula_str, 
@@ -1097,8 +1142,9 @@ survival_results <- sapply(
                                         )[1]
                                     ),
                                     data = col_data, 
-                                    y = FALSE,
-                                    x = FALSE
+                                    #y = FALSE,
+                                    #x = FALSE,
+                                    dist = "lognormal"
                                 )    
                             } else {
                                 return()
@@ -1112,6 +1158,7 @@ survival_results <- sapply(
                                 names(formulas)
                             )
                         ],
+                        type_analysis = type_analysis,
                         USE.NAMES = TRUE,
                         simplify = FALSE
                     )
@@ -1131,20 +1178,20 @@ survival_results <- sapply(
     datasets = mapply(
         function(dataset, patients) dataset[, patients],
         dataset = c(
-            datasets, 
-            scanb_high_er = datasets$scanb,
-            scanb_low_er = datasets$scanb,
-            scanb_high_esr1 = datasets$scanb,
-            metabric_high_esr1 = datasets$metabric
+            datasets#, 
+            #scanb_high_er = datasets$scanb,
+            #scanb_low_er = datasets$scanb,
+            #scanb_high_esr1 = datasets$scanb,
+            #metabric_high_esr1 = datasets$metabric
         ),
         patients = list(
             tcga_samples, 
             scanb_samples, 
-            metabric_samples, 
-            scanb_high_er,
-            scanb_low_er,
-            scanb_high_esr1,
-            metabric_high_esr1
+            metabric_samples#, 
+            #scanb_high_er,
+            #scanb_low_er,
+            #scanb_high_esr1,
+            #metabric_high_esr1
         ),
         USE.NAMES = TRUE,
         SIMPLIFY = FALSE
@@ -1439,6 +1486,52 @@ gridExtra::grid.arrange(
 )
 ```
 
+And @fig-surv-all-cohorts is a different way of display the same results
+but only including the hazard ratios of the variables of interest. 
+
+```{r, fig.width=12, fig.height=7}
+#| fig-cap: Hazard ratios for estrogen early and SET ER/PR for all the
+#|      three cohorts of only endocrine treated patients with ER+ BC. 
+#| label: fig-surv-all-cohorts
+terms_to_plot <- c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early", 
+    "SET_ERPR" = "SET ER/PR"
+)
+
+tables_survival %>%
+    dplyr::filter(
+        term %in% names(terms_to_plot) & 
+            cohort %in% c("tcga", "scanb", "metabric")
+    ) %>% 
+    dplyr::mutate(
+        cohort = toupper(cohort),
+        type_analysis = toupper(type_analysis),
+        term = terms_to_plot[term]
+    ) %>%
+    ggplot2::ggplot(aes(
+        y = cohort, 
+        x = estimate, 
+        xmin = conf.low, 
+        xmax = conf.high
+    )) +
+    ggplot2::geom_pointrange(size = 1, linewidth = 1) + 
+    ggplot2::geom_vline(xintercept = 1, lty = 2) + 
+    ggplot2::labs(
+        x = "Hazard ratio (95% CI)",
+        y = "",
+        caption = paste0(
+            "Patients selected for survival analysis: SCAN-B ET only; METABRIC ET only;",
+            " TCGA LumA/LumB\nER+ BC were subselected, ET: endocrine therapy treated",
+            ", OS: Overall survival, RFS: Recurrence free survival"
+        )
+    ) +
+    ggplot2::facet_grid(type_analysis ~ term, scales = "free_y") +
+    ggplot2::theme_bw(base_size = 30) + 
+    change_guides_point() +
+    change_plot_aes_point() +
+    ggplot2::theme(plot.caption = ggplot2::element_text(size = 15))
+```
+
 ## Comparison of ER IHC and molecular ER signaling
 
 The new released dataset from the SCANB consortium contains the ER 
@@ -1727,6 +1820,51 @@ that for both signatures the HR is way below 1, meaning that
 the higher the score the better it is for the patient. Also the 
 hazard ratio decreased in this case.
 
+Another way of visualizing as previously is shown below 
+(@fig-surv-high-er-ihc-ggplot2).
+
+```{r, fig.width=10, fig.height=5}
+#| fig-cap: Hazard ratios for estrogen early and SET ER/PR for all the
+#|      three cohorts of only endocrine treated patients with ER+ BC. 
+#| label: fig-surv-high-er-ihc-ggplot2
+terms_to_plot <- c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early", 
+    "SET_ERPR" = "SET ER/PR",
+    "ER.pct" = "ER IHC"
+)
+
+tables_survival %>%
+    dplyr::filter(
+        term %in% names(terms_to_plot) & 
+            cohort %in% c("scanb_high_er")
+    ) %>% 
+    dplyr::mutate(
+        type_analysis = toupper(type_analysis),
+        term = terms_to_plot[term]
+    ) %>%
+    ggplot2::ggplot(aes(
+        y = term, 
+        x = estimate, 
+        xmin = conf.low, 
+        xmax = conf.high
+    )) +
+    ggplot2::geom_pointrange(linewidth = 1, size = 1) + 
+    ggplot2::geom_vline(xintercept = 1, lty = 2) + 
+    ggplot2::labs(
+        x = "Hazard ratio (95% CI)",
+        y = "",
+        caption = paste0(
+            "Only endocrine therapy treated patients with high ER IHC index",
+            " were selected."
+        )
+    ) +
+    ggplot2::facet_wrap(~type_analysis, ncol = 2) +
+    ggplot2::theme_bw(base_size = 30) + 
+    change_guides_point() +
+    change_plot_aes_point() +
+    ggplot2::theme(plot.caption = ggplot2::element_text(size = 15))
+```
+
 To further validate the ER signaling we partitionate the score in 
 4 different categories, low, intermediate, high, ultra high and perform
 the OS and RFS analysis.
@@ -1866,7 +2004,7 @@ results_surv_dich_er_sig$SET_ERPR$df %>%
 
 Next we show the Kaplan Meier estimate curves for both signatures.
 
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=8, fig.height=8}
 #| label: fig-km-seterpr
 #| fig-cap: Kaplan-Meier estimate of the categorized SET ER/PR signature
 fit <- survival::survfit(
@@ -1879,7 +2017,7 @@ plot_fit_km <- survminer::ggsurvplot(
     risk.table = TRUE, # Add risk table
     risk.table.col = "strata", # Change risk table color by groups
     linetype = "strata", # Change line type by groups
-    ggtheme = ggplot2::theme_bw(base_size = 15), 
+    ggtheme = ggplot2::theme_bw(base_size = 20) 
 )
 
 labels_er_ihc <- c(
@@ -1893,7 +2031,7 @@ tidy_results_hr <- results_surv_dich_er_sig$SET_ERPR$surv_results %>%
     broom::tidy(exponentiate = TRUE)
 
 plot_fit_km$plot <- plot_fit_km$plot +
-    ggplot2::labs(title = "SET ER/PR\nER+ BC, Endo only") + 
+    ggplot2::labs(title = "SET ER/PR\nER+ BC, Endo only, SCAN-B") + 
     ggplot2::scale_color_hue(labels = names(labels_er_ihc)) + 
     ggplot2::scale_linetype_discrete(guide = "none") +
     ggplot2::annotate(
@@ -1914,7 +2052,7 @@ plot_fit_km$plot <- plot_fit_km$plot +
                 format(pull(tidy_results_hr[3, "estimate"]), digits = 2),
                 ", p-value: ", 
                 format(pull(tidy_results_hr[3, "p.value"]), digits = 2)
-        )
+        ), 
     ) + 
     ggplot2::labs(caption = paste0(
         "Baseline group: high ER IHC and low ER sig is baseline\n",
@@ -1927,7 +2065,7 @@ plot_fit_km$plot
 ```
 
 
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=8, fig.height=8}
 #| label: fig-km-er-early
 #| fig-cap: Kaplan-Meier estimate of the categorized Estrogen early signature
 fit <- survival::survfit(
@@ -1940,7 +2078,7 @@ plot_fit_km <- survminer::ggsurvplot(
     risk.table = TRUE, # Add risk table
     risk.table.col = "strata", # Change risk table color by groups
     linetype = "strata", # Change line type by groups
-    ggtheme = ggplot2::theme_bw(base_size = 15), 
+    ggtheme = ggplot2::theme_bw(base_size = 20), 
 )
 
 labels_er_ihc <- c(

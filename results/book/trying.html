@@ -594,8 +594,8 @@ div.csl-indent {
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item-overflow-hidden html-fill-item" id="htmlwidget-a3723564b6a64e30483c" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-a3723564b6a64e30483c">{"x":{"filter":"none","vertical":false,"data":[["1"],["80"],[43.24122479462285],[-5.649422739144427],[26.83238127635096],["pos"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>patient_nb<\/th>\n      <th>ki67<\/th>\n      <th>PC3<\/th>\n      <th>change_ki67<\/th>\n      <th>er_status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false},"selection":{"mode":"multiple","selected":null,"target":"row","selectable":null}},"evals":[],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item-overflow-hidden html-fill-item" id="htmlwidget-5f12ecb0b44836a07500" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-5f12ecb0b44836a07500">{"x":{"filter":"none","vertical":false,"data":[["1"],["80"],[43.24122479462285],[-5.649422739144427],[26.83238127635096],["pos"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>patient_nb<\/th>\n      <th>ki67<\/th>\n      <th>PC3<\/th>\n      <th>change_ki67<\/th>\n      <th>er_status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false},"selection":{"mode":"multiple","selected":null,"target":"row","selectable":null}},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
 <p>It is a patient that is far to the left on the molecular landscape, among the basal like, and had an increase in Ki67 upon ET. So the new scoring system was able to capture this patient as with low score.</p>
@@ -1679,6 +1679,7 @@ yes  68   0 1.000000000</code></pre>
 </section>
 <section id="robustness-to-library-protocol" class="level2" data-number="6.16">
 <h2 data-number="6.16" class="anchored" data-anchor-id="robustness-to-library-protocol"><span class="header-section-number">6.16</span> Robustness to library protocol</h2>
+<p>The figure below shows the first two components for SCANB stratified by the library protocol used in the study. We see that PC2 is partially capturing the differences due to library protocol.</p>
 <div class="cell">
 <div class="cell-output-display">
 <p><img src="trying_files/figure-html/unnamed-chunk-147-1.png" class="img-fluid" width="672"></p>
@@ -1687,16 +1688,20 @@ yes  68   0 1.000000000</code></pre>
 </section>
 <section id="distance-in-4th-component-for-poetic" class="level2" data-number="6.17">
 <h2 data-number="6.17" class="anchored" data-anchor-id="distance-in-4th-component-for-poetic"><span class="header-section-number">6.17</span> Distance in 4th component for POETIC</h2>
+<p>We have seen previosuly that there is a bigger difference in between the matched samples in the responder than to non-responder patients. Hallmark G2M checkpoint is one of the signatures driving the PC4, meaning that the position wrt the fourth component might be used to define a new response status.</p>
+<p>Below we plot the matched samples for all non responder patients with no change at all in Ki67 (change &gt;= 0%) and their respective positions in the molecular landscape.</p>
 <div class="cell">
 <div class="cell-output-display">
 <p><img src="trying_files/figure-html/unnamed-chunk-148-1.png" class="img-fluid" width="1536"></p>
 </div>
 </div>
+<p>Now we do the same for the top responders (change in Ki67 <span class="math inline">\(\leq\)</span> -90%).</p>
 <div class="cell">
 <div class="cell-output-display">
 <p><img src="trying_files/figure-html/unnamed-chunk-149-1.png" class="img-fluid" width="1536"></p>
 </div>
 </div>
+<p>In general the distance for the responder samples seem to be higher and not only that we see that the surgery sample goes to the bottom part of the embedding, suggesting that the reduction of the proliferation is reflected in the molecular landscape.</p>
 
 
 <!-- -->
@@ -7213,66 +7218,88 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb14-5327"><a href="#cb14-5327" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-5328"><a href="#cb14-5328" aria-hidden="true" tabindex="-1"></a><span class="fu">## Robustness to library protocol</span></span>
 <span id="cb14-5329"><a href="#cb14-5329" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-5332"><a href="#cb14-5332" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb14-5333"><a href="#cb14-5333" aria-hidden="true" tabindex="-1"></a>df_pca_scores <span class="sc">%&gt;%</span> </span>
-<span id="cb14-5334"><a href="#cb14-5334" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(cohort <span class="sc">==</span> <span class="st">"scanb"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb14-5335"><a href="#cb14-5335" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
-<span id="cb14-5336"><a href="#cb14-5336" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> PC1,</span>
-<span id="cb14-5337"><a href="#cb14-5337" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> PC2,</span>
-<span id="cb14-5338"><a href="#cb14-5338" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> LibraryProtocol</span>
-<span id="cb14-5339"><a href="#cb14-5339" aria-hidden="true" tabindex="-1"></a>    )) <span class="sc">+</span> </span>
-<span id="cb14-5340"><a href="#cb14-5340" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span> </span>
-<span id="cb14-5341"><a href="#cb14-5341" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>LibraryProtocol)</span>
-<span id="cb14-5342"><a href="#cb14-5342" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-5343"><a href="#cb14-5343" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-5344"><a href="#cb14-5344" aria-hidden="true" tabindex="-1"></a><span class="fu">## Distance in 4th component for POETIC</span></span>
-<span id="cb14-5345"><a href="#cb14-5345" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-5346"><a href="#cb14-5346" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=16, fig.height=10}</span></span>
-<span id="cb14-5347"><a href="#cb14-5347" aria-hidden="true" tabindex="-1"></a>df_pca_scores <span class="sc">%&gt;%</span> </span>
-<span id="cb14-5348"><a href="#cb14-5348" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
-<span id="cb14-5349"><a href="#cb14-5349" aria-hidden="true" tabindex="-1"></a>        cohort <span class="sc">==</span> <span class="st">"poetic"</span> <span class="sc">&amp;</span> </span>
-<span id="cb14-5350"><a href="#cb14-5350" aria-hidden="true" tabindex="-1"></a>            is_responder <span class="sc">==</span> <span class="st">"non_responder"</span> <span class="sc">&amp;</span></span>
-<span id="cb14-5351"><a href="#cb14-5351" aria-hidden="true" tabindex="-1"></a>            change_ki67 <span class="sc">&gt;</span> <span class="dv">0</span></span>
-<span id="cb14-5352"><a href="#cb14-5352" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
-<span id="cb14-5353"><a href="#cb14-5353" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
-<span id="cb14-5354"><a href="#cb14-5354" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> PC3,</span>
-<span id="cb14-5355"><a href="#cb14-5355" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> PC4,</span>
-<span id="cb14-5356"><a href="#cb14-5356" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> patient_nb,</span>
-<span id="cb14-5357"><a href="#cb14-5357" aria-hidden="true" tabindex="-1"></a>        <span class="at">shape =</span> timepoint,</span>
-<span id="cb14-5358"><a href="#cb14-5358" aria-hidden="true" tabindex="-1"></a>        <span class="at">label =</span> <span class="fu">paste</span>(change_ki67)</span>
-<span id="cb14-5359"><a href="#cb14-5359" aria-hidden="true" tabindex="-1"></a>    )) <span class="sc">+</span> </span>
-<span id="cb14-5360"><a href="#cb14-5360" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">4</span>) <span class="sc">+</span> </span>
-<span id="cb14-5361"><a href="#cb14-5361" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">15</span>) <span class="sc">+</span> </span>
-<span id="cb14-5362"><a href="#cb14-5362" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>patient_nb) <span class="sc">+</span> </span>
-<span id="cb14-5363"><a href="#cb14-5363" aria-hidden="true" tabindex="-1"></a>    ggrepel<span class="sc">::</span><span class="fu">geom_label_repel</span>(<span class="at">max.overlaps =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
-<span id="cb14-5364"><a href="#cb14-5364" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">coord_cartesian</span>(</span>
-<span id="cb14-5365"><a href="#cb14-5365" aria-hidden="true" tabindex="-1"></a>        <span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">10</span>, <span class="dv">7</span>),</span>
-<span id="cb14-5366"><a href="#cb14-5366" aria-hidden="true" tabindex="-1"></a>        <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">6</span>, <span class="dv">6</span>)</span>
-<span id="cb14-5367"><a href="#cb14-5367" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb14-5368"><a href="#cb14-5368" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-5369"><a href="#cb14-5369" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-5370"><a href="#cb14-5370" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-5371"><a href="#cb14-5371" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=16, fig.height=10}</span></span>
-<span id="cb14-5372"><a href="#cb14-5372" aria-hidden="true" tabindex="-1"></a>df_pca_scores <span class="sc">%&gt;%</span> </span>
-<span id="cb14-5373"><a href="#cb14-5373" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
-<span id="cb14-5374"><a href="#cb14-5374" aria-hidden="true" tabindex="-1"></a>        cohort <span class="sc">==</span> <span class="st">"poetic"</span> <span class="sc">&amp;</span> </span>
-<span id="cb14-5375"><a href="#cb14-5375" aria-hidden="true" tabindex="-1"></a>            is_responder <span class="sc">==</span> <span class="st">"responder"</span> <span class="sc">&amp;</span></span>
-<span id="cb14-5376"><a href="#cb14-5376" aria-hidden="true" tabindex="-1"></a>            change_ki67 <span class="sc">&lt;</span> <span class="sc">-</span><span class="dv">90</span></span>
-<span id="cb14-5377"><a href="#cb14-5377" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
-<span id="cb14-5378"><a href="#cb14-5378" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
-<span id="cb14-5379"><a href="#cb14-5379" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> PC3,</span>
-<span id="cb14-5380"><a href="#cb14-5380" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> PC4,</span>
-<span id="cb14-5381"><a href="#cb14-5381" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> patient_nb,</span>
-<span id="cb14-5382"><a href="#cb14-5382" aria-hidden="true" tabindex="-1"></a>        <span class="at">shape =</span> timepoint</span>
-<span id="cb14-5383"><a href="#cb14-5383" aria-hidden="true" tabindex="-1"></a>    )) <span class="sc">+</span> </span>
-<span id="cb14-5384"><a href="#cb14-5384" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">4</span>) <span class="sc">+</span> </span>
-<span id="cb14-5385"><a href="#cb14-5385" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">15</span>) <span class="sc">+</span> </span>
-<span id="cb14-5386"><a href="#cb14-5386" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>patient_nb) <span class="sc">+</span> </span>
-<span id="cb14-5387"><a href="#cb14-5387" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">coord_cartesian</span>(</span>
-<span id="cb14-5388"><a href="#cb14-5388" aria-hidden="true" tabindex="-1"></a>        <span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">10</span>, <span class="dv">6</span>),</span>
-<span id="cb14-5389"><a href="#cb14-5389" aria-hidden="true" tabindex="-1"></a>        <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">6</span>, <span class="dv">6</span>)</span>
-<span id="cb14-5390"><a href="#cb14-5390" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb14-5391"><a href="#cb14-5391" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb14-5330"><a href="#cb14-5330" aria-hidden="true" tabindex="-1"></a>The figure below shows the first two components</span>
+<span id="cb14-5331"><a href="#cb14-5331" aria-hidden="true" tabindex="-1"></a>for SCANB stratified by the library protocol used in the </span>
+<span id="cb14-5332"><a href="#cb14-5332" aria-hidden="true" tabindex="-1"></a>study. We see that PC2 is partially capturing the</span>
+<span id="cb14-5333"><a href="#cb14-5333" aria-hidden="true" tabindex="-1"></a>differences due to library protocol.</span>
+<span id="cb14-5334"><a href="#cb14-5334" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5337"><a href="#cb14-5337" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb14-5338"><a href="#cb14-5338" aria-hidden="true" tabindex="-1"></a>df_pca_scores <span class="sc">%&gt;%</span> </span>
+<span id="cb14-5339"><a href="#cb14-5339" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(cohort <span class="sc">==</span> <span class="st">"scanb"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb14-5340"><a href="#cb14-5340" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
+<span id="cb14-5341"><a href="#cb14-5341" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> PC1,</span>
+<span id="cb14-5342"><a href="#cb14-5342" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> PC2,</span>
+<span id="cb14-5343"><a href="#cb14-5343" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> LibraryProtocol</span>
+<span id="cb14-5344"><a href="#cb14-5344" aria-hidden="true" tabindex="-1"></a>    )) <span class="sc">+</span> </span>
+<span id="cb14-5345"><a href="#cb14-5345" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb14-5346"><a href="#cb14-5346" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>LibraryProtocol) <span class="sc">+</span></span>
+<span id="cb14-5347"><a href="#cb14-5347" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>()</span>
+<span id="cb14-5348"><a href="#cb14-5348" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb14-5349"><a href="#cb14-5349" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5350"><a href="#cb14-5350" aria-hidden="true" tabindex="-1"></a><span class="fu">## Distance in 4th component for POETIC</span></span>
+<span id="cb14-5351"><a href="#cb14-5351" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5352"><a href="#cb14-5352" aria-hidden="true" tabindex="-1"></a>We have seen previosuly that there is a bigger difference in </span>
+<span id="cb14-5353"><a href="#cb14-5353" aria-hidden="true" tabindex="-1"></a>between the matched samples in the responder than to non-responder </span>
+<span id="cb14-5354"><a href="#cb14-5354" aria-hidden="true" tabindex="-1"></a>patients. Hallmark G2M checkpoint is one of the signatures</span>
+<span id="cb14-5355"><a href="#cb14-5355" aria-hidden="true" tabindex="-1"></a>driving the PC4, meaning that the position wrt the fourth component</span>
+<span id="cb14-5356"><a href="#cb14-5356" aria-hidden="true" tabindex="-1"></a>might be used to define a new response status. </span>
+<span id="cb14-5357"><a href="#cb14-5357" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5358"><a href="#cb14-5358" aria-hidden="true" tabindex="-1"></a>Below we plot the matched samples for all non responder patients</span>
+<span id="cb14-5359"><a href="#cb14-5359" aria-hidden="true" tabindex="-1"></a>with no change at all in Ki67 (change &gt;= 0%)</span>
+<span id="cb14-5360"><a href="#cb14-5360" aria-hidden="true" tabindex="-1"></a>and their respective positions in the molecular landscape.</span>
+<span id="cb14-5361"><a href="#cb14-5361" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5362"><a href="#cb14-5362" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=16, fig.height=10}</span></span>
+<span id="cb14-5363"><a href="#cb14-5363" aria-hidden="true" tabindex="-1"></a>df_pca_scores <span class="sc">%&gt;%</span> </span>
+<span id="cb14-5364"><a href="#cb14-5364" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
+<span id="cb14-5365"><a href="#cb14-5365" aria-hidden="true" tabindex="-1"></a>        cohort <span class="sc">==</span> <span class="st">"poetic"</span> <span class="sc">&amp;</span> </span>
+<span id="cb14-5366"><a href="#cb14-5366" aria-hidden="true" tabindex="-1"></a>            is_responder <span class="sc">==</span> <span class="st">"non_responder"</span> <span class="sc">&amp;</span></span>
+<span id="cb14-5367"><a href="#cb14-5367" aria-hidden="true" tabindex="-1"></a>            change_ki67 <span class="sc">&gt;</span> <span class="dv">0</span></span>
+<span id="cb14-5368"><a href="#cb14-5368" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
+<span id="cb14-5369"><a href="#cb14-5369" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
+<span id="cb14-5370"><a href="#cb14-5370" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> PC3,</span>
+<span id="cb14-5371"><a href="#cb14-5371" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> PC4,</span>
+<span id="cb14-5372"><a href="#cb14-5372" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> patient_nb,</span>
+<span id="cb14-5373"><a href="#cb14-5373" aria-hidden="true" tabindex="-1"></a>        <span class="at">shape =</span> timepoint,</span>
+<span id="cb14-5374"><a href="#cb14-5374" aria-hidden="true" tabindex="-1"></a>        <span class="at">label =</span> <span class="fu">paste</span>(change_ki67)</span>
+<span id="cb14-5375"><a href="#cb14-5375" aria-hidden="true" tabindex="-1"></a>    )) <span class="sc">+</span> </span>
+<span id="cb14-5376"><a href="#cb14-5376" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">4</span>) <span class="sc">+</span> </span>
+<span id="cb14-5377"><a href="#cb14-5377" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">15</span>) <span class="sc">+</span> </span>
+<span id="cb14-5378"><a href="#cb14-5378" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>patient_nb) <span class="sc">+</span> </span>
+<span id="cb14-5379"><a href="#cb14-5379" aria-hidden="true" tabindex="-1"></a>    ggrepel<span class="sc">::</span><span class="fu">geom_label_repel</span>(<span class="at">max.overlaps =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
+<span id="cb14-5380"><a href="#cb14-5380" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">coord_cartesian</span>(</span>
+<span id="cb14-5381"><a href="#cb14-5381" aria-hidden="true" tabindex="-1"></a>        <span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">10</span>, <span class="dv">7</span>),</span>
+<span id="cb14-5382"><a href="#cb14-5382" aria-hidden="true" tabindex="-1"></a>        <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">6</span>, <span class="dv">6</span>)</span>
+<span id="cb14-5383"><a href="#cb14-5383" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-5384"><a href="#cb14-5384" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb14-5385"><a href="#cb14-5385" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5386"><a href="#cb14-5386" aria-hidden="true" tabindex="-1"></a>Now we do the same for the top responders (change in Ki67 $\leq$ -90%).</span>
+<span id="cb14-5387"><a href="#cb14-5387" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5388"><a href="#cb14-5388" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=16, fig.height=10}</span></span>
+<span id="cb14-5389"><a href="#cb14-5389" aria-hidden="true" tabindex="-1"></a>df_pca_scores <span class="sc">%&gt;%</span> </span>
+<span id="cb14-5390"><a href="#cb14-5390" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
+<span id="cb14-5391"><a href="#cb14-5391" aria-hidden="true" tabindex="-1"></a>        cohort <span class="sc">==</span> <span class="st">"poetic"</span> <span class="sc">&amp;</span> </span>
+<span id="cb14-5392"><a href="#cb14-5392" aria-hidden="true" tabindex="-1"></a>            is_responder <span class="sc">==</span> <span class="st">"responder"</span> <span class="sc">&amp;</span></span>
+<span id="cb14-5393"><a href="#cb14-5393" aria-hidden="true" tabindex="-1"></a>            change_ki67 <span class="sc">&lt;</span> <span class="sc">-</span><span class="dv">90</span></span>
+<span id="cb14-5394"><a href="#cb14-5394" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
+<span id="cb14-5395"><a href="#cb14-5395" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(</span>
+<span id="cb14-5396"><a href="#cb14-5396" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> PC3,</span>
+<span id="cb14-5397"><a href="#cb14-5397" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> PC4,</span>
+<span id="cb14-5398"><a href="#cb14-5398" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> patient_nb,</span>
+<span id="cb14-5399"><a href="#cb14-5399" aria-hidden="true" tabindex="-1"></a>        <span class="at">shape =</span> timepoint</span>
+<span id="cb14-5400"><a href="#cb14-5400" aria-hidden="true" tabindex="-1"></a>    )) <span class="sc">+</span> </span>
+<span id="cb14-5401"><a href="#cb14-5401" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">4</span>) <span class="sc">+</span> </span>
+<span id="cb14-5402"><a href="#cb14-5402" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">15</span>) <span class="sc">+</span> </span>
+<span id="cb14-5403"><a href="#cb14-5403" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>patient_nb) <span class="sc">+</span> </span>
+<span id="cb14-5404"><a href="#cb14-5404" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">coord_cartesian</span>(</span>
+<span id="cb14-5405"><a href="#cb14-5405" aria-hidden="true" tabindex="-1"></a>        <span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">10</span>, <span class="dv">7</span>),</span>
+<span id="cb14-5406"><a href="#cb14-5406" aria-hidden="true" tabindex="-1"></a>        <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">6</span>, <span class="dv">6</span>)</span>
+<span id="cb14-5407"><a href="#cb14-5407" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-5408"><a href="#cb14-5408" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb14-5409"><a href="#cb14-5409" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5410"><a href="#cb14-5410" aria-hidden="true" tabindex="-1"></a>In general the distance for the responder samples seem to be higher and not only</span>
+<span id="cb14-5411"><a href="#cb14-5411" aria-hidden="true" tabindex="-1"></a>that we see that the surgery sample goes to the bottom part of the embedding, </span>
+<span id="cb14-5412"><a href="#cb14-5412" aria-hidden="true" tabindex="-1"></a>suggesting that the reduction of the proliferation is reflected in the</span>
+<span id="cb14-5413"><a href="#cb14-5413" aria-hidden="true" tabindex="-1"></a>molecular landscape.</span>
 </code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

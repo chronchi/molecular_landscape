@@ -176,10 +176,7 @@ write.csv(
 summary(risk_score_model)
 ```
 
-We see that all coefficients have less variability than age. We still keep
-all the variables when calculating the risk score, since age has a coefficient
-relatively small we can keep it. 
-
+We see that all coefficients have less variability than age. 
 Now we calculate only the risk score based on the components. 
 
 ```{r}
@@ -478,7 +475,6 @@ cor.test(
 )
 ```
 
-
 We now evaluate the risk score only on luminal A patients that 
 received just endocrine therapy.
 
@@ -515,6 +511,30 @@ risk_score_scanb_luma_os
 Risk score still an estimated hazard ratio higher than 1, with 
 more variability though, still in the expected direction. So we see that 
 this signature provides aditional information to the PAM50 ROR signature. 
+
+```{r}
+risk_score_scanb_luma_RORonly <- survival::coxph(
+    as.formula(paste0(
+        "Surv(time = rfs_months, event = rfs_status) ~ ",
+        paste(c("NCN.ROR.asT0", clin_vars), collapse = "+")
+    )),
+    data = endo_only_scanb %>%
+        dplyr::filter(pam50 == "luma")
+)
+
+risk_score_scanb_luma <- survival::coxph(
+    as.formula(paste0(
+        "Surv(time = rfs_months, event = rfs_status) ~ ",
+        paste(c("risk_score", 
+                "NCN.ROR.asT0", clin_vars), collapse = "+")
+    )),
+    data = endo_only_scanb %>%
+        dplyr::filter(pam50 == "luma")
+)
+
+risk_score_scanb_luma
+```
+
 
 ## Risk score and POETIC trial
 
