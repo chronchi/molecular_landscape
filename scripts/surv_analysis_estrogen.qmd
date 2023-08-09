@@ -48,6 +48,7 @@ renv::restore(prompt = FALSE)
 library(tidyverse)
 
 library(ggplot2)
+library(ggtext)
 library(forestplot)
 library(ggplotify)
 library(gridExtra)
@@ -654,7 +655,7 @@ selected_data %>%
 
 And now using the hallmark estrogen response early.
 
-```{r, fig.height=10, fig.width = 6}
+```{r, fig.height=4, fig.width = 12}
 #| label: fig-scores-metabric-tcga-scanb-estrogen-early
 #| fig-cap: Estrogen early scores for all three cohorts.
 pathway_to_get <- c("HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early")
@@ -684,7 +685,7 @@ selected_data %>%
     ) +
     ggplot2::facet_wrap(
         ~cohort, 
-        ncol = 1,
+        ncol = 3,
         labeller = as_labeller(c(
             "tcga" = "TCGA",
             "metabric" = "METABRIC",
@@ -694,10 +695,10 @@ selected_data %>%
     ggplot2::labs(
         x = "ER status",
         color = "PAM50",
-        y = "Estrogen early score",
-        title = paste0(pathway_to_get[1], " scores by cohort")
+        y = "Estrogen Early score"#,
+        #title = paste0(pathway_to_get[1], " scores by cohort")
     ) +
-    ggplot2::theme_bw(base_size = 15) + 
+    ggplot2::theme_bw(base_size = 20) + 
     ggplot2::scale_color_manual(values = get_colors_pam50(selected_data)) +
     change_plot_aes_point() +
     change_guides_point() +
@@ -1541,7 +1542,7 @@ now compare the molecular ER signaling score to what is seen in the clinics.
 First we start by comparing the molecular score with the percentages 
 (@fig-cor-ihc-rna).
 
-```{r, fig.width=8, fig.height=10}
+```{r, fig.width=12, fig.height=4}
 #| label: fig-cor-ihc-rna
 #| fig-cap: Correlation between ER IHC percentage and molecular ER signaling
 #|     by using the signature HALLMARK_ESTROGEN_RESPONSE_EARLY and SET ER/PR.
@@ -1560,6 +1561,7 @@ df <- df_wide %>%
     ) 
 
 df %>%
+    dplyr::filter(!is.na(ER.pct)) %>%
     ggplot2::ggplot(aes(
         x = ER.pct, 
         y = score,
@@ -1569,17 +1571,27 @@ df %>%
     ggplot2::geom_point(size = 2, alpha = 0.8) + #, mapping = aes(shape = pam50)) +
     ggplot2::geom_smooth(color = "black", method = "gam") +
     ggplot2::labs(
-        x = "ER percentage",
+        x = "ER IHC index",
         y = "Molecular score",
         #shape = "Treatment group",
         color = "PAM50",
         title = paste0(
             "Correlation between ER IHC percentage\nand",
-            " molecular ER signaling score"
+            " molecular ER signaling scores"
         )
     ) + 
-    ggplot2::facet_wrap(~ pathway, scales = "free_y", ncol = 1) +
-    ggplot2::theme_bw(base_size = 18) +
+    ggplot2::facet_wrap(
+        ~ pathway, 
+        scales = "free_y", 
+        ncol = 3,
+        labeller = as_labeller(c(
+            "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early",
+            "SET_ERPR" = "SET ER/PR",
+            "log2(ESR1)" = "log2(ESR1)"
+        ))
+    ) +
+    ggplot2::scale_y_continuous(labels = \(x)  sprintf("%.1f", x)) +
+    ggplot2::theme_bw(base_size = 20) +
     ggplot2::scale_color_manual(values = get_colors_pam50(df)) +
     change_plot_aes_point() +
     change_guides_point()
@@ -1627,7 +1639,7 @@ Now we look speficially at the high ER percentage patients and compare
 their ER signaling scores. We previously saw that the distribution
 of these scores seems to be wide.
 
-```{r, fig.width=7, fig.height=10}
+```{r, fig.width=6, fig.height=10}
 #| label: fig-scores-high-er
 #| fig-cap: Scores for high ER percentage breast cancer patients.
 df_scores_scanb_high_er <- datasets$scanb %>%
@@ -1646,24 +1658,27 @@ df_scores_scanb_high_er %>%
         x = score
     )) +
     ggplot2::geom_histogram(bins = 30) + 
-    #ggplot2::geom_density(alpha = 0.5) + 
     ggplot2::labs(
-        x = "Score",
+        x = "Molecular score",
         title = paste0(
-            "Scores for high ER IHC (over 90%)\npercentage BC patients",
-            " (", nrow(df_scores_scanb_high_er), " pts)"
+            "Molecular scores for patients\nwith high ER IHC (>= 90%) BC"
         ),
+        subtitle = paste0(nrow(df_scores_scanb_high_er), " samples"),
         y = "Count"
     ) + 
-    ggplot2::facet_wrap(~ pathway, scales = "free", ncol = 1) +
-    ggplot2::theme_bw(base_size = 18) + 
-    ggplot2::theme(
-        legend.title = element_text(size=16),
-        legend.text = element_text(size=15), 
-        axis.text = element_text(face="bold", size = 14),
-        axis.title.x = element_text(size = 20),
-        axis.title.y = element_text(size = 20)
-    )
+    ggplot2::facet_wrap(
+        ~ pathway, 
+        scales = "free",
+        ncol = 1,
+        labeller = as_labeller(c(
+            "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early",
+            "SET_ERPR" = "SET ER/PR",
+            "log2(ESR1)" = "log2(ESR1)"
+        ))
+    ) +
+    ggplot2::theme_bw(base_size = 20) + 
+    change_guides_point() + 
+    change_plot_aes_point()
 ```
 
 @fig-scores-high-er shows how the distributions are not skewed towards
@@ -2035,24 +2050,26 @@ plot_fit_km$plot <- plot_fit_km$plot +
     ggplot2::scale_color_hue(labels = names(labels_er_ihc)) + 
     ggplot2::scale_linetype_discrete(guide = "none") +
     ggplot2::annotate(
-        "label", 
+        "richtext", 
         x = 40, 
         y = 0.3, 
         label = paste0(
-            "Hazard ratios\n",
-            "High ER IHC, High ER sig: ", 
+            "**Hazard ratios**<br>",
+            "<span style='line-height: 0.5;'>High ER IHC, High ER sig: **", 
                 format(pull(tidy_results_hr[1, "estimate"]), digits = 2),
-                ", p-value: ", 
+                "**, p-value: ", 
                 format(pull(tidy_results_hr[1, "p.value"]), digits = 2),
-            "\nLow ER IHC, Low ER sig: ", 
+            "</span><br><p style='line-height: 0.5;'> Low ER IHC, Low ER sig: **", 
                 format(pull(tidy_results_hr[2, "estimate"]), digits = 2),
-                ", p-value: ", 
+                "**, p-value: ", 
                 format(pull(tidy_results_hr[2, "p.value"]), digits = 2),
-            "\nLow ER IHC, High ER sig: ", 
+            "</p><br><p style='line-height: 0.5;'>Low ER IHC, High ER sig: **", 
                 format(pull(tidy_results_hr[3, "estimate"]), digits = 2),
-                ", p-value: ", 
-                format(pull(tidy_results_hr[3, "p.value"]), digits = 2)
+                "**, p-value: ", 
+                format(pull(tidy_results_hr[3, "p.value"]), digits = 2),
+            "</p>"
         ), 
+        size = 5
     ) + 
     ggplot2::labs(caption = paste0(
         "Baseline group: high ER IHC and low ER sig is baseline\n",
@@ -2096,25 +2113,27 @@ plot_fit_km$plot <- plot_fit_km$plot +
     ggplot2::scale_color_hue(labels = names(labels_er_ihc)) + 
     ggplot2::scale_linetype_discrete(guide = "none") +
     ggplot2::annotate(
-        "label", 
-        x = 40, 
+        "richtext", 
+        x = 45, 
         y = 0.3, 
         label = paste0(
-            "Hazard ratios\n",
-            "High ER IHC, High ER sig: ", 
+            "**Hazard ratios**<br>",
+            "<span style='line-height: 0.5;'>High ER IHC, High ER sig: **", 
                 format(pull(tidy_results_hr[1, "estimate"]), digits = 2),
-                ", p-value: ", 
+                "**, p-value: ", 
                 format(pull(tidy_results_hr[1, "p.value"]), digits = 2),
-            "\nLow ER IHC, Low ER sig: ", 
+            "</span><br><p style='line-height: 0.5;'> Low ER IHC, Low ER sig: **", 
                 format(pull(tidy_results_hr[2, "estimate"]), digits = 2),
-                ", p-value: ", 
+                "**, p-value: ", 
                 format(pull(tidy_results_hr[2, "p.value"]), digits = 2),
-            "\nLow ER IHC, High ER sig: ", 
+            "</p><br><p style='line-height: 0.5;'>Low ER IHC, High ER sig: **", 
                 format(pull(tidy_results_hr[3, "estimate"]), digits = 2),
-                ", p-value: ", 
-                format(pull(tidy_results_hr[3, "p.value"]), digits = 2)
-        )
-    ) + 
+                "**, p-value: ", 
+                format(pull(tidy_results_hr[3, "p.value"]), digits = 2),
+            "</p>"
+        ), 
+        size = 5
+    ) +
     ggplot2::labs(caption = paste0(
         "Baseline group: high ER IHC and low ER sig is baseline\n",
         "Thresholds: median of signature in the whole dataset, ER IHC 90%"
