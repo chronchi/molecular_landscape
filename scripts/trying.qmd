@@ -4747,6 +4747,171 @@ There is a very small difference between the two groups with responders
 having a bit higher difference, meaning higher values of the HER2 AMPLICON
 signature after treatment in average.
 
+### HER2 Amplicon and survival analysis
+
+Next we evaluate the HER2 amplicon signature in patients that received
+trastuzumab + chemo + endo or just 
+trastuzumab + chemo, and have HER2+ and ER+ BC. The hypothesis here is that
+the higher the signalling the better the outcome. In the SCAN-B dataset
+we are making a big assumption in that the immunotherapy available on
+`TreatGroup` corresponds to herceptin in this context for patients with
+HER2+ BC.
+
+```{r}
+df_pca %>%
+    dplyr::filter(cohort == "scanb") %>%
+    dplyr::filter(HER2 == "Positive") %>% 
+    janitor::tabyl(TreatGroup, ER)
+```
+
+Above the number of patients with HER2+ BC stratified by 
+ER status and treatment group. Majority is ER+ and received
+endocrine therapy as well.
+
+The table below shows the number of events ($rfs\_status = 2$) for 
+patients with HER2+ ER+ BC.
+
+```{r}
+df_pca %>%
+    dplyr::filter(cohort == "scanb") %>%
+    dplyr::filter(HER2 == "Positive" & ER == "Positive") %>% 
+    janitor::tabyl(TreatGroup, rfs_status)
+```
+
+There is a considerable amount of patients with recurrence. The median 
+recurrence free survival for those patients that received immu + chemo + endo
+is:
+
+```{r}
+df_pca %>%
+    dplyr::filter(cohort == "scanb") %>%
+    dplyr::filter(HER2 == "Positive" & ER == "Positive") %>%
+    dplyr::filter(TreatGroup == "ImmuChemoEndo") %>%
+    dplyr::summarise(median = median(rfs_months, na.rm = TRUE))
+```
+
+i.e., 67 months or 5.6 years. We now calculate the survival analysis. 
+And for the patients that have ER- BC and received only immuno + chemo:
+
+```{r}
+df_pca %>%
+    dplyr::filter(cohort == "scanb") %>%
+    dplyr::filter(HER2 == "Positive" & ER == "Negative") %>%
+    dplyr::filter(TreatGroup == "ImmuChemo") %>%
+    dplyr::summarise(median = median(rfs_months, na.rm = TRUE))
+```
+
+Similar as for the ER+ BC patients.
+
+Below are the results from the analysis using the HER2 AMPLICON signature for
+both ER- and ER+ BC patients separately.
+
+```{r}
+survival_her2_amplicon_erneg <- survival::coxph(
+    Surv(rfs_months, rfs_status) ~ HER2_AMPLICON + age + 
+        node_stage + tumor_stage,
+    data = df_pca %>%
+        dplyr::filter(cohort == "scanb") %>%
+        dplyr::filter(
+            HER2 == "Positive" & 
+                ER == "Negative" & 
+                TreatGroup %in% c("ImmuChemo") & 
+                !is.na(rfs_status)
+        )
+) 
+
+survival_her2_amplicon_erpos <- survival::coxph(
+    Surv(rfs_months, rfs_status) ~ HER2_AMPLICON + age + 
+        node_stage + tumor_stage,
+    data = df_pca %>%
+        dplyr::filter(cohort == "scanb") %>%
+        dplyr::filter(
+            HER2 == "Positive" & 
+                ER == "Positive" & 
+                TreatGroup %in% c("ImmuChemoEndo") & 
+                !is.na(rfs_status)
+        )
+) 
+
+survival_her2_amplicon_tidy_erneg <- survival_her2_amplicon_erneg %>% 
+    broom::tidy(., exponentiate = TRUE, conf.int = TRUE) %>%
+    dplyr::select(term, estimate, conf.low, conf.high, std.error, p.value) %>%
+    dplyr::rename(pathway = term) 
+
+survival_her2_amplicon_tidy_erpos <- survival_her2_amplicon_erpos %>% 
+    broom::tidy(., exponentiate = TRUE, conf.int = TRUE) %>%
+    dplyr::select(term, estimate, conf.low, conf.high, std.error, p.value) %>%
+    dplyr::rename(pathway = term) 
+
+survival_her2_amplicon_tidy <- dplyr::bind_rows(
+    list(
+        "Negative" = survival_her2_amplicon_tidy_erneg, 
+        "Positive" = survival_her2_amplicon_tidy_erpos
+    ),
+    .id = "er_status"
+)
+    
+survival_her2_amplicon_tidy %>%
+    dplyr::mutate(dplyr::across(
+        .cols = dplyr::all_of(setdiff(colnames(.), c("er_status"))), 
+        .fns = \(x) format(x, digits = 3)
+    )) %>%
+    DT::datatable(options = list(scrollX = TRUE))
+```
+
+
+```{r, fig.width=8.5, fig.height=5}
+#| label: fig-her2-amplicon-rfs-scanb
+#| fig-cap: Hazard ratio and confidence interval for the HER2 AMPLICON 
+#|      signature.
+survival_her2_amplicon_tidy %>%
+    dplyr::filter(pathway == "HER2_AMPLICON") %>% 
+    ggplot2::ggplot(aes(
+        y = pathway, 
+        x = estimate, 
+        xmin = conf.low, 
+        xmax = conf.high
+    )) +
+    ggplot2::geom_pointrange() + 
+    ggplot2::geom_vline(xintercept = 1, lty = 2) + 
+    ggplot2::labs(
+        x = "Hazard ratio (95% CI)",
+        y = ""
+    ) +
+    ggplot2::facet_wrap(
+        ~er_status, 
+        ncol = 1,
+        labeller = as_labeller(c(
+            "Negative" = "ER status: Negative",
+            "Positive" = "ER status: Positive"
+        ))
+    ) +
+    ggplot2::labs(
+        title = paste0(
+            "RFS analysis for SCAN-B patients \nwith HER2+ BC stratified by ER status"
+        ),
+        caption = paste0(
+            "For ER+ tumors, only patients that received", 
+            " Immu + Chemo + Endo were selected. #pts: 434, #events: 48\n",
+            "For ER- tumors, only patients that received", 
+            " Immu + Chemo were selected. #pts: 177, #events: 26"
+        )
+    ) + 
+    ggplot2::geom_pointrange(size = 2, linewidth = 1) +
+    ggplot2::coord_cartesian(xlim = c(0, 1.25)) + 
+    ggplot2::theme_bw(base_size = 20) + 
+    change_guides_point() +
+    change_plot_aes_point() +
+    ggplot2::theme(
+        plot.caption = element_text(size = 10)
+    )
+```
+
+For both ER- and ER+ BC patients, the higher the signature the better
+the outcome. The signature is noisier for ER+ tumors, I wonder if it is
+due to treatment selection or the fact we assumed that all immunotherapies 
+are herceptin when in fact they are not.
+
 ## ILC and position in the molecular landscape
 
 Invasive lobular carcinoma is a subtype of ER+ BC. They tend to respond
