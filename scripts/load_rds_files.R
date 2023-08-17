@@ -96,7 +96,7 @@ db_files <- list(
         df_pca = "poetic_df_pca_with_scores",
         pca_fit = "pca_fit",
         datasets_normalized_og = "datasets_normalized",
-        poetic_normalized = "poetic_norm:%alized",
+        poetic_normalized = "poetic_normalized",
         risk_score_model = "risk_score_model",
         coefs_risk_model = "coefs_risk_model",
         coefs_risk_model_pcs = "coefs_risk_model_pcs"
@@ -128,7 +128,7 @@ if (length(path_to_files) != length(db_files[[name_document]])){
 path_to_files_ <- path_to_files[path_to_files != "../character(0)"]
 
 # it is not possible to use parallel, as the workers don't have 
-# access to R main's environemnt. for this we need to load first using
+# access to R main's environment. for this we need to load first using
 # mcmapply and then use the function list2env to load to the global 
 # environment. after that we can remove the list
 nb_cores <- parallel::detectCores() - 1

@@ -4888,7 +4888,8 @@ survival_her2_amplicon_tidy %>%
     ) +
     ggplot2::labs(
         title = paste0(
-            "RFS analysis for SCAN-B patients \nwith HER2+ BC stratified by ER status"
+            "RFS analysis for SCAN-B patients ",
+            "\nwith HER2+ BC stratified by ER status"
         ),
         caption = paste0(
             "For ER+ tumors, only patients that received", 

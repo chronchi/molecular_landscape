@@ -954,7 +954,7 @@ scanb_high_er <- colData(datasets$scanb) %>% data.frame %>%
         !(tumor_stage %in% c("T4", "Tis", "TX")) & 
         er_status == "pos" & 
         TreatGroup == "Endo" & 
-        ER.pct >= 90    
+        ER.pct >= 90 
     ) %>% 
     dplyr::pull(sample_name)
 
@@ -1067,17 +1067,27 @@ nb_pts_events
 formulas_survival <- c(
     "os_tcga" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
-    #"os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
-    #"os_scanb_low_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
-    #"os_scanb_high_esr1" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb_low_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb_high_esr1" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
-    #"os_metabric_high_esr1" = "Surv(os_months, os_status) ~ age + npi",
+    "os_metabric_high_esr1" = "Surv(os_months, os_status) ~ age + npi",
     "rfs_metabric" = "Surv(rfs_months, rfs_status) ~ age + npi",
-    "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage"#,
-    #"rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
-    #"rfs_scanb_low_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
-    #"rfs_scanb_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
-    #"rfs_metabric_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + npi"
+    "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_scanb_low_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_scanb_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_metabric_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + npi"
+)
+
+formulas_survival_aft <- c(
+    "os_tcga" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
+    "rfs_metabric" = "Surv(rfs_months, rfs_status) ~ age + npi",
+    "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage"
 )
 
 type_survival <- c("os", "rfs")
@@ -1134,7 +1144,8 @@ survival_results <- sapply(
                                     )
                                 }
                                 
-                                flexsurv::flexsurvreg(#coxph(
+                                #flexsurv::flexsurvreg(
+                                coxph(
                                     as.formula(
                                         paste(
                                             formula_str, 
@@ -1143,9 +1154,9 @@ survival_results <- sapply(
                                         )[1]
                                     ),
                                     data = col_data, 
-                                    #y = FALSE,
-                                    #x = FALSE,
-                                    dist = "lognormal"
+                                    y = FALSE,
+                                    x = FALSE
+                                    #dist = "lognormal"
                                 )    
                             } else {
                                 return()
@@ -1179,20 +1190,20 @@ survival_results <- sapply(
     datasets = mapply(
         function(dataset, patients) dataset[, patients],
         dataset = c(
-            datasets#, 
-            #scanb_high_er = datasets$scanb,
-            #scanb_low_er = datasets$scanb,
-            #scanb_high_esr1 = datasets$scanb,
-            #metabric_high_esr1 = datasets$metabric
+            datasets, 
+            scanb_high_er = datasets$scanb,
+            scanb_low_er = datasets$scanb,
+            scanb_high_esr1 = datasets$scanb,
+            metabric_high_esr1 = datasets$metabric
         ),
         patients = list(
             tcga_samples, 
             scanb_samples, 
-            metabric_samples#, 
-            #scanb_high_er,
-            #scanb_low_er,
-            #scanb_high_esr1,
-            #metabric_high_esr1
+            metabric_samples, 
+            scanb_high_er,
+            scanb_low_er,
+            scanb_high_esr1,
+            metabric_high_esr1
         ),
         USE.NAMES = TRUE,
         SIMPLIFY = FALSE
@@ -1229,6 +1240,135 @@ survival_results$rfs <- purrr::discard(
     is.null
 )
 
+survival_results_aft <- sapply(
+    c("os", "rfs"),
+    function(type_analysis, datasets, name_scores, formulas){
+        mapply(
+            function(
+                dataset, name_dataset, name_scores, formulas, type_analysis
+            ){
+                
+                if (type_analysis == "rfs" & name_dataset == "tcga"){
+                    return()
+                } else { 
+                
+                    
+                    sapply(
+                        name_scores,
+                        function(name_score, col_data, formula_str, type_analysis){
+                            
+                            if (name_score %in% colnames(col_data)){
+                                
+                                
+                                if (type_analysis == "rfs"){
+                                    col_data$rfs_status <- ifelse(
+                                        col_data$rfs_status == 2,
+                                        1,
+                                        ifelse(
+                                            col_data$rfs_status == 1,
+                                            0,
+                                            NA
+                                        )
+                                        
+                                    )
+                                } else {
+                                    col_data$os_status <- ifelse(
+                                        col_data$os_status == 2,
+                                        1,
+                                        ifelse(
+                                            col_data$os_status == 1,
+                                            0,
+                                            NA
+                                        )
+                                        
+                                    )
+                                }
+                                
+                                flexsurv::flexsurvreg(
+                                    as.formula(
+                                        paste(
+                                            formula_str, 
+                                            name_score, 
+                                            sep = "+"
+                                        )[1]
+                                    ),
+                                    data = col_data, 
+                                    y = FALSE,
+                                    x = FALSE,
+                                    dist = "lognormal"
+                                )    
+                            } else {
+                                return()
+                            }
+                            
+                        },
+                        col_data = colData(dataset) %>% data.frame,
+                        formula = formulas[
+                            grepl(
+                                paste(type_analysis, name_dataset, sep = "_"),
+                                names(formulas)
+                            )
+                        ],
+                        type_analysis = type_analysis,
+                        USE.NAMES = TRUE,
+                        simplify = FALSE
+                    )
+                }
+            },
+            dataset = datasets,
+            name_dataset = names(datasets),
+            MoreArgs = list(
+                formulas = formulas, 
+                name_scores = name_scores,
+                type_analysis = type_analysis
+            ),
+            USE.NAMES = TRUE,
+            SIMPLIFY = FALSE
+        )
+    },
+    datasets = mapply(
+        function(dataset, patients) dataset[, patients],
+        dataset = c(
+            datasets, 
+            scanb_high_er = datasets$scanb
+        ),
+        patients = list(
+            tcga_samples, 
+            scanb_samples, 
+            metabric_samples, 
+            scanb_high_er
+        ),
+        USE.NAMES = TRUE,
+        SIMPLIFY = FALSE
+    ),
+    name_scores = which_scores,
+    formulas = formulas_survival,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+survival_results_aft$rfs <- survival_results_aft$rfs[
+    !sapply(survival_results_aft$rfs, is.null)
+]
+survival_results_aft$rfs$metabric <- survival_results_aft$rfs$metabric[
+    !sapply(survival_results_aft$rfs$metabric, is.null)
+]
+
+survival_results_aft$os <- purrr::discard(
+    purrr::map(
+        survival_results_aft$os, 
+        ~ purrr::discard(.x, is.null),
+    ),
+    is.null
+)
+
+survival_results_aft$rfs <- purrr::discard(
+    purrr::map(
+        survival_results_aft$rfs, 
+        ~ purrr::discard(.x, is.null),
+    ),
+    is.null
+)
 
 # we cannot simply save the models as each model has some 
 # environment variables, which adds up to over 20GB. 
@@ -1389,11 +1529,38 @@ write.csv(
     "../results/tables/surv_analysis_estrogen/survival_results.csv",
     row.names = FALSE
 )
+
+tables_survival_aft <- lapply(
+    survival_results_aft, 
+    function(x) 
+        lapply(
+            x,
+            function(y)
+                lapply(
+                    y,
+                    function(z) broom::tidy(
+                        z, 
+                        exponentiate = TRUE, 
+                        conf.int = TRUE
+                    )
+                ) %>% dplyr::bind_rows(.id = "score")
+        ) %>% dplyr::bind_rows(.id = "cohort")
+) %>% dplyr::bind_rows(.id = "type_analysis")
+
+write.csv(
+    tables_survival_aft,
+    "../results/tables/surv_analysis_estrogen/survival_results_aft.csv",
+    row.names = FALSE
+)
 ```
 
 ```{r}
 tables_survival <- read.csv(
     "../results/tables/surv_analysis_estrogen/survival_results.csv"
+)
+
+tables_survival_aft <- read.csv(
+    "../results/tables/surv_analysis_estrogen/survival_results_aft.csv"
 )
 
 forest_plots <- readRDS(
@@ -1428,6 +1595,33 @@ signaling was used, the hazard ratio was below 1, indicating that the higher
 the score, the less likely the patient is to suffer the event in a specific
 timepoint. This indicates that ER signaling is actually something continuous
 and not dichotomous.
+
+Not only that but we also performed Accelerated Failure Time (AFT) survival
+analysis with a log-normal distribution as our parametric distribution to 
+model time. The results are shown in the table below.
+
+```{r}
+tables_survival_aft %>% 
+    dplyr::filter(cohort %in% c("scanb", "tcga", "metabric")) %>%
+    dplyr::filter(term %in% c("HALLMARK_ESTROGEN_RESPONSE_EARLY", "SET_ERPR")) %>%
+    dplyr::select(-dplyr::all_of("score")) %>%
+    dplyr::arrange(term) %>%
+    DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
+    DT::formatRound(
+        columns=c(
+            "estimate", "std.error", "statistic", "conf.low", "conf.high"
+        ), 
+        digits = 2
+    ) %>% 
+    DT::formatSignif(columns = c("p.value"))
+```
+
+And when using AFT analysis we see similar results. The estimates are
+on their scale ($beta$), meaning that values higher than 0 correspond
+to a slow down in the time to event. In this case here, if the estimate
+is higher than 0, then the time to death or time to recurrence is 
+prolonged. In other words, estrogen signaling is associated with
+good outcome as well.
 
 @fig-forest-plot shows the forest plot of HALLMARK_ESTROGEN_RESPONSE_EARLY for all 
 three cohorts. 
