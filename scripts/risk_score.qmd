@@ -467,13 +467,22 @@ there are still those that have high risk score besides a ROR lower than
 We see they are correlated.
 
 ```{r}
-cor.test(
+spearman_riskscore_ror <- cor.test(
     endo_only_scanb$risk_score,
     endo_only_scanb$NCN.ROR.asT0,
     method = "spearman", 
     exact = FALSE
 )
+
+spearman_riskscore_ror
 ```
+
+With a p-value of:
+
+```{r}
+spearman_riskscore_ror$p.value
+```
+
 
 We now evaluate the risk score only on luminal A patients that 
 received just endocrine therapy.

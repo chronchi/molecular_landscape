@@ -1283,7 +1283,103 @@ when treated with estrogen or at least some stabilization. On the
 other hand, another set of PDXs, the last three, they didn't see
 much change. 
 
-```{r, fig.width=10, fig.height=12}
+```{r, fig.width=16, fig.height=8}
+pdxs_to_use <- c("METS15", "T113", "T111", "T105", "T109", "T110")
+names(pdxs_to_use) <- pdxs_to_use
+pdx_df_pca_sub <- pdx_df_pca %>%
+    dplyr::filter(
+        cohort == "pdx" & 
+            treatment %in% c("CTRL", "P4", "P20")
+    ) %>%
+    dplyr::mutate(pam50 = "nc") %>%
+    dplyr::mutate(pdx = factor(pdx, levels = c(
+        "METS15", "T113", "T109",
+        "T105", "T111", "T110"
+    ))) %>%
+    dplyr::filter(pdx %in% pdxs_to_use)
+
+pdx_df_pca_sub %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(c("PC3", "PC4")),
+        names_to = "pc",
+        values_to = "components"
+    ) %>%
+    ggplot2::ggplot(aes(x = treatment, y = components)) +
+    ggplot2::geom_boxplot(outlier.shape = NA) + 
+    ggplot2::geom_jitter(
+        size = 3, 
+        alpha = 0.9, 
+        mapping = aes(color = treatment)
+    ) +
+    ggplot2::scale_color_viridis_d(option = "H") +
+    ggplot2::facet_wrap(
+        ~ pc + pdx, 
+        nrow = 2, 
+        scales = "free_y"
+    ) +
+    ggplot2::labs(
+        y = "Component", 
+        x = "Treatment"
+    ) +
+    ggplot2::theme_bw(base_size = 20) +
+    ggplot2::theme(legend.position = "none") +
+    change_guides_point() +
+    change_plot_aes_point()
+```
+
+
+We now include as well the embedding for the P4 treated samples
+as well. 
+
+```{r fig.width=12, fig.height=9}
+#| label: fig-pca-pdx-only-embedding
+#| fig-cap: Embedding of only PDX control and P4 samples 
+
+# we first do by PDX individually the positions so we can combine 
+# them into a single plot and include in the figure instead of the 
+# boxplots for PC3 and PC4 components
+pdx_only_embedding <- function(pdx_name, pdx_df_pca, treatments_pdx){
+    
+    pdx_df_pca_sub <- pdx_df_pca %>%
+        dplyr::filter(cohort == "pdx" & treatment %in% treatments_pdx) %>%
+        dplyr::filter(pdx %in% c(pdx_name)) %>%
+        dplyr::mutate(pam50 = "nc")
+
+    
+    ggplot2::ggplot(
+        pdx_df_pca_sub,
+        mapping = aes(x = PC3, y = PC4, shape = treatment, color = treatment)
+    ) + 
+        ggplot2::geom_point(size = 5, alpha = 0.9) + 
+        ggplot2::theme_bw(base_size = 15) +
+        ggplot2::labs(
+            title = pdx_name
+        ) +
+        ggplot2::scale_color_viridis_d(option = "H") +
+        change_plot_aes_point() +
+        change_guides_point(shape = TRUE) + 
+        ggplot2::theme(legend.position = "top")
+}
+
+pdx_plots_embedding_p4 <- sapply(
+    c("METS15", "T113", "T111", "T105", "T109", "T110"), 
+    pdx_only_embedding,
+    pdx_df_pca = pdx_df_pca,
+    treatments_pdx = c("CTRL", "P4"),
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+cowplot::plot_grid(plotlist = pdx_plots_embedding_p4, ncol = 3)
+```
+
+We see that T110 has a change in position as well, it goes
+towards the center meaning that there is a decrease in 
+proliferation and also ER signaling. T105 has a very
+strong effect, it goes up on the diagonal, meaning higher
+proliferation and lower ER signaling.
+
+```{r, fig.width=16, fig.height=12}
 #| label: fig-pdx-p4-control-pathways
 #| fig-cap: Comparison of position in the molecular landscape between
 #|     CTRL, E2 and P4 treated samples
@@ -1297,7 +1393,7 @@ pathways <- c(
     "GOBP_RESPONSE_TO_PROGESTERONE" = "GO Progesterone"
 )
 
-pdxs_to_use <- c("METS15", "T113", "T111") #, "T105", "T109", "T110")
+pdxs_to_use <- c("METS15", "T113", "T111", "T105", "T109", "T110")
 names(pdxs_to_use) <- pdxs_to_use
 
 pdx_df_pca_sub <- pdx_df_pca %>%
@@ -1393,15 +1489,15 @@ staining_pdxs <- read.csv("../data/quantification.csv") %>%
     dplyr::filter(!is.na(positive_percentage))
 ```
 
-```{r, fig.height=4}
+```{r, fig.height=6}
 #| label: fig-quantification-pdx-ki67
 #| fig-cap: Quantification of Ki67+ cells based on DAB stainings performed
 #|     on the patient derived xenografts.
 plot_quantification(
     staining_pdxs %>%
-        dplyr::filter(pdx %in% unique(pdx_df_pca_sub$pdx)) %>%
+        #dplyr::filter(pdx %in% unique(pdx_df_pca_sub$pdx)) %>%
         dplyr::filter(treatment %in% c("CTRL", "P4")),
-    "Ki67",
+    "PR",
     base_size = 18
 )
 ```
@@ -1418,6 +1514,26 @@ P4 reduced estrogen signaling and also change the third component of the
 three PDXs to a smaller value, towards a more basal like region. Overall,
 the molecular landscape is able to capture the differences between
 the treatments.
+
+Lastly we check changes in the embedding upon E2 treatment.
+
+```{r, fig.width=12, fig.height=9}
+#| label: fig-pca-pdx-only-embedding-e2-ctrl
+#| fig-cap: Embedding of only PDX control and E2 treated samples 
+pdx_plots_embedding_e2 <- sapply(
+    c("METS15", "T113", "T111", "T105", "T109", "T110"), 
+    pdx_only_embedding,
+    pdx_df_pca = pdx_df_pca,
+    treatments_pdx = c("CTRL", "E2"),
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
+cowplot::plot_grid(plotlist = pdx_plots_embedding_e2, ncol = 3)
+```
+
+It looks like there is not big changes in the molecular landscape 
+as there was for samples treated with progesterone.
 
 ## Normal samples
 

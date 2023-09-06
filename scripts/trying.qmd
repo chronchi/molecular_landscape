@@ -1290,12 +1290,11 @@ same trends.
 The plot below is a subset of the scores above to include in the 
 publication.
 
-```{r, fig.width=15, fig.height=7}
+```{r, fig.width=17, fig.height=9}
 #| label: fig-scores-regressed-subset
 #| fig-cap: Scores obtained from regressed data
 #|     of all the four cohorts TCGA, SCANB, METABRIC and POETIC compared to the 
 #|     original GSVA scores.
-
 pathways_of_interest_sub <- c(
     "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early",
     "HALLMARK_G2M_CHECKPOINT" = "G2M", 
@@ -1304,22 +1303,41 @@ pathways_of_interest_sub <- c(
     "HALLMARK_DNA_REPAIR" = "DNA Repair"
 )
 
-scores %>% 
-    dplyr::filter(pathway %in% names(pathways_of_interest_sub)) %>%
-    dplyr::filter(cohort == c("scanb", "metabric")) %>%
-    dplyr::mutate(pathway = factor(pathway, levels = names(pathways_of_interest_sub))) %>%
+correlation_gsva_regressed <- scores %>%
+    dplyr::filter(cohort %in% c("tcga", "scanb", "metabric")) %>%
+    dplyr::group_by(cohort, pathway) %>%
+    dplyr::summarise(
+        correlation = cor(score_hkg, score_og, method = "spearman")
+    ) %>%
+    dplyr::inner_join(
+        .,
+        data.frame(pathway_name = pathways_of_interest_sub) %>%
+            tibble::rownames_to_column(var = "pathway"),
+        by = "pathway"
+    ) %>%
+    dplyr::mutate(
+        corr_vals = paste0(
+            toupper(cohort), "\n",
+            pathway_name, ", rho: ", format(correlation, digits = 2)
+        )
+    ) %>%
+    dplyr::mutate(pathway = factor(pathway, names(pathways_of_interest_sub))) %>%
+    dplyr::arrange(cohort, pathway) %>%
+    dplyr::mutate(corr_vals = factor(corr_vals, levels = corr_vals))
+
+dplyr::inner_join(
+    correlation_gsva_regressed,
+    scores,
+    by = c("cohort", "pathway")
+) %>%
+    dplyr::filter(cohort %in% c("scanb", "metabric")) %>%
     ggplot2::ggplot(aes(x = score_og, y = score_hkg)) +
     ggplot2::geom_point() +
     ggplot2::geom_smooth(method = "loess", formula = y~x) + 
     ggplot2::facet_wrap(
-        cohort ~ pathway, 
+        ~ corr_vals, 
         scales = "free", 
-        ncol = length(pathways_of_interest_sub),
-        labeller = as_labeller(c(
-            pathways_of_interest_sub, 
-            "metabric" = "METABRIC",
-            "scanb" = "SCANB"
-        ))
+        ncol = length(pathways_of_interest_sub)
     ) +
     ggplot2::labs(
         x = "GSVA score",
@@ -1334,7 +1352,7 @@ scores %>%
 ```
 
 We now compare the distributions
-of these scores. Across the different cohorts and pathways of interest.
+of these scores across the different cohorts and pathways of interest.
 
 ```{r, fig.width=16, fig.height=8}
 scores %>%
@@ -4469,8 +4487,12 @@ scores_her2_sub_genes <- scores_her2 %>%
             sample_name = colnames(datasets$scanb),
             grb7_fpkm = as.vector(assay(datasets$scanb["GRB7", ], "logFPKM")),
             her2_fpkm = as.vector(assay(datasets$scanb["ERBB2", ], "logFPKM")),
-            grb7_reg = as.vector(df_pcs_regressed["GRB7", colnames(datasets$scanb)]),
-            her2_reg = as.vector(df_pcs_regressed["ERBB2", colnames(datasets$scanb)])
+            grb7_reg = as.vector(
+                df_pcs_regressed["GRB7", colnames(datasets$scanb)]
+            ),
+            her2_reg = as.vector(
+                df_pcs_regressed["ERBB2", colnames(datasets$scanb)]
+            )
         ),
         by = "sample_name"
     ) %>%
@@ -4817,6 +4839,31 @@ survival_her2_amplicon_erneg <- survival::coxph(
                 ER == "Negative" & 
                 TreatGroup %in% c("ImmuChemo") & 
                 !is.na(rfs_status)
+        ) %>%
+        dplyr::inner_join(
+            .,
+            scores_her2_sub_genes %>%
+                dplyr::select(her2_fpkm, sample_name)
+        )
+) 
+
+survival_her2_fpkm_erneg <- survival::coxph(
+    Surv(rfs_months, rfs_status) ~ her2_fpkm + age + 
+        node_stage + tumor_stage,
+    data = df_pca %>%
+        dplyr::filter(cohort == "scanb") %>%
+        dplyr::filter(
+            HER2 == "Positive" & 
+                ER == "Negative" & 
+                TreatGroup %in% c("ImmuChemo") & 
+                !is.na(rfs_status)
+        ) %>%
+        dplyr::inner_join(
+            .,
+            scores_her2_sub_genes %>%
+                dplyr::select(her2_fpkm, sample_name) %>%
+                dplyr::mutate(her2_fpkm = scale(her2_fpkm)),
+            by = "sample_name"
         )
 ) 
 
@@ -4833,6 +4880,26 @@ survival_her2_amplicon_erpos <- survival::coxph(
         )
 ) 
 
+survival_her2_fpkm_erpos <- survival::coxph(
+    Surv(rfs_months, rfs_status) ~ her2_fpkm + age + 
+        node_stage + tumor_stage,
+    data = df_pca %>%
+        dplyr::filter(cohort == "scanb") %>%
+        dplyr::filter(
+            HER2 == "Positive" & 
+                ER == "Positive" & 
+                TreatGroup %in% c("ImmuChemoEndo") & 
+                !is.na(rfs_status)
+        ) %>%
+        dplyr::inner_join(
+            .,
+            scores_her2_sub_genes %>%
+                dplyr::select(her2_fpkm, sample_name) %>%
+                dplyr::mutate(her2_fpkm = scale(her2_fpkm)),
+            by = "sample_name"
+        )
+) 
+
 survival_her2_amplicon_tidy_erneg <- survival_her2_amplicon_erneg %>% 
     broom::tidy(., exponentiate = TRUE, conf.int = TRUE) %>%
     dplyr::select(term, estimate, conf.low, conf.high, std.error, p.value) %>%
@@ -4843,10 +4910,28 @@ survival_her2_amplicon_tidy_erpos <- survival_her2_amplicon_erpos %>%
     dplyr::select(term, estimate, conf.low, conf.high, std.error, p.value) %>%
     dplyr::rename(pathway = term) 
 
+survival_her2_fpkm_tidy_erneg <- survival_her2_fpkm_erneg %>% 
+    broom::tidy(., exponentiate = TRUE, conf.int = TRUE) %>%
+    dplyr::select(term, estimate, conf.low, conf.high, std.error, p.value) %>%
+    dplyr::rename(pathway = term) 
+
+survival_her2_fpkm_tidy_erpos <- survival_her2_fpkm_erpos %>% 
+    broom::tidy(., exponentiate = TRUE, conf.int = TRUE) %>%
+    dplyr::select(term, estimate, conf.low, conf.high, std.error, p.value) %>%
+    dplyr::rename(pathway = term) 
+
 survival_her2_amplicon_tidy <- dplyr::bind_rows(
     list(
         "Negative" = survival_her2_amplicon_tidy_erneg, 
         "Positive" = survival_her2_amplicon_tidy_erpos
+    ),
+    .id = "er_status"
+)
+
+survival_her2_fpkm_tidy <- dplyr::bind_rows(
+    list(
+        "Negative" = survival_her2_fpkm_tidy_erneg, 
+        "Positive" = survival_her2_fpkm_tidy_erpos
     ),
     .id = "er_status"
 )
@@ -4912,6 +4997,106 @@ For both ER- and ER+ BC patients, the higher the signature the better
 the outcome. The signature is noisier for ER+ tumors, I wonder if it is
 due to treatment selection or the fact we assumed that all immunotherapies 
 are herceptin when in fact they are not.
+
+Next we compare to using just HER2 FPKM as a measure. 
+@fig-her2-amplicon-fpkm-rfs-scanb shows that the HER2 amplicon improves
+in the estimation of the hazard ratio for such a signature and how 
+including more genes might be important.
+
+```{r, fig.width=8.5, fig.height=5}
+#| label: fig-her2-amplicon-fpkm-rfs-scanb
+#| fig-cap: Hazard ratio and confidence interval for the HER2 AMPLICON 
+#|      signature.
+survival_her2_fpkm_tidy %>%
+    dplyr::bind_rows(., survival_her2_amplicon_tidy) %>%
+    dplyr::filter(pathway %in% c("her2_fpkm", "HER2_AMPLICON")) %>% 
+    dplyr::mutate(pathway = dplyr::case_when(
+        pathway == "her2_fpkm" ~ "HER2 FPKM",
+        pathway == "HER2_AMPLICON" ~ "HER2 amplicon",
+        TRUE ~ NA
+    )) %>% 
+    ggplot2::ggplot(aes(
+        y = pathway, 
+        x = estimate, 
+        xmin = conf.low, 
+        xmax = conf.high
+    )) +
+    ggplot2::geom_pointrange() + 
+    ggplot2::geom_vline(xintercept = 1, lty = 2) + 
+    ggplot2::labs(
+        x = "Hazard ratio (95% CI)",
+        y = ""
+    ) +
+    ggplot2::facet_wrap(
+        ~er_status, 
+        ncol = 1,
+        labeller = as_labeller(c(
+            "Negative" = "ER status: Negative",
+            "Positive" = "ER status: Positive"
+        ))
+    ) +
+    ggplot2::labs(
+        title = paste0(
+            "RFS analysis for SCAN-B patients ",
+            "\nwith HER2+ BC stratified by ER status"
+        ),
+        caption = paste0(
+            "For ER+ tumors, only patients that received", 
+            " Immu + Chemo + Endo were selected. #pts: 434, #events: 48\n",
+            "For ER- tumors, only patients that received", 
+            " Immu + Chemo were selected. #pts: 177, #events: 26"
+        )
+    ) + 
+    ggplot2::geom_pointrange(size = 2, linewidth = 1) +
+    ggplot2::coord_cartesian(xlim = c(0, 1.25)) + 
+    ggplot2::theme_bw(base_size = 20) + 
+    change_guides_point() +
+    change_plot_aes_point() +
+    ggplot2::theme(
+        plot.caption = element_text(size = 10)
+    )
+```
+
+These scores lead to similar hazard ratios and this is due to how 
+correlated they are.
+
+```{r, fig.width=8, fig.height=5}
+#| label: fig-corr-her2-fpkm-amplicon
+#| fig-cap: Correlation between HER2 FPKM and HER2 amplicon among HER2+
+#|     BC tumors
+her2_df_pca_scanb_comp <- df_pca %>%
+    dplyr::filter(
+        HER2 == "Positive"
+    ) %>%
+    dplyr::inner_join(
+        .,
+        scores_her2_sub_genes %>%
+            dplyr::select(her2_fpkm, sample_name),
+        by = "sample_name"
+    ) 
+
+her2_df_pca_scanb_comp %>% 
+    ggplot2::ggplot(aes(
+        x = HER2_AMPLICON,
+        y = her2_fpkm,
+        color = er_status
+    )) + 
+    ggplot2::geom_point() + 
+    ggplot2::geom_smooth(
+        color = "black",
+        method = "gam",
+        formula = y ~ s(x, bs = "cs")
+    ) + 
+    ggplot2::labs(
+        x = "HER2 amplicon",
+        y = "HER2 FPKM",
+        title = "SCAN-B HER2+ BC only",
+        color = "ER status"
+    ) +
+    ggplot2::theme_bw(base_size = 20) + 
+    change_guides_point() + 
+    change_plot_aes_point()
+```
 
 ## ILC and position in the molecular landscape
 
