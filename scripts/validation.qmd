@@ -24,6 +24,9 @@ library(forestplot)
 library(ggplotify)
 library(gridExtra)
 
+library(rstanarm)
+library(biogrowleR)
+
 source("utils.R")
 source("first_run.R")
 
@@ -1490,8 +1493,8 @@ staining_pdxs <- read.csv("../data/quantification.csv") %>%
 ```
 
 ```{r, fig.height=6}
-#| label: fig-quantification-pdx-ki67
-#| fig-cap: Quantification of Ki67+ cells based on DAB stainings performed
+#| label: fig-quantification-pdx-pr
+#| fig-cap: Quantification of PR+ cells based on DAB stainings performed
 #|     on the patient derived xenografts.
 plot_quantification(
     staining_pdxs %>%
@@ -1534,6 +1537,196 @@ cowplot::plot_grid(plotlist = pdx_plots_embedding_e2, ncol = 3)
 
 It looks like there is not big changes in the molecular landscape 
 as there was for samples treated with progesterone.
+
+### Growth curves
+
+```{r, message=FALSE, eval = first_run}
+# run all fittings together
+tables <- readRDS("../data/2019_pdx_brisken/ivis_growth_curves.rds")
+
+all_fits <- lapply(
+    tables,
+    function(table_pdx){
+        rstanarm::stan_glmer(
+            log10tf ~ days_after_treatment * treatment + (1 | id),
+            data = table_pdx,
+            cores = 4,
+            iter = 8000,
+            prior_intercept = rstanarm::normal(6.5, 3),
+            prior = rstanarm::normal(0, 4),
+            refresh = 0
+        )
+    }
+)
+
+plot_estimates_all <- mapply(
+    function(table_pdx, fit_pdx){
+        
+        new_df_predict <- biogrowleR::get_df_predict(table_pdx)
+
+        results_estimates_global <- tidybayes::add_linpred_draws(
+            object = fit_pdx, 
+            newdata = new_df_predict,
+            re_formula = NA,
+            value = "log10tf"
+        )
+
+        stats_from_data <- biogrowleR::get_stats_from_data(table_pdx)
+
+        plot_estimates <- biogrowleR::plot_posterior_estimates(
+            results_estimates_global, 
+            stats_from_data, 
+            base_size = 15
+        )
+        
+        combination_treatments <- combn(
+            table_pdx$treatment %>% unique %>% as.vector, 
+            m = 2
+        )
+        
+        # first get the pooled sds that will be used in the next function.
+        pooled_sds <- biogrowleR::get_pooled_sds(df = table_pdx)
+        
+        # days correspond to the first and last days of treatment in the case 
+        # of using linear regression to model the data
+        days <- c(
+            min(results_estimates_global$days_after_treatment),
+            max(results_estimates_global$days_after_treatment)
+        )
+        
+        # combination_conditions is the same as used before for the frequentist
+        # approach.
+        results_differences <- biogrowleR::get_slope_differences(
+            results_estimates = results_estimates_global,
+            combination_conditions = combination_treatments,
+            days = days,
+            pooled_sds = pooled_sds
+        )
+        
+        effect_size_plot <- biogrowleR::plot_eff_size_dist(
+            results_differences, 
+            days
+        ) +
+            ggplot2::theme_bw(base_size = 15)
+        
+        
+        list(
+            effect_size_plot = effect_size_plot,
+            results_differences = results_differences,
+            plot_estimates = plot_estimates
+        )
+    },
+    table_pdx = tables,
+    fit_pdx = all_fits,
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+
+saveRDS(
+    all_fits,
+    "../results/rds_files/validation/all_fits.rds"
+)
+
+saveRDS(
+    plot_estimates_all,
+    "../results/rds_files/validation/plot_estimates_all.rds"
+)
+```
+
+
+```{r, fig.height=8, fig.width=13}
+#| label: fig-pdx-estimates-ivis-together
+#| fig-cap: Estimates of the 6 PDXs together. Comparison between P4 vs CTRL.
+lapply(plot_estimates_all, \(x) x$results_differences) %>%
+    dplyr::bind_rows(.id = "pdx") %>%
+    tidyr::separate(
+        pdx, 
+        into = c("date", "pdx")
+    ) %>%
+    dplyr::filter(pdx %in% c("METS15", "T111", "T113", "T110", "T109", "T105")) %>%
+    ggplot2::ggplot(aes(x = difference, fill = pdx)) +
+    ggdist::stat_halfeye(alpha = 0.5) +
+    ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
+    ggplot2::labs(
+        x = "Effect size",
+        y = "Density",
+        fill = "PDX",
+        title = paste0(
+            "Distributions of the effect sizes. P4 vs CTRL."
+        )
+    ) +
+    ggplot2::scale_fill_viridis_d(option = "H") + 
+    ggplot2::theme_bw(base_size = 30) + 
+    ggplot2::theme(
+        legend.position = c(0.8, 0.6), 
+        legend.background = element_blank()
+    )
+```
+
+
+```{r, fig.width=12, fig.height=8}
+#| label: fig-pdx-curves-ivis-together
+#| fig-cap: Average growth curves for each PDX individually with their 
+#|     estimates. The credible intervals corresponds to the 25th and 50th CIs.
+pdxs_responders <- c("T111", "T113", "METS15", "T110", "T105", "T109")
+responder_non_responder <- c(
+    "Responder", 
+    "Responder",
+    "Partial responder", 
+    "Non-responder",
+    "Non-responder",
+    "Non-responder"
+)
+plot_estimates_responders <- lapply(
+    plot_estimates_all[paste0("20190801_", pdxs_responders)],
+    \(x) x$plot_estimates
+) %>% 
+    mapply(
+        function(p, pdx, responder_non_responder, i){
+            
+            values_col <- viridis::turbo(n = 2)
+            
+            if (i > 1){
+                p <- p + ggplot2::ylab("")
+            }
+            
+            p + 
+                ggplot2::labs(
+                    title = pdx, 
+                    subtitle = responder_non_responder,
+                    fill = "Treatment", 
+                    linetype = "Treatment",
+                    color = "Treatment"
+                ) + 
+                ggplot2::scale_color_manual(
+                    labels = c("CTRL", "P4"), 
+                    values = values_col
+                ) +
+                ggplot2::scale_fill_manual(
+                    labels = c("CTRL", "P4"), 
+                    values = values_col
+                ) +
+                ggplot2::scale_linetype_manual(
+                    labels = c("CTRL", "P4"), 
+                    values = c(2, 4)
+                ) +
+                ggplot2::theme(
+                    legend.position = c(0.3, 0.82)
+                )
+        },
+        p = .,
+        pdx = pdxs_responders,
+        responder_non_responder = responder_non_responder,
+        i = 1:length(pdxs_responders),
+        USE.NAMES = TRUE,
+        SIMPLIFY = FALSE
+    )
+
+cowplot::plot_grid(
+    plotlist = plot_estimates_responders, 
+    nrow = 2
+)
+```
 
 ## Normal samples
 

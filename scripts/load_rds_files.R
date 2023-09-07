@@ -33,7 +33,8 @@ db_files <- list(
         normal_swiss_df_pca = "normal_swiss_df_pca",
         normal_swiss_normalized = "normal_swiss_normalized",
         pdx_tpm = "pdx_tpm",
-        gene_sets = "gene_sets"
+        gene_sets = "gene_sets",
+        plot_estimates_all = "plot_estimates_all"
     ),
     scoring = c(
         df_pca_coordinates = "poetic_df_pca_with_scores",
