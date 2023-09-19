@@ -1501,9 +1501,110 @@ will go upwards and to the left in the molecular landscape,
 reflecting the biological response of the tumors to the
 given hormones. 
 
+Before we move on we also do the same using facet_grid instead of
+facet_wrap.
+
+```{r, fig.width=16, fig.height=9}
+pdx_df_pca_sub %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(names(pathways)),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    dplyr::mutate(pathway = factor(pathway, levels = names(pathways))) %>%
+    ggplot2::ggplot(aes(x = treatment, y = score)) +
+    ggplot2::geom_boxplot(outlier.shape = NA) + 
+    ggplot2::geom_jitter(
+        size = 3, 
+        alpha = 0.9, 
+        mapping = aes(color = treatment)
+    ) + 
+    ggplot2::scale_color_manual(values = c(
+        "black",
+        "red",
+        "blue"
+    )) + 
+    ggplot2::facet_grid(
+        pathway ~ pdx, 
+        #scales = "fixed", 
+        #nrow = length(pathways),
+        labeller = as_labeller(c(pathways, pdxs_to_use))
+    ) +
+    ggplot2::labs(
+        x = "Treatment",
+        y = "GSVA score"
+    ) +
+    ggplot2::scale_y_continuous(labels = scales::number_format(
+        accuracy = 0.1,
+        decimal.mark = '.'
+    )) + 
+    ggplot2::theme_bw(base_size = 25) +
+    ggplot2::theme(legend.position="none") +
+    change_guides_point() +
+    change_plot_aes_point()
+```
+
+And the next two tables show the results for the differential expression
+analysis on the pathway level for each PDX individually. The estimate, i.e.
+difference, and the p-values are presented.
+
+First for G2M: 
+
+```{r}
+# And below we perform differential expression analysis for each PDX
+# individually.
+pathway <- "HALLMARK_G2M_CHECKPOINT"
+pdx_df_pca_sub %>%
+    dplyr::filter(treatment %in% c("CTRL", "P4")) %>%
+    dplyr::group_by(pdx) %>%
+    dplyr::group_modify(
+        ~ broom::tidy(lm(as.formula(paste0(pathway, "~ treatment")), data = .))
+    ) %>%
+    dplyr::filter(term == "treatmentP4") %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(pathway = c(pathway)) %>%
+    dplyr::arrange(p.value) %>%
+    dplyr::mutate(
+        dplyr::across(
+            -dplyr::all_of(c("pdx", "term")), 
+            .fns = format, 
+            digits = 2
+        )
+    ) %>%
+    dplyr::select(pdx, estimate, p.value, pathway) %>%
+    DT::datatable()
+```
+
+Then to Estrogen Early: 
+
+```{r}
+# And below we perform differential expression analysis for each PDX
+# individually.
+pathway <- "HALLMARK_ESTROGEN_RESPONSE_EARLY"
+pdx_df_pca_sub %>%
+    dplyr::filter(treatment %in% c("CTRL", "P4")) %>%
+    dplyr::group_by(pdx) %>%
+    dplyr::group_modify(
+        ~ broom::tidy(lm(as.formula(paste0(pathway, "~ treatment")), data = .))
+    ) %>%
+    dplyr::filter(term == "treatmentP4") %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(pathway = c(pathway)) %>%
+    dplyr::arrange(p.value) %>%
+    dplyr::mutate(
+        dplyr::across(
+            -dplyr::all_of(c("pdx", "term")), 
+            .fns = format, 
+            digits = 2
+        )
+    ) %>%
+    dplyr::select(pdx, estimate, p.value, pathway) %>%
+    DT::datatable()
+```
+
 We now further validate the results with the stainings performed
 on those samples. We will compare the differences with the stainings and
-the number of Ki67+ tumors cells.
+the number of PR+ tumors cells.
 
 ```{r}
 staining_pdxs <- read.csv("../data/quantification.csv") %>%
@@ -1531,7 +1632,6 @@ staining_pdxs <- read.csv("../data/quantification.csv") %>%
 #|     on the patient derived xenografts.
 plot_quantification(
     staining_pdxs %>%
-        #dplyr::filter(pdx %in% unique(pdx_df_pca_sub$pdx)) %>%
         dplyr::filter(treatment %in% c("CTRL", "P4")),
     "PR",
     base_size = 18

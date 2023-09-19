@@ -1290,7 +1290,7 @@ same trends.
 The plot below is a subset of the scores above to include in the 
 publication.
 
-```{r, fig.width=17, fig.height=9}
+```{r, fig.height=11, fig.width=8}
 #| label: fig-scores-regressed-subset
 #| fig-cap: Scores obtained from regressed data
 #|     of all the four cohorts TCGA, SCANB, METABRIC and POETIC compared to the 
@@ -1323,28 +1323,49 @@ correlation_gsva_regressed <- scores %>%
     ) %>%
     dplyr::mutate(pathway = factor(pathway, names(pathways_of_interest_sub))) %>%
     dplyr::arrange(cohort, pathway) %>%
-    dplyr::mutate(corr_vals = factor(corr_vals, levels = corr_vals))
+    dplyr::mutate(corr_vals = factor(corr_vals, levels = corr_vals)) %>%
+    dplyr::inner_join(
+        .,
+        scores,
+        by = c("cohort", "pathway")
+    )
 
-dplyr::inner_join(
-    correlation_gsva_regressed,
-    scores,
-    by = c("cohort", "pathway")
-) %>%
+correlation_only <- correlation_gsva_regressed %>%
+    dplyr::filter(cohort %in% c("scanb", "metabric")) %>%
+    dplyr::group_by(pathway, cohort) %>%
+    dplyr::summarise(
+        pathway = pathway[1],
+        correlation = correlation[1],
+        cohort = cohort[1]
+    ) %>%
+    dplyr::mutate(label = paste0(
+        "\u03c1", ": ", format(correlation, digits = 2)
+    ))
+
+correlation_gsva_regressed %>%
     dplyr::filter(cohort %in% c("scanb", "metabric")) %>%
     ggplot2::ggplot(aes(x = score_og, y = score_hkg)) +
     ggplot2::geom_point() +
     ggplot2::geom_smooth(method = "loess", formula = y~x) + 
-    ggplot2::facet_wrap(
-        ~ corr_vals, 
-        scales = "free", 
-        ncol = length(pathways_of_interest_sub)
+    ggplot2::facet_grid(
+        pathway ~ cohort,
+        labeller = as_labeller(c(
+            pathways_of_interest_sub,
+            c("metabric" = "METABRIC", "scanb" = "SCAN-B")
+        )),
+        scales = "free_y"
     ) +
+    ggplot2::geom_label(
+        data = correlation_only,
+        mapping = aes(x = -0.5, y = Inf, label = label),
+        hjust = 0.8,
+        vjust = 1.5,
+        size = 5,
+        label.padding = grid::unit(0.3, "lines")
+    ) + 
     ggplot2::labs(
         x = "GSVA score",
         y = "Regressed score"
-    ) + 
-    ggplot2::scale_x_continuous(
-        labels = scales::number_format(accuracy = 0.1)
     ) + 
     ggplot2::theme_bw(base_size = 20) +
     change_guides_point() +
