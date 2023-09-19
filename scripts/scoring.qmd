@@ -84,7 +84,7 @@ source("load_rds_files.R")
 # this figure when rendering the html. What is nice about this is that it
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
-knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+knitr::opts_chunk$set(dev = c('png', 'pdf'))
 options(bitmapType = 'cairo')
 ```
 
@@ -505,19 +505,49 @@ poetic_df_pca_baseline <- poetic_df_pca %>%
     ) %>%
     dplyr::filter(timepoint == "baseline")
     
-plots_poetic <- sapply(
-    c("is_responder"), 
-    get_plot_new_samples,
-    name_cohort = "poetic",
-    df_pca = poetic_df_pca_baseline,
-    x = "PC3",
-    y = "PC4",
-    title = "POETIC baseline patients colored by response status",
-    USE.NAMES = TRUE, 
-    simplify = FALSE
-)
+x <- "PC3"
+y <- "PC4"
+title <- "POETIC baseline samples"
+color <- "is_responder"
+plot_responder_poetic <- poetic_df_pca_baseline %>%
+    dplyr::mutate(is_responder = dplyr::case_when(
+        is.na(is_responder) ~ "All cohorts",
+        is_responder == "non_responder" ~ "Non responder",
+        is_responder == "responder" ~ "Responder",
+        is_responder == "not_available" ~ "Not available"
+    )) %>%
+    ggplot2::ggplot(
+        aes(
+            x = !!sym(x), 
+            y = !!sym(y), 
+            color = !!sym(color), 
+            alpha = !!sym(color),
+            size = !!sym(color)
+        )
+    ) +
+    ggplot2::geom_point() +
+    ggplot2::scale_color_manual(values = c(
+        "grey",
+        scales::hue_pal()(3)
+    )) +
+    ggplot2::scale_size_manual(
+        values = c(1, 4, 2, 4),
+        guide = "none"
+    ) +
+    ggplot2::scale_alpha_manual(
+        values = c(.1, 1, .7, 1)
+    ) +
+    ggplot2::labs(
+        alpha = "Is responder?",
+        size = "Is responder?",
+        color = "Is responder?",
+        title = title
+    ) + 
+    ggplot2::theme_bw(base_size = 20) + 
+    change_plot_aes_point() +
+    change_guides_point()
 
-plots_poetic$is_responder
+plot_responder_poetic
 ```
 
 And when checking the first two components, the POETIC data is closer to
@@ -565,16 +595,137 @@ poetic_df_pca %>%
 We now also compare the differences in non responders vs responders
 according to the third component. 
 
-```{r}
+```{r, fig.width=6, fig.height=5}
+#| label: fig-comp-responders-pc3
+#| fig-cap: Comparison of the PC3 between responders and non responders
 poetic_df_pca_baseline %>%
-    dplyr::filter(cohort == "poetic") %>%
+    dplyr::filter(cohort == "poetic" & is_responder != "not_available") %>%
+    dplyr::mutate(is_responder = dplyr::case_when(
+        is_responder == "responder" ~ "Responder",
+        is_responder == "non_responder" ~ "Non responder",
+        TRUE ~ "na"
+    )) %>%
     ggplot2::ggplot(aes(x = is_responder, y = PC3, color = is_responder)) +
-    ggplot2::geom_boxplot() +
+    ggplot2::geom_boxplot(
+        outlier.shape = NA,
+        color = "black"
+    ) +
     ggplot2::geom_jitter() +
-    ggplot2::labs(title = "Third component score") +
-    ggplot2::theme_bw()
+    ggplot2::labs(
+        title = "Third component score",
+        color = "Is responder?",
+        x = "Response status"
+    ) +
+    ggplot2::scale_color_manual(
+        values = scales::hue_pal()(3)[c(1, 3)]
+    ) + 
+    ggplot2::theme_bw(base_size = 20) + 
+    ggplot2::theme(legend.position = "none") + 
+    change_guides_point() +
+    change_plot_aes_point()
 ```
 
+We see that there is a clear difference, we now use bayesian stats to do the
+comparison and get the posterior distribution of the difference in PC3.
+
+```{r, message = FALSE}
+pc3_responders_comparison_df <- poetic_df_pca_baseline %>%
+    dplyr::filter(cohort == "poetic" & is_responder != "not_available") %>%
+    dplyr::mutate(is_responder = dplyr::case_when(
+        is_responder == "responder" ~ "Responder",
+        is_responder == "non_responder" ~ "Non responder"
+    )) %>%
+    dplyr::mutate(is_responder = factor(
+        is_responder, levels = c("Non responder", "Responder")
+    ))
+
+pc3_responders_comparison <- pc3_responders_comparison_df %>%
+    rstanarm::stan_lm(
+        formula = PC3 ~ is_responder, 
+        data = .,
+        prior = rstanarm::R2(location = 0.1, what = "mean"), 
+        refresh = 0
+    )
+
+pc3_responders_comparison %>% 
+    summary
+```
+
+
+The difference is clear, when looking at the parameter `is_responderResponder`.
+The Rhat is reasonable and the number of effective sample size is good as well. 
+Below we plot the average posterior distribution of the difference between
+responders and non responders.
+
+```{r, fig.width=6, fig.height=4}
+#| label: fig-comp-responders-pc3-bayes
+#| fig-cap: Comparison of the PC3 between responders and non responders. 
+#|     Difference in the expected posterior predictive distributions. Each
+#|     dot corresponds to a 1% quantile.
+pc3_responders_comparison_df %>%
+    modelr::data_grid(is_responder) %>%
+    tidybayes::add_epred_draws(pc3_responders_comparison) %>%
+    tidyr::pivot_wider(
+        id_cols = c(".draw"),
+        names_from = "is_responder", 
+        values_from = ".epred"
+    ) %>%
+    dplyr::mutate(difference = `Responder` - `Non responder`) %>%
+    ggplot2::ggplot(aes(x = difference)) +
+    ggplot2::geom_vline(xintercept = 0, linetype = "dashed") + 
+    tidybayes::stat_dotsinterval(quantiles = 100, .width = c(.66, .95)) + 
+    ggplot2::labs(
+        x = "Difference from expection of\nthe posterior predictive distribution",
+        y = NULL
+    ) +
+    ggplot2::theme_bw(base_size = 18) + 
+    ggplot2::theme(
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()
+    ) +
+    change_plot_aes_point() + 
+    change_guides_point()
+```
+
+We see that the difference is 100% higher than 0 and
+even more the difference is higher than 0.5, meaning that
+responders have higher PC3 compared to non responders. The plot
+below shows the average values as well for responders and non
+responders separately.
+
+```{r, fig.width=8}
+#| label: fig-average-pc3-poetic
+pc3_responders_comparison_df %>%
+    modelr::data_grid(is_responder) %>%
+    tidybayes::add_epred_draws(pc3_responders_comparison) %>%
+    ggplot2::ggplot(aes(x = .epred, y = is_responder)) +
+    tidybayes::stat_dotsinterval(quantiles = 100, .width = c(.66, .95)) + 
+    ggplot2::labs(
+        x = "Expection of the posterior predictive distribution",
+        y = NULL
+    ) +
+    ggplot2::theme_bw(base_size = 20) + 
+    change_plot_aes_point() + 
+    change_guides_point()
+```
+
+And to conclude we also calculate the p-value for the sake of it.
+
+```{r}
+pc3_responders_comparison_df %>%
+    lm(PC3 ~ is_responder, data = .) %>%
+    broom::tidy() %>%
+    dplyr::mutate(
+        dplyr::across(
+            -dplyr::all_of(c("term")), 
+            .fns = format, 
+            digits = 2
+        )
+    ) %>%
+    DT::datatable(options = list(scrollX = TRUE))
+```
+
+The p-value is around 2.9e-06, very small, three stars!
 
 ## Scoring all samples 
 
@@ -851,7 +1002,7 @@ in the embedding of the projections.
 #|     stratified by response status. Each dot corresponds to a single patient.
 means %>%
     ggplot2::ggplot(aes(x = .epred, y = is_responder)) +
-    tidybayes::stat_dotsinterval(quantiles = 100) + 
+    tidybayes::stat_dotsinterval(quantiles = 100, overlaps = "keep") + 
     ggplot2::labs(
         x = "Average distance of embedding positions",
         y = ""
@@ -871,7 +1022,7 @@ in average.
 #|    average, the difference in difference will be negative.
 diff_means %>%
     ggplot2::ggplot(aes(x = is_respondernon_responder)) +
-    tidybayes::stat_dotsinterval(quantiles = 100) +
+    tidybayes::stat_dotsinterval(quantiles = 100, overlaps = "keep") +
     ggplot2::theme_bw() + 
     ggplot2::labs(
         x = "Average difference of the embedding differences",
@@ -1220,8 +1371,10 @@ plots_scores_close_patients <- apply(
                     info_patients[paste0("is_responder_", which_responder)]
                 ),
                 subtitle = paste0(
-                    "Ki67 baseline: ", info_patients[paste0("ki67_", which_responder)],
-                    ", Change Ki67: ", info_patients[paste0("change_ki67_", which_responder)]
+                    "Ki67 baseline: ", 
+                    info_patients[paste0("ki67_", which_responder)],
+                    ", Change Ki67: ", 
+                    info_patients[paste0("change_ki67_", which_responder)]
                 )
             )
         
@@ -1240,14 +1393,16 @@ plots_scores_close_patients <- apply(
                 )
             )
         
-        cowplot::plot_grid(
+        p <- cowplot::plot_grid(
             plot_responder,
             plot_non_responder,
             nrow = 2
         )
         
+        list(responder = plot_responder, non_responder = plot_non_responder)
+        
     }, 
-    plots = pipeline_scores_plots_er_only,
+    plots = pipeline_scores_plots,
     simplify = FALSE
 )
 
@@ -1273,6 +1428,16 @@ comparison_to_average_neighbors <- data.frame(
                                "a", "b", "b", "a", "m", "a", "b", "b", 
                                "b", "b", "b", "b", "b", "b", "a", "m", 
                                "m", "a", "a", "b", "b", "b"),
+    responder_androgen =     c("m", "a", "b", "b", "b", "b", "a", "a", "a",
+                               "b", "a", "b", "a", "a", "b", "m", "b", "m",
+                               "b", "a", "a", "a", "m", "m", "b", "b", "b",
+                               "a", "b", "b", "m", "m", "b", "a", "m", "m",
+                               "b", "a"),
+    non_responder_androgen = c("b", "m", "a", "b", "b", "b", "m", "b", "b",
+                               "b", "b", "b", "b", "m", "a", "a", "a", "a",
+                               "a", "a", "b", "b", "a", "a", "a", "a", "b",
+                               "b", "a", "a", "a", "a", "a", "a", "a", "m",
+                               "m", "m"),
     comments = c(
         "", "",
         "good reduction in ki67 for non-responder and even higher baseline",
@@ -1303,21 +1468,33 @@ comparison_to_average_neighbors <- data.frame(
 comparison_to_average_neighbors <- comparison_to_average_neighbors %>%
     dplyr::mutate(
         mismatch_er_responder = dplyr::case_when(
-            responder_er_early %in% c("a", "m") & responder_set_erpr %in% c("a", "m") ~ "no",
-            responder_er_early %in% c("b", "m") & responder_set_erpr %in% c("b", "m") ~ "no",
-            responder_er_early %in% c("a", "m") & responder_set_erpr == "b" ~ "yes",
-            responder_er_early %in% c("b", "m") & responder_set_erpr == "a" ~ "yes",
-            responder_er_early %in% c("a", "m") & responder_set_erpr == "a" ~ "no",
-            responder_er_early %in% c("b", "m") & responder_set_erpr == "b" ~ "no",
+            responder_er_early %in% c("a", "m") &
+                responder_set_erpr %in% c("a", "m") ~ "no",
+            responder_er_early %in% c("b", "m") & 
+                responder_set_erpr %in% c("b", "m") ~ "no",
+            responder_er_early %in% c("a", "m") &
+                responder_set_erpr == "b" ~ "yes",
+            responder_er_early %in% c("b", "m") &
+                responder_set_erpr == "a" ~ "yes",
+            responder_er_early %in% c("a", "m") & 
+                responder_set_erpr == "a" ~ "no",
+            responder_er_early %in% c("b", "m") &
+                responder_set_erpr == "b" ~ "no",
             TRUE ~ "not_available"
         ),
         mismatch_er_non_responder = dplyr::case_when(
-            non_responder_er_early %in% c("a", "m") & non_responder_set_erpr %in% c("a", "m") ~ "no",
-            non_responder_er_early %in% c("b", "m") & non_responder_set_erpr %in% c("b", "m") ~ "no",
-            non_responder_er_early %in% c("a", "m") & non_responder_set_erpr == "b" ~ "yes",
-            non_responder_er_early %in% c("b", "m") & non_responder_set_erpr == "a" ~ "yes",
-            non_responder_er_early %in% c("a", "m") & non_responder_set_erpr == "a" ~ "no",
-            non_responder_er_early %in% c("b", "m") & non_responder_set_erpr == "b" ~ "no",
+            non_responder_er_early %in% c("a", "m") & 
+                non_responder_set_erpr %in% c("a", "m") ~ "no",
+            non_responder_er_early %in% c("b", "m") & 
+                non_responder_set_erpr %in% c("b", "m") ~ "no",
+            non_responder_er_early %in% c("a", "m") & 
+                non_responder_set_erpr == "b" ~ "yes",
+            non_responder_er_early %in% c("b", "m") & 
+                non_responder_set_erpr == "a" ~ "yes",
+            non_responder_er_early %in% c("a", "m") &
+                non_responder_set_erpr == "a" ~ "no",
+            non_responder_er_early %in% c("b", "m") & 
+                non_responder_set_erpr == "b" ~ "no",
             TRUE ~ "not_available"
         ),
         both_same_direction_er_early = ifelse(
@@ -1338,22 +1515,26 @@ comparison_to_average_neighbors <- comparison_to_average_neighbors %>%
 comparison_to_average_neighbors <- comparison_to_average_neighbors %>%
     dplyr::mutate(
         er_early_above_responder = ifelse(
-            responder_er_early %in% c("a", "m") & non_responder_er_early == "b",
+            responder_er_early %in% c("a", "m") &
+                non_responder_er_early == "b",
             "yes",
             "no"
         ),
         set_erpr_above_responder = ifelse(
-            responder_set_erpr %in% c("a", "m") & non_responder_set_erpr == "b",
+            responder_set_erpr %in% c("a", "m") &
+                non_responder_set_erpr == "b",
             "yes",
             "no"
         ),
         er_early_above_non_responder = ifelse(
-            responder_er_early %in% c("b") & non_responder_er_early %in% c("a", "m"),
+            responder_er_early %in% c("b") &
+                non_responder_er_early %in% c("a", "m"),
             "yes",
             "no"
         ),
         set_erpr_above_non_responder = ifelse(
-            responder_set_erpr == "b" & non_responder_set_erpr %in% c("a", "m"),
+            responder_set_erpr == "b" &
+                non_responder_set_erpr %in% c("a", "m"),
             "yes",
             "no"
         )
@@ -1398,6 +1579,57 @@ responders.
 
 These results suggest that SET ER/PR might be a better signature to compare
 in the neighborhoods.
+
+```{r}
+borderline_non_responders <- df_pca_coordinates %>%
+    dplyr::select(dplyr::all_of(c(
+        "sample_name", "is_responder", "ki67", "change_ki67"
+    ))) %>%
+    dplyr::filter(change_ki67 < -50 & is_responder == "non_responder") %>%
+    dplyr::pull(sample_name) %>%
+    paste(., collapse = "|")
+```
+
+```{r}
+non_responder_androgen_counts <- comparison_to_average_neighbors %>%
+    dplyr::filter(!grepl(borderline_non_responders, first_sample_name)) %>%
+    dplyr::filter(!grepl(borderline_non_responders, second_sample_name)) %>%
+    dplyr::filter(
+        set_erpr_above_non_responder == "no" | 
+            er_early_above_non_responder == "no"
+    ) %>%
+    janitor::tabyl(non_responder_androgen)
+
+responder_androgen_counts <- comparison_to_average_neighbors %>%
+    dplyr::filter(!grepl(borderline_non_responders, first_sample_name)) %>%
+    dplyr::filter(!grepl(borderline_non_responders, second_sample_name)) %>%
+    dplyr::filter(
+        set_erpr_above_responder == "yes" #&
+            #er_early_above_responder == "yes"
+    ) %>%
+    janitor::tabyl(responder_androgen)
+```
+
+```{r}
+non_responder_androgen_counts
+```
+
+```{r}
+responder_androgen_counts
+```
+
+```{r}
+chisq.test(
+    data.frame(
+        non_responder = non_responder_androgen_counts[,2],
+        responder = responder_androgen_counts[,2]
+    ), 
+    simulate.p.value = TRUE
+)
+```
+
+
+
 
 ### Analysing all patients
 
@@ -1843,7 +2075,7 @@ Ki67 proliferation index at baseline.
 In general what we can see is that when comparing responders and
 non responders the main difference is in the position of 
 the molecular landscape. If we select the top responders and the
-top non-responders in terms of decrease of Ki67 index, we see
+top non-responders in terms of decrease in Ki67 levels, we see
 that non responders have way lower third principal 
 component (@fig-high-respnon).
 

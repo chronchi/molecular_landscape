@@ -59,6 +59,7 @@ library(survminer)
 library(msigdbr)
 library(GSVA)
 library(uwot)
+library(flexsurv)
 
 source("utils.R")
 source("first_run.R")
@@ -68,7 +69,7 @@ source("first_run.R")
 # this figure when rendering the html. What is nice about this is that it
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
-knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+knitr::opts_chunk$set(dev = c('png', 'pdf'))
 options(bitmapType = 'cairo')
 ```
 
@@ -2299,7 +2300,8 @@ labels_er_ihc <- c(
     "low ER IHC, high ER sig" = 4
 )
 
-tidy_results_hr <- results_surv_dich_er_sig$HALLMARK_ESTROGEN_RESPONSE_EARLY$surv_results %>% 
+tidy_results_hr <- 
+    results_surv_dich_er_sig$HALLMARK_ESTROGEN_RESPONSE_EARLY$surv_results %>% 
     broom::tidy(exponentiate = TRUE)
 
 plot_fit_km$plot <- plot_fit_km$plot +
@@ -2341,6 +2343,150 @@ plot_fit_km$plot
 In both cases there is a good distinction between low ER sig/High ER IHC and
 High ER sig/Low ER IHC. Interestingly, there the worst group is really the
 low ER sig/low ER IHC, as expected.
+
+We can do a similar analysis now using the marginal survival curves
+from the package `flexsurv` along with the functions 
+`flexsurvspline` and `standsurv`.
+
+```{r}
+signature_name <- "HALLMARK_ESTROGEN_RESPONSE_EARLY"
+
+fit_scanb_splines_category <- flexsurv::flexsurvspline(
+    formula = Surv(rfs_months, rfs_status) ~ sig_dich + 
+        age + node_stage + tumor_stage,
+    data = results_surv_dich_er_sig[[signature_name]]$df,
+    k = 3
+)
+
+levels_sig_dich <- levels(
+    results_surv_dich_er_sig[[signature_name]]$df$sig_dich
+)
+standardized_survival_curves <- flexsurv::standsurv(
+    fit_scanb_splines_category,
+    type = "survival",
+    at = list(
+        list(sig_dich = levels_sig_dich[1]),
+        list(sig_dich = levels_sig_dich[2]),
+        list(sig_dich = levels_sig_dich[3]),
+        list(sig_dich = levels_sig_dich[4])
+    ),
+    t = seq(
+        0,
+        fit_scanb_splines_category$data$Y[, "time"] %>% max,
+        length=10
+    ),
+    ci = TRUE,
+    boot = FALSE
+)
+
+standardized_survival_curves_contrast <- flexsurv::standsurv(
+    fit_scanb_splines_category,
+    type = "survival",
+    at = list(
+        list(sig_dich = levels_sig_dich[1]),
+        list(sig_dich = levels_sig_dich[2]),
+        list(sig_dich = levels_sig_dich[3]),
+        list(sig_dich = levels_sig_dich[4])
+    ),
+    contrast = "difference",
+    t = seq(
+        0,
+        fit_scanb_splines_category$data$Y[, "time"] %>% max,
+        length=10
+    ),
+    ci = TRUE,
+    boot = FALSE
+)
+```
+
+First we show the marginal RFS curves.
+
+```{r, fig.width=8, fig.height=8}
+#| label: fig-rfs-marginal-curve-higher-ihc
+labels_risk_score <- c(
+    "High ER IHC, Low ER sig",
+    "High ER IHC, High ER sig", 
+    "Low ER IHC, High ER sig", 
+    "Low ER IHC, Low ER sig"
+)
+labels_risk_score_breaks <- paste0(
+    "sig_dich=",
+    levels_sig_dich
+)
+
+plot(standardized_survival_curves, ci = TRUE) +
+    ggplot2::guides(color=guide_legend(nrow=2, byrow = TRUE)) +
+    ggplot2::scale_color_manual(
+        labels = labels_risk_score,
+        values = scales::hue_pal()(4),
+        breaks = labels_risk_score_breaks
+    ) + 
+    ggplot2::scale_fill_manual(
+        labels = labels_risk_score,
+        values = scales::hue_pal()(4),
+        breaks = labels_risk_score_breaks
+    ) + 
+    ggplot2::scale_x_continuous(
+        labels = function(x) x/20,
+        breaks = seq(0, 200, by = 18)
+    ) + 
+    ggplot2::labs(
+        x = "Time since diagnosis (years)",
+        y = "RFS probability",
+        color = "Strata",
+        fill = "Strata",
+        title = "Estrogen early\nER+ BC, Endo only" 
+    ) + 
+    ggplot2::theme_bw(base_size = 18) +
+    ggplot2::theme(legend.position = "top")
+```
+
+And now the marginal curves for the differences.
+
+```{r, fig.width=8, fig.height = 8}
+#| label: fig-rfs-difference-marginal-curve-higher-ihc
+labels_risk_score <- paste0(
+    c(
+        "High ER IHC, High ER sig", 
+        "Low ER IHC, High ER sig ", 
+        "Low ER IHC, Low ER sig  "),
+    " vs High ER IHC, Low ER sig"
+)
+labels_risk_score_breaks <- paste0(
+    "sig_dich=",
+    levels_sig_dich[2:4],
+    " vs sig_dich=", levels_sig_dich[1]
+)
+
+plot(standardized_survival_curves_contrast, ci = TRUE, contrast = TRUE) +
+    ggplot2::guides(color=guide_legend(nrow=3, byrow = TRUE)) +
+    ggplot2::scale_color_manual(
+        labels = labels_risk_score,
+        values = scales::hue_pal()(3),
+        breaks = labels_risk_score_breaks
+    ) + 
+    ggplot2::scale_fill_manual(
+        labels = labels_risk_score,
+        values = scales::hue_pal()(3),
+        breaks = labels_risk_score_breaks
+    ) + 
+    ggplot2::scale_x_continuous(
+        labels = function(x) x/20,
+        breaks = seq(0, 200, by = 18)
+    ) + 
+    ggplot2::labs(
+        x = "Time since diagnosis (years)",
+        y = "Difference in RFS probability",
+        color = "Difference",
+        fill = "Difference",
+        title = "Estrogen early\nER+ BC, Endo only"
+    ) + 
+    ggplot2::theme_bw(base_size = 18) +
+    ggplot2::theme(legend.position = "top")
+```
+
+We see similar things to the KM as done before. But here now we are 
+using the standardized survival curves.
 
 We now evaluate the protective effect of the estrogen signaling signatures
 in the patients that have tumors with ER IHC lower than 90%. 

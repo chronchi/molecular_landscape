@@ -43,7 +43,7 @@ source("load_rds_files.R")
 # this figure when rendering the html. What is nice about this is that it
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
-knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+knitr::opts_chunk$set(dev = c('png', 'pdf'))
 options(bitmapType = 'cairo')
 
 p4_pathways <- msigdbr::msigdbr() %>%

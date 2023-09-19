@@ -37,6 +37,7 @@ library(PCAtools)
 library(singscore)
 library(SummarizedExperiment)
 library(survival)
+library(flexsurv)
 
 source("utils.R")
 source("first_run.R")
@@ -63,7 +64,7 @@ source("load_rds_files.R")
 # this figure when rendering the html. What is nice about this is that it
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
-knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+knitr::opts_chunk$set(dev = c('png', 'pdf'))
 options(bitmapType = 'cairo')
 ```
 
@@ -247,7 +248,10 @@ endo_only_metabric$risk_score_pcs <- calculate_risk_score(
     coefs_risk_model_pcs, endo_only_metabric, is_node = FALSE
 )
 
-df_pca_metabric$risk_score <- calculate_risk_score(coefs_risk_model, df_pca_metabric) 
+df_pca_metabric$risk_score <- calculate_risk_score(
+    coefs_risk_model, 
+    df_pca_metabric
+) 
 df_pca_scanb$risk_score <- calculate_risk_score(coefs_risk_model, df_pca_scanb)
 
 # we can now calculate the score for all samples based on PC3 and PC4
@@ -267,7 +271,7 @@ risk_score_test <- survival::coxph(
 
 risk_score_test_clins <- survival::coxph(
     Surv(time = rfs_months, event = rfs_status) ~ risk_score + 
-        tumor_size,
+        tumor_size + npi,
     data = test_set
 )
 ```
@@ -362,7 +366,9 @@ prosigna's own sequencing and showed good results [@SCANB2022].
 #|     by the SCANB team at [@SCANB2022]. ER+ BC patients that received 
 #|     only ET were considered.
 endo_only_scanb %>% 
-    ggplot2::ggplot(aes(x = SSP.ROR.binary.risk.cat, y = risk_score, color = pam50)) +
+    ggplot2::ggplot(
+        aes(x = SSP.ROR.binary.risk.cat, y = risk_score, color = pam50)
+    ) +
     ggplot2::geom_jitter() + 
     ggplot2::geom_violin(color = "black", alpha = 0.3) +
     ggplot2::geom_boxplot(
@@ -544,6 +550,200 @@ risk_score_scanb_luma <- survival::coxph(
 risk_score_scanb_luma
 ```
 
+## Standardized survival curves for SCANB
+
+We now use also the standardized survival curves as suggested in the 
+paper [@Syriopoulou2022]. For this we use the package
+`flexsurv` along with the functions `flexsurvspline` to model
+the baseline hazard using splines and then to calculate the 
+standardized survival curves we use the function `standsurv`.
+
+For the sake of interpretation we categorize the risk score in 4 categories,
+a low, intermediate, high and ultra-high risk. The thresholds are 
+based on the data, we use the quartiles. We understand that we loose power
+when doing this but we are able to communicate better the information. 
+For comparison we first show the spline based model on the continous 
+score.
+
+```{r}
+fit_scanb_splines <- flexsurv::flexsurvspline(
+    formula = Surv(rfs_months, rfs_status) ~ 
+        risk_score + tumor_size + node_status,
+    data = endo_only_scanb,
+    k = 3,
+    scale = "hazard"
+)
+
+broom::tidy(fit_scanb_splines)
+```
+
+We use the "hazard" scale to define the proportional hazards model. The
+estimate is above 0 (1.8), meaning that the higher the risk score the
+worse it is. Moreover, the p-value is 1.1e-14. 
+
+We now proceed with the categorized data for visualization purposes. We
+also use the survival scale to talk about the probability of having the 
+recurrence event.
+
+```{r}
+quartiles_risk_score <- quantile(
+    endo_only_scanb$risk_score, 
+    probs = c(0, .25, .5, .75, 1)
+)
+fit_scanb_splines_category <- flexsurv::flexsurvspline(
+    formula = Surv(rfs_months, rfs_status) ~ 
+        risk_score_category + tumor_size + node_status,
+    data = endo_only_scanb %>%
+        dplyr::mutate(risk_score_category = dplyr::case_when(
+            dplyr::between(
+                risk_score, 
+                quartiles_risk_score[1], 
+                quartiles_risk_score[2]
+            ) ~ "low",
+            dplyr::between(
+                risk_score, 
+                quartiles_risk_score[2], 
+                quartiles_risk_score[3]
+            ) ~ "intermediate",
+            dplyr::between(
+                risk_score, 
+                quartiles_risk_score[3], 
+                quartiles_risk_score[4]
+            ) ~ "high",
+            dplyr::between(
+                risk_score, 
+                quartiles_risk_score[4], 
+                quartiles_risk_score[5]
+            ) ~ "ultra-high"
+        )) %>%
+        dplyr::mutate(
+            risk_score_category = factor(
+                risk_score_category, 
+                levels = c("low", "intermediate", "high", "ultra-high")
+            )
+        ),
+    k = 3
+)
+
+standardized_survival_curves <- flexsurv::standsurv(
+    fit_scanb_splines_category,
+    type = "survival",
+    at = list(
+        list(risk_score_category = "low"),
+        list(risk_score_category = "intermediate"),
+        list(risk_score_category = "high"),
+        list(risk_score_category = "ultra-high")
+    ),
+    t = seq(
+        0,
+        fit_scanb_splines_category$data$Y[, "time"] %>% max,
+        length=10
+    ),
+    ci = TRUE,
+    boot = FALSE
+)
+
+standardized_survival_curves_contrast <- flexsurv::standsurv(
+    fit_scanb_splines_category,
+    type = "survival",
+    at = list(
+        list(risk_score_category = "low"),
+        list(risk_score_category = "intermediate"),
+        list(risk_score_category = "high"),
+        list(risk_score_category = "ultra-high")
+    ), 
+    contrast = "difference",
+    t = seq(
+        0,
+        fit_scanb_splines_category$data$Y[, "time"] %>% max,
+        length=10
+    ),
+    ci = TRUE,
+    boot = FALSE
+)
+```
+
+First we show the marginal RFS curves.
+
+```{r}
+#| label: fig-rfs-marginal-curve
+labels_risk_score <- c("Low", "Intermediate", "High", "Ultra-high")
+labels_risk_score_breaks <- paste0(
+    "risk_score_category=",
+    c("low", "intermediate", "high", "ultra-high")
+)
+
+plot(standardized_survival_curves, ci = TRUE) +
+    ggplot2::guides(color=guide_legend(ncol=1)) +
+    ggplot2::scale_color_manual(
+        labels = labels_risk_score,
+        values = viridis::viridis(n = 4),
+        breaks = labels_risk_score_breaks
+    ) + 
+    ggplot2::scale_fill_manual(
+        labels = labels_risk_score,
+        values = viridis::viridis(n = 4),
+        breaks = labels_risk_score_breaks
+    ) + 
+    ggplot2::scale_x_continuous(
+        labels = function(x) x/20,
+        breaks = seq(0, 200, by = 18)
+    ) + 
+    ggplot2::labs(
+        x = "Time since diagnosis (years)",
+        y = "RFS probability",
+        color = "Risk score\ncategory",
+        fill = "Risk score\ncategory"
+    ) + 
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::theme(legend.position = "right")
+```
+
+And now the marginal curves for the differences with the low
+risk as the baseline.
+
+```{r}
+#| label: fig-rfs-difference-marginal-curve
+labels_risk_score <- paste0(
+    c("Intermediate", "High", "Ultra-high"),
+    " - Low"
+)
+labels_risk_score_breaks <- paste0(
+    "risk_score_category=",
+    c("intermediate", "high", "ultra-high"),
+    " vs risk_score_category=low"
+)
+
+plot(standardized_survival_curves_contrast, ci = TRUE, contrast = TRUE) +
+    ggplot2::guides(color=guide_legend(ncol=1)) +
+    ggplot2::scale_color_manual(
+        labels = labels_risk_score,
+        values = viridis::viridis(n = 3),
+        breaks = labels_risk_score_breaks
+    ) + 
+    ggplot2::scale_fill_manual(
+        labels = labels_risk_score,
+        values = viridis::viridis(n = 3),
+        breaks = labels_risk_score_breaks
+    ) + 
+    ggplot2::scale_x_continuous(
+        labels = function(x) x/20,
+        breaks = seq(0, 200, by = 18)
+    ) + 
+    ggplot2::scale_y_continuous(breaks = seq(0, -0.3, by = -0.05)) + 
+    ggplot2::labs(
+        x = "Time since diagnosis (years)",
+        y = "Difference in RFS probability",
+        color = "Difference of\nrisk category",
+        fill = "Difference of\nrisk category"
+    ) + 
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::theme(legend.position = "right")
+```
+
+Here we see that the difference between low and ultra-high can be
+as high as 20%, a significant increase. On the other hand the differences
+between intermediate and low stay around 3 to 4% after 5 years.
 
 ## Risk score and POETIC trial
 

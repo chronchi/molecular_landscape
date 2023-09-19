@@ -41,7 +41,7 @@ source("load_rds_files.R")
 # this figure when rendering the html. What is nice about this is that it
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
-knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+knitr::opts_chunk$set(dev = c('png', 'pdf'))
 options(bitmapType = 'cairo')
 ```
 
@@ -1203,31 +1203,43 @@ pdx_df_pca %>%
 #| label: fig-pca-pdx-control-only
 #| fig-cap: Embedding of only PDX control samples on top of the 
 #|     METABRIC, SCANB and TCGA samples
-p <- get_base_plot(df_pca_coordinates)
+p <- get_base_plot(
+    df_pca_coordinates %>%
+        dplyr::filter(pam50 != "claudin-low")
+)
 
 pdx_df_pca_sub <- pdx_df_pca %>%
     dplyr::filter(cohort == "pdx" & treatment == "CTRL") %>%
-    dplyr::mutate(pam50 = "nc")
+    dplyr::mutate(pam50 = "not available") %>%
+    dplyr::mutate(pdx = factor(
+        pdx, 
+        levels = c("METS15", "T113", "T111", "T105", "T109", "T110")
+    ))
 
-p +
+pdx_ctrl_plot <- p +
     ggplot2::geom_point(
         pdx_df_pca_sub,
         mapping = aes(x = PC3, y = PC4, shape = pdx),
-        size = 5
+        size = 5,
+        alpha = 1
     ) + 
     ggplot2::theme_bw(base_size = 15) +
     ggplot2::labs(
         caption = "Grey points correspond to the PDX cohort",
-        title = "PDX cohort, only control samples"
+        title = "PDX cohort, only control samples",
+        color = "Molecular subtype",
+        shape = "PDX"
     ) + 
     ggplot2::scale_color_manual(
         values = c(
             get_colors_pam50(p$data),
-            "not available" = "grey"
+            "not available" = "black"
         )
     ) +
     change_plot_aes_point() +
     change_guides_point(shape = TRUE)
+
+pdx_ctrl_plot
 ```
 
 And we check the PDXs response to estrogen and see how much they move
@@ -1341,7 +1353,16 @@ as well.
 # we first do by PDX individually the positions so we can combine 
 # them into a single plot and include in the figure instead of the 
 # boxplots for PC3 and PC4 components
-pdx_only_embedding <- function(pdx_name, pdx_df_pca, treatments_pdx){
+pdx_ctrl_plot_build <- ggplot2::ggplot_build(pdx_ctrl_plot)
+shape_pdx <- pdx_ctrl_plot_build$data[[2]]$shape %>% unique
+names(shape_pdx) <-  c("METS15", "T113", "T111", "T105", "T109", "T110") %>%
+    sort
+pdx_only_embedding <- function(
+    pdx_name, 
+    pdx_df_pca, 
+    treatments_pdx,
+    shape_pdx
+){
     
     pdx_df_pca_sub <- pdx_df_pca %>%
         dplyr::filter(cohort == "pdx" & treatment %in% treatments_pdx) %>%
@@ -1353,12 +1374,19 @@ pdx_only_embedding <- function(pdx_name, pdx_df_pca, treatments_pdx){
         pdx_df_pca_sub,
         mapping = aes(x = PC3, y = PC4, shape = treatment, color = treatment)
     ) + 
-        ggplot2::geom_point(size = 5, alpha = 0.9) + 
+        ggplot2::geom_point(
+            size = 5, 
+            alpha = 0.9,
+            shape = shape_pdx[pdx_name]
+        ) + 
         ggplot2::theme_bw(base_size = 15) +
         ggplot2::labs(
-            title = pdx_name
+            title = pdx_name,
+            color = "Treatment"
         ) +
-        ggplot2::scale_color_viridis_d(option = "H") +
+        ggplot2::scale_color_manual(
+            values = c("black", "blue")
+        ) + 
         change_plot_aes_point() +
         change_guides_point(shape = TRUE) + 
         ggplot2::theme(legend.position = "top")
@@ -1369,6 +1397,7 @@ pdx_plots_embedding_p4 <- sapply(
     pdx_only_embedding,
     pdx_df_pca = pdx_df_pca,
     treatments_pdx = c("CTRL", "P4"),
+    shape_pdx = shape_pdx,
     USE.NAMES = TRUE, 
     simplify = FALSE
 )
@@ -1428,7 +1457,11 @@ plots_pathways <- mapply(
                 alpha = 0.9, 
                 mapping = aes(color = treatment)
             ) + 
-            ggplot2::scale_color_viridis_d(option = "H") +
+            ggplot2::scale_color_manual(values = c(
+                "black",
+                "red",
+                "blue"
+            )) + 
             ggplot2::facet_wrap(
                 ~ pdx + pathway, 
                 scales = "fixed", 
@@ -1502,7 +1535,10 @@ plot_quantification(
         dplyr::filter(treatment %in% c("CTRL", "P4")),
     "PR",
     base_size = 18
-)
+) +
+    ggplot2::scale_color_manual(
+        values = c("black", "blue")
+    )
 ```
 
 We see that T111 has a big increase in absolute values. T113 as well
@@ -1528,6 +1564,7 @@ pdx_plots_embedding_e2 <- sapply(
     pdx_only_embedding,
     pdx_df_pca = pdx_df_pca,
     treatments_pdx = c("CTRL", "E2"),
+    shape_pdx = shape_pdx,
     USE.NAMES = TRUE, 
     simplify = FALSE
 )
@@ -1873,7 +1910,10 @@ normal_swiss_df_pca %>%
 #| fig-cap: Embedding of Normal Swiss cohort with the 
 #|     other cohorts colored by the PAM50. 
 
-p <- get_base_plot(df_pca_coordinates)
+p <- get_base_plot(
+    df_pca_coordinates %>%
+        dplyr::filter(pam50 != "claudin-low")
+)
 
 normal_df_pca_sub <- normal_swiss_df_pca %>%
     dplyr::filter(cohort == "normal_swiss") %>%
@@ -1887,10 +1927,11 @@ p +
     ) + 
     ggplot2::labs(
         title = paste0(
-            "Normal Swiss cohort embedding"
+            "Healthy Swiss Cohort"
         ),
         subtitle = "All samples from TCGA, SCANB and METABRIC are plotted",
-        caption = "Grey points correspond to the swiss cohort"
+        caption = "Grey points correspond to the Swiss cohort",
+        color = "Molecular subtype"
     ) +
     ggplot2::scale_color_manual(
         values = c(

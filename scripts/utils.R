@@ -979,7 +979,8 @@ plots_estimates <- function(
         ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
         tidybayes::stat_dotsinterval(
             quantiles = 100,
-            size = 10
+            size = 10, 
+            overlaps = "keep"
         ) + 
         ggplot2::facet_wrap(~pathway, ncol = 3) +
         ggplot2::labs(

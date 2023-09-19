@@ -82,7 +82,7 @@ source("load_rds_files.R")
 # this figure when rendering the html. What is nice about this is that it
 # inherits the properties from the chunk to save the figure, so no need
 # to use ggplot2::ggsave to save the plots. this also works 
-knitr::opts_chunk$set(dev = c('png', 'pdf', 'svg'))
+knitr::opts_chunk$set(dev = c('png', 'pdf'))
 options(bitmapType = 'cairo')
 ```
 
@@ -539,7 +539,12 @@ the PCA training.
 ```{r}
 merged_col_data %>% dplyr::filter(
     sample_name %in% samples_for_training
-) %>% janitor::tabyl(cohort, pam50) %>% 
+) %>% 
+    janitor::tabyl(cohort, pam50) %>% 
+    janitor::adorn_totals(c("row", "col")) %>%
+    janitor::adorn_percentages("all") %>%
+    janitor::adorn_pct_formatting(digits = 1) %>%
+    janitor::adorn_ns() %>%
     kableExtra::kbl() %>%
     kableExtra::kable_classic(full_width = FALSE)
 ```
@@ -1199,6 +1204,7 @@ to each other in one embedding would be far away from them in another embedding.
 Ten random sets of 1000 patients are sampled and the embedding is calculate. A
 total of 10 PCA embeddings are obtained.
 
+
 ```{r, warning = FALSE, eval = first_run}
 seeds <- seq(0, 499, by = 20)
 new_pcas <- lapply(
@@ -1347,15 +1353,17 @@ jaccard_indices <- sapply(
                 samples_neighborhood_new <- sapply(
                     names(new_pcas),
                     function(which_seed){
-                        components_sample <- new_pcas[[which_seed]]$test[[which_cohort]][
-                            sample_name, 
-                            c("PC3", "PC4")
-                        ] 
+                        components_sample <- 
+                            new_pcas[[which_seed]]$test[[which_cohort]][
+                                sample_name, 
+                                c("PC3", "PC4")
+                            ] 
                         samples_neighborhood_new <- get_samples_neighborhood(
                             components_sample,
                             sample_name,
                             radius = radius,
-                            df_pca = new_pcas[[which_seed]]$test[[which_cohort]] %>%
+                            df_pca = 
+                                new_pcas[[which_seed]]$test[[which_cohort]] %>%
                                 data.frame %>%
                                 tibble::rownames_to_column(var = "sample_name")
                         )
@@ -1389,7 +1397,7 @@ jaccard_indices <- sapply(
             radius = 1,
             which_seed = "0",
             which_cohort = which_cohort,
-            mc.cores = 10
+            mc.cores = 1
         ) %>%
             dplyr::bind_rows()
     }, 
@@ -1401,7 +1409,7 @@ jaccard_indices <- sapply(
 
 saveRDS(
     jaccard_indices,
-    "../results/rds_files/pca_merging/jaccard_indices.rds"
+    "../results/rds_files/pca_merging/jaccard_indices_125.rds"
 )
 ```
 
