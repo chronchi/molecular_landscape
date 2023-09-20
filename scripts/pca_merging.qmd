@@ -378,11 +378,11 @@ ggplot2::ggplot(
 ESR1 and TFF1 expressions are divided across ER status, as expected. The
 proliferation marker CCND1 is also highly expressed in all conditions.
 
-### Checking robustness with respect of number of houesekeeping genes available
+### Checking robustness with respect of number of stable genes available
 
-When calculating the normalized data, a total of 44 housekeeping genes were
+When calculating the normalized data, a total of 44 stable genes were
 used. Sometimes not all of these genes are available, therefore we will
-calculate the normalization using random subsets of 44 housekeeping genes with
+calculate the normalization using random subsets of 44 stable genes with
 different random sizes. The sets will have a minimum of 20 genes and maximum of
 44. The sampling of the set size is obtained by using a uniform distribution. We
 focus just on TCGA for simplicity. The correlation used in this case
@@ -1196,6 +1196,91 @@ p1
 In all cases the mixing is relatively good. For $SET_{ER/PR}$ you have a
 gradient going from the right to the left, showing again that
 patients on the far top right probably are those patients with better prognosis.
+
+And lastly we use the correlation plot available from PCAtools to check the
+PC correlation with all the clinical factors, we check the first 10 components
+as these are the ones with more variation.
+
+```{r, fig.width=12, fig.height=6}
+#| label: fig-correlation-clin-pcs
+#| fig-cap: Pearson r-squared between clinical factors and principal components.
+pca_fit$metadata$`Cohort` <- factor(
+    pca_fit$metadata$cohort, 
+    levels = c("tcga", "metabric")
+)
+
+pca_fit$metadata$`Inferred Menopausal State` <- factor(
+    pca_fit$metadata$INFERRED_MENOPAUSAL_STATE, 
+    levels = c("Pre", "Post")
+)
+
+pca_fit$metadata$`Node Stage` <- factor(
+    pca_fit$metadata$node_stage,
+    levels = c("N0", "N1", "N2", "N3", "NX")
+)
+
+pca_fit$metadata$`Tumor Purity` <- ifelse(
+    factor(
+        pca_fit$metadata$CELLULARITY,
+        levels = c("", "Low", "Moderate", "High")
+    ) == "High",
+    "High",
+    "Low"
+)
+
+pca_fit$metadata$`ER status` <- factor(
+    pca_fit$metadata$er_status,
+    levels = c("neg", "pos")
+)
+
+pca_fit$metadata$NPI <- pca_fit$metadata$npi
+pca_fit$metadata$Age <- pca_fit$metadata$age
+
+PCAtools::eigencorplot(
+    pca_fit,
+    components = getComponents(pca_fit, 1:10),
+    metavars = c(
+        "Cohort", "Node Stage", "NPI",
+        "Inferred Menopausal State", "Tumor Purity", 
+        "ER status", "Age"
+    ),
+    col = c('white', 'cornsilk1', 'gold', 'forestgreen', 'darkgreen'),
+    cexCorval = 1.2,
+    fontCorval = 2,
+    rotLabX = 45,
+    scale = TRUE,
+    main = bquote(Principal ~ component ~ Pearson ~ r^2),
+    plotRsquared = TRUE,
+    corFUN = 'pearson',
+    corMultipleTestCorrection = 'BH'
+)
+```
+
+We see that the two biggest correlations is with cohort and PC1/PC2 as 
+expected. There is a bit of correlation of NPI and PC3, since basal-like
+tumors have usually higher NPI scores, they are more aggressive. Also,
+as expected ER status has a pretty high correlation with PC3 since
+the basal like are on the left of the principal component and the luminal A/B
+are on the right region.
+
+Moreover, basal-like tumors are more pure compared to the luminal A.
+For the luminal A subtype the amount of tumors that are high or moderate
+in terms of purity are balanced (around 45%). In all subtypes, the amount of
+samples with low tumor purity are overall low, excluding the normal-like and
+claudin-low.
+
+```{r}
+df_pca_coordinates %>%
+    dplyr::filter(!is.na(CELLULARITY) & CELLULARITY != "") %>%
+    janitor::tabyl(CELLULARITY, pam50) %>%
+    janitor::adorn_totals("row") %>%
+    janitor::adorn_percentages("col") %>%
+    janitor::adorn_pct_formatting(digits = 1) %>%
+    janitor::adorn_ns() %>%
+    kableExtra::kbl() %>%
+    kableExtra::kable_classic()
+```
+
 
 ## The integration is robust with respect of selection of samples
 

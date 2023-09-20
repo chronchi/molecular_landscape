@@ -381,10 +381,10 @@ endo_only_scanb %>%
     ggplot2::labs(
         x = "ROR binary risk category (SSP)",
         title = paste0(
-            "Risk score stratified by the risk category.\n",
-            "ER+ BC patients from SCANB treated only with ET"
+            "ER+ BC patients from SCANB treated with ET only"
         ),
-        y = "Risk score"
+        y = "Risk score",
+        color = "Molecular\nsubtype"
     ) + 
     ggplot2::scale_color_manual(
        values = get_colors_pam50(endo_only_scanb)
@@ -456,9 +456,10 @@ endo_only_scanb %>%
         x = "Risk score",
         y = "ROR (by NC)",
         title = paste0(
-            "Clinical risk score vs ROR for SCANB\n",
-            "patients treated with ET only"
-        )
+            "Clinical risk score vs ROR for SCANB"
+        ),
+        subtitle = "Patients treated with ET only",
+        color = "Molecular\nsubtype"
     ) +
     ggplot2::scale_color_manual(
         values = get_colors_pam50(endo_only_scanb)
@@ -581,47 +582,107 @@ We use the "hazard" scale to define the proportional hazards model. The
 estimate is above 0 (1.8), meaning that the higher the risk score the
 worse it is. Moreover, the p-value is 1.1e-14. 
 
-We now proceed with the categorized data for visualization purposes. We
-also use the survival scale to talk about the probability of having the 
-recurrence event.
+Before moving on we just compare the risk score distributions between METABRIC
+and SCANB.
 
 ```{r}
-quartiles_risk_score <- quantile(
+quartiles_risk_score_metabric <- quantile(
+    endo_only_metabric$risk_score, 
+    probs = c(0, .25, .5, .75, 1)
+)
+
+quartiles_risk_score_scanb <- quantile(
     endo_only_scanb$risk_score, 
     probs = c(0, .25, .5, .75, 1)
 )
+
+quartiles_risk_score_all <- data.frame(
+    metabric = quartiles_risk_score_metabric,
+    scanb = quartiles_risk_score_scanb
+)
+
+col_to_select <- c("sample_name", "risk_score", "cohort", "pam50")
+risk_score_all <- dplyr::bind_rows(
+    endo_only_metabric[, col_to_select],
+    endo_only_scanb[, col_to_select]
+) 
+
+risk_score_all %>%
+    ggplot2::ggplot(aes(x = risk_score, fill = cohort)) +
+    ggplot2::geom_density(alpha = 0.5) +
+    ggplot2::theme_bw(base_size = 20)
+```
+
+The distribution shift makes sense as the majority of patients in SCANB have
+lower tumor stage. Let us compare by molecular subtype.
+
+```{r, fig.width=16, fig.height=4}
+risk_score_all %>% 
+    dplyr::filter(pam50 != "claudin-low") %>%
+    ggplot2::ggplot(aes(x = risk_score, fill = cohort)) +
+    ggplot2::geom_density(alpha = 0.5) +
+    ggplot2::facet_wrap(~pam50, nrow = 1, scales = "free_y") + 
+    ggplot2::theme_bw(base_size = 20)
+```
+
+In general they agree a bit more when looking by subtype. 
+
+We now proceed with the categorized data for visualization purposes. We
+also use the survival scale for the interpretation. For the categories we
+use METABRIC's quantiles instead of SCANB. This way we used the training 
+dataset for defining the risk scores and then we use SCAN-B to further
+validate the differences.
+
+```{r}
+which_cohort_risk_strat <- "metabric"
+quartiles_risk_score <- quartiles_risk_score_all[, which_cohort_risk_strat]
+```
+
+The quartiles are (0, 0.25, 0.5, 0.75 and 1):
+
+```{r}
+quartiles_risk_score
+```
+
+The patients are stratified in the categories low, intermediate,
+high and ultra-high. For the analysis the low category is set as the
+baseline.
+
+```{r}
+endo_only_scanb <- endo_only_scanb %>%
+    dplyr::mutate(risk_score_category = dplyr::case_when(
+        dplyr::between(
+            risk_score, 
+            quartiles_risk_score[1], 
+            quartiles_risk_score[2]
+        ) ~ "low",
+        dplyr::between(
+            risk_score, 
+            quartiles_risk_score[2], 
+            quartiles_risk_score[3]
+        ) ~ "intermediate",
+        dplyr::between(
+            risk_score, 
+            quartiles_risk_score[3], 
+            quartiles_risk_score[4]
+        ) ~ "high",
+        dplyr::between(
+            risk_score, 
+            quartiles_risk_score[4], 
+            quartiles_risk_score[5]
+        ) ~ "ultra-high"
+    )) %>%
+    dplyr::mutate(
+        risk_score_category = factor(
+            risk_score_category, 
+            levels = c("low", "intermediate", "high", "ultra-high")
+        )
+    )
+
 fit_scanb_splines_category <- flexsurv::flexsurvspline(
     formula = Surv(rfs_months, rfs_status) ~ 
         risk_score_category + tumor_size + node_status,
-    data = endo_only_scanb %>%
-        dplyr::mutate(risk_score_category = dplyr::case_when(
-            dplyr::between(
-                risk_score, 
-                quartiles_risk_score[1], 
-                quartiles_risk_score[2]
-            ) ~ "low",
-            dplyr::between(
-                risk_score, 
-                quartiles_risk_score[2], 
-                quartiles_risk_score[3]
-            ) ~ "intermediate",
-            dplyr::between(
-                risk_score, 
-                quartiles_risk_score[3], 
-                quartiles_risk_score[4]
-            ) ~ "high",
-            dplyr::between(
-                risk_score, 
-                quartiles_risk_score[4], 
-                quartiles_risk_score[5]
-            ) ~ "ultra-high"
-        )) %>%
-        dplyr::mutate(
-            risk_score_category = factor(
-                risk_score_category, 
-                levels = c("low", "intermediate", "high", "ultra-high")
-            )
-        ),
+    data = endo_only_scanb,
     k = 3
 )
 
@@ -663,7 +724,7 @@ standardized_survival_curves_contrast <- flexsurv::standsurv(
 )
 ```
 
-First we show the marginal RFS curves.
+First we show the marginal survival curves.
 
 ```{r}
 #| label: fig-rfs-marginal-curve
@@ -686,12 +747,12 @@ plot(standardized_survival_curves, ci = TRUE) +
         breaks = labels_risk_score_breaks
     ) + 
     ggplot2::scale_x_continuous(
-        labels = function(x) x/20,
+        labels = function(x) x/12,
         breaks = seq(0, 200, by = 18)
     ) + 
     ggplot2::labs(
         x = "Time since diagnosis (years)",
-        y = "RFS probability",
+        y = "Survival probability",
         color = "Risk score\ncategory",
         fill = "Risk score\ncategory"
     ) + 
@@ -727,13 +788,12 @@ plot(standardized_survival_curves_contrast, ci = TRUE, contrast = TRUE) +
         breaks = labels_risk_score_breaks
     ) + 
     ggplot2::scale_x_continuous(
-        labels = function(x) x/20,
+        labels = function(x) x/12,
         breaks = seq(0, 200, by = 18)
     ) + 
-    ggplot2::scale_y_continuous(breaks = seq(0, -0.3, by = -0.05)) + 
     ggplot2::labs(
         x = "Time since diagnosis (years)",
-        y = "Difference in RFS probability",
+        y = "Difference in survival probabilities",
         color = "Difference of\nrisk category",
         fill = "Difference of\nrisk category"
     ) + 
@@ -742,8 +802,26 @@ plot(standardized_survival_curves_contrast, ci = TRUE, contrast = TRUE) +
 ```
 
 Here we see that the difference between low and ultra-high can be
-as high as 20%, a significant increase. On the other hand the differences
-between intermediate and low stay around 3 to 4% after 5 years.
+as high as 40%. On the other hand the differences
+between intermediate and low stay around 3 to 10% after 5 years.
+
+The confidence intervals are larger as you increase the risk groups
+due to the number of patients available in each category.
+
+```{r}
+endo_only_scanb %>%
+    dplyr::filter(!is.na(risk_score_category)) %>%
+    janitor::tabyl(risk_score_category, rfs_status) %>%
+    janitor::adorn_totals(c("row")) %>%
+    janitor::adorn_percentages("row") %>% 
+    janitor::adorn_pct_formatting(rounding = "half up", digits = 0) %>%
+    janitor::adorn_ns() %>%
+    kableExtra::kbl() %>%
+    kableExtra::kable_classic(full_width = FALSE)
+```
+
+Still the number of events in percentage goes up as one goes up in the
+risk category, as expected.
 
 ## Risk score and POETIC trial
 

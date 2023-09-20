@@ -2204,6 +2204,7 @@ SET ER/PR dichotomization procedure.
 
 ```{r}
 results_surv_dich_er_sig$SET_ERPR$df %>%
+    dplyr::filter(!is.na(rfs_status) & !is.na(sig_dich)) %>%
     janitor::tabyl(sig_dich, rfs_status) %>%
     janitor::adorn_totals(where = "col")  %>%
     janitor::adorn_percentages("row") %>%
@@ -2404,10 +2405,10 @@ First we show the marginal RFS curves.
 ```{r, fig.width=8, fig.height=8}
 #| label: fig-rfs-marginal-curve-higher-ihc
 labels_risk_score <- c(
-    "High ER IHC, Low ER sig",
-    "High ER IHC, High ER sig", 
-    "Low ER IHC, High ER sig", 
-    "Low ER IHC, Low ER sig"
+    "High ER IHC, Low ER sig", 
+    "High ER IHC, High ER sig",
+    "Low ER IHC, Low ER sig",
+    "Low ER IHC, High ER sig" 
 )
 labels_risk_score_breaks <- paste0(
     "sig_dich=",
@@ -2427,12 +2428,12 @@ plot(standardized_survival_curves, ci = TRUE) +
         breaks = labels_risk_score_breaks
     ) + 
     ggplot2::scale_x_continuous(
-        labels = function(x) x/20,
+        labels = function(x) x/12,
         breaks = seq(0, 200, by = 18)
     ) + 
     ggplot2::labs(
         x = "Time since diagnosis (years)",
-        y = "RFS probability",
+        y = "Survival probability",
         color = "Strata",
         fill = "Strata",
         title = "Estrogen early\nER+ BC, Endo only" 
@@ -2449,12 +2450,13 @@ labels_risk_score <- paste0(
     c(
         "High ER IHC, High ER sig", 
         "Low ER IHC, High ER sig ", 
-        "Low ER IHC, Low ER sig  "),
+        "Low ER IHC, Low ER sig  "
+    ),
     " vs High ER IHC, Low ER sig"
 )
 labels_risk_score_breaks <- paste0(
     "sig_dich=",
-    levels_sig_dich[2:4],
+    c(levels_sig_dich[2], levels_sig_dich[4], levels_sig_dich[3]),
     " vs sig_dich=", levels_sig_dich[1]
 )
 
@@ -2471,12 +2473,12 @@ plot(standardized_survival_curves_contrast, ci = TRUE, contrast = TRUE) +
         breaks = labels_risk_score_breaks
     ) + 
     ggplot2::scale_x_continuous(
-        labels = function(x) x/20,
+        labels = function(x) x/12,
         breaks = seq(0, 200, by = 18)
     ) + 
     ggplot2::labs(
         x = "Time since diagnosis (years)",
-        y = "Difference in RFS probability",
+        y = "Difference in survival probabilities",
         color = "Difference",
         fill = "Difference",
         title = "Estrogen early\nER+ BC, Endo only"
