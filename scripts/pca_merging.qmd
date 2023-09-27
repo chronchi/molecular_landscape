@@ -1505,6 +1505,105 @@ df_pca_coordinates %>%
     kableExtra::kable_classic()
 ```
 
+Next we just show the $r^2$ pearson residuals for the SCAN-B, an external
+cohort.
+
+```{r, fig.width=8, fig.height=4}
+#| label: fig-molsub-scanb-pearson-pcs
+molecular_subtypes <- levels(pca_fit$metadata$pam50) %>%
+    .[. != "claudin-low"]
+pca_fit_cor_plot <- pca_fit
+which_cohorts <- c("scanb")
+pca_fit_cor_plot$rotated <- df_pca_coordinates %>%
+    dplyr::filter(cohort %in% which_cohorts) %>%
+    dplyr::select(dplyr::all_of(paste0("PC", 1:15)))
+
+rownames(pca_fit_cor_plot$rotated) <- df_pca_coordinates %>%
+    dplyr::filter(cohort %in% which_cohorts) %>%
+    dplyr::pull(sample_name)
+
+pca_fit_cor_plot$metadata <- df_pca_coordinates %>%
+    dplyr::filter(cohort %in% which_cohorts)
+
+pca_fit_cor_plot$metadata <- pca_fit_cor_plot$metadata %>%
+    dplyr::mutate(value = 1) %>%
+    tidyr::pivot_wider(
+        id_cols = dplyr::all_of(setdiff(colnames(.), c("pam50"))),
+        names_from = "pam50",
+        values_from = "pam50",
+        values_fn = \(x) as.double(length(x)),
+        values_fill = -1.
+    )
+
+eigencorplot(
+    pca_fit_cor_plot,
+    components = getComponents(pca_fit_cor_plot, 1:10),
+    metavars = molecular_subtypes,
+    col = c('white', 'cornsilk1', 'gold', 'forestgreen', 'darkgreen'),
+    cexCorval = 1.2,
+    fontCorval = 2,
+    rotLabX = 45,
+    scale = TRUE,
+    main = bquote(Principal ~ component ~ Pearson ~ r^2),
+    plotRsquared = TRUE,
+    corFUN = 'pearson',
+    corMultipleTestCorrection = 'BH'
+)
+```
+
+We see that the majority of the residuals are explained in PC3 and PC4, as
+expected. The HER2 seems to have a similar correlation in PC3 and PC7.
+Below we plot only basal-like, luminal B and HER2 enriched 
+tumor samples to compare.
+
+```{r}
+df <- df_pca_coordinates %>% 
+    dplyr::filter(sample_name %in% rownames(pca_fit_cor_plot$rotated)) %>%
+    dplyr::slice(sample(1:n())) %>%
+    dplyr::filter(pam50 %in% c("her2", "basal", "lumb"))
+
+plot_pca_coordinates(
+    df,
+    color = "pam50",
+    x = "PC3",
+    y = "PC7",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from SCAN-B"
+    )
+) +
+    ggplot2::geom_point(size = 1, alpha = 0.5) + 
+    ggplot2::labs(color = "Molecular\nsubtype") + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+In fact the difference is mainly on PC3 and not so much on PC7. It is only
+a subset of those samples that have lower PC7. And when
+we compare PC3 vs PC4.
+
+```{r}
+plot_pca_coordinates(
+    df,
+    color = "pam50",
+    x = "PC3",
+    y = "PC4",
+    size = 1,
+    base_size = 10,
+    title = paste0(
+        "Embedding of all samples from SCAN-B"
+    )
+) +
+    ggplot2::geom_point(size = 2) + 
+    ggplot2::labs(color = "Molecular\nsubtype") + 
+    ggplot2::theme_bw(base_size = 15) +
+    change_plot_aes_point() +
+    change_guides_point()
+```
+
+PC7 is not adding much in general to the separation.
 
 ## The integration is robust with respect of selection of samples
 
