@@ -376,20 +376,20 @@ Score (logrank) test = 29.78  on 1 df,   p=5e-08</code></pre>
 survival::coxph(formula = as.formula(paste0("Surv(time = rfs_months, event = rfs_status) ~ ", 
     paste(c("risk_score"), collapse = "+"))), data = endo_only_scanb)
 
-  n= 2829, number of events= 212 
+  n= 2442, number of events= 175 
 
              coef exp(coef) se(coef)     z Pr(&gt;|z|)    
-risk_score 1.0568    2.8772   0.1001 10.56   &lt;2e-16 ***
+risk_score 1.1248    3.0795   0.1138 9.885   &lt;2e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
            exp(coef) exp(-coef) lower .95 upper .95
-risk_score     2.877     0.3476     2.365     3.501
+risk_score     3.079     0.3247     2.464     3.849
 
-Concordance= 0.699  (se = 0.02 )
-Likelihood ratio test= 87.08  on 1 df,   p=&lt;2e-16
-Wald test            = 111.4  on 1 df,   p=&lt;2e-16
-Score (logrank) test = 108.8  on 1 df,   p=&lt;2e-16</code></pre>
+Concordance= 0.696  (se = 0.022 )
+Likelihood ratio test= 78.2  on 1 df,   p=&lt;2e-16
+Wald test            = 97.71  on 1 df,   p=&lt;2e-16
+Score (logrank) test = 96.79  on 1 df,   p=&lt;2e-16</code></pre>
 </div>
 </div>
 <p>Again the risk score is prognostic with a high coefficient, meaning that the higher the score the worse it is for the patient.</p>
@@ -412,20 +412,20 @@ survival::coxph(formula = as.formula(paste0("Surv(time = rfs_months, event = rfs
     paste(c("risk_score"), collapse = "+"))), data = endo_only_scanb %&gt;% 
     dplyr::filter(ER.pct &gt;= 90 &amp; risk_score &lt; 2))
 
-  n= 2109, number of events= 153 
+  n= 1832, number of events= 126 
 
              coef exp(coef) se(coef)     z Pr(&gt;|z|)    
-risk_score 1.1937    3.2994   0.1498 7.967 1.63e-15 ***
+risk_score 1.1989    3.3165   0.1652 7.257 3.96e-13 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
            exp(coef) exp(-coef) lower .95 upper .95
-risk_score     3.299     0.3031      2.46     4.426
+risk_score     3.317     0.3015     2.399     4.585
 
-Concordance= 0.695  (se = 0.023 )
-Likelihood ratio test= 58.92  on 1 df,   p=2e-14
-Wald test            = 63.47  on 1 df,   p=2e-15
-Score (logrank) test = 66.98  on 1 df,   p=3e-16</code></pre>
+Concordance= 0.685  (se = 0.026 )
+Likelihood ratio test= 48.9  on 1 df,   p=3e-12
+Wald test            = 52.66  on 1 df,   p=4e-13
+Score (logrank) test = 55.63  on 1 df,   p=9e-14</code></pre>
 </div>
 </div>
 <p>We see that the score is still prognostic, meaning that even patients that have high ER IHC percentage, there are those with higher risk. Note though that the analysis still is a bit limited due to the followup time that in median is 5.3 years.</p>
@@ -448,8 +448,8 @@ Score (logrank) test = 66.98  on 1 df,   p=3e-16</code></pre>
  Model 1: ~ tumor_size + node_status + age + SSP.ROR.binary.risk.cat
  Model 2: ~ risk_score + SSP.ROR.binary.risk.cat + tumor_size + node_status + age
    loglik  Chisq Df Pr(&gt;|Chi|)  
-1 -1520.9                       
-2 -1518.4 5.0919  1    0.02404 *
+1 -1229.7                       
+2 -1228.0 3.4646  1     0.0627 .
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 </div>
@@ -473,17 +473,17 @@ Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
     Spearman's rank correlation rho
 
 data:  endo_only_scanb$risk_score and endo_only_scanb$NCN.ROR.asT0
-S = 1867262222, p-value &lt; 2.2e-16
+S = 1233308206, p-value &lt; 2.2e-16
 alternative hypothesis: true rho is not equal to 0
 sample estimates:
      rho 
-0.505168 </code></pre>
+0.491857 </code></pre>
 </div>
 </div>
 <p>With a p-value of:</p>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 4.025172e-183</code></pre>
+<pre><code>[1] 5.832521e-149</code></pre>
 </div>
 </div>
 <p>We now evaluate the risk score only on luminal A patients that received just endocrine therapy.</p>
@@ -495,13 +495,13 @@ survival::coxph(formula = as.formula(paste0("Surv(time = rfs_months, event = rfs
     dplyr::filter(pam50 == "luma"))
 
                     coef exp(coef)  se(coef)      z      p
-risk_score      1.495647  4.462221  0.694673  2.153 0.0313
-tumor_size      0.003629  1.003635  0.015673  0.232 0.8169
-node_statuspos -0.806142  0.446578  0.464523 -1.735 0.0827
-age            -0.009598  0.990448  0.011369 -0.844 0.3985
+risk_score      1.548555  4.704666  0.730935  2.119 0.0341
+tumor_size      0.003568  1.003574  0.016252  0.220 0.8262
+node_statuspos -0.673885  0.509724  0.486784 -1.384 0.1662
+age            -0.014232  0.985869  0.012078 -1.178 0.2386
 
-Likelihood ratio test=27.19  on 4 df, p=1.822e-05
-n= 1716, number of events= 79 </code></pre>
+Likelihood ratio test=29.45  on 4 df, p=6.331e-06
+n= 1502, number of events= 71 </code></pre>
 </div>
 </div>
 <p>Even among these patients the score is prognostic, despite the number of events, the hazard ratio is relatively high here. If we do the survival analysis by using overall survival as endpoint the results are shown below.</p>
@@ -512,14 +512,14 @@ survival::coxph(formula = as.formula(paste0("Surv(time = os_months, event = os_s
     paste(c("risk_score", clin_vars), collapse = "+"))), data = endo_only_scanb %&gt;% 
     dplyr::filter(pam50 == "luma"))
 
-                    coef exp(coef)  se(coef)      z      p
-risk_score      0.752669  2.122657  0.403178  1.867 0.0619
-tumor_size     -0.006863  0.993160  0.010586 -0.648 0.5167
-node_statuspos -0.459426  0.631646  0.258150 -1.780 0.0751
-age             0.092662  1.097091  0.007406 12.512 &lt;2e-16
+                     coef  exp(coef)   se(coef)      z      p
+risk_score      5.046e-01  1.656e+00  4.293e-01  1.175  0.240
+tumor_size     -4.809e-05  1.000e+00  1.103e-02 -0.004  0.997
+node_statuspos -2.390e-01  7.874e-01  2.738e-01 -0.873  0.383
+age             9.506e-02  1.100e+00  7.974e-03 11.921 &lt;2e-16
 
-Likelihood ratio test=255.1  on 4 df, p=&lt; 2.2e-16
-n= 1716, number of events= 256 </code></pre>
+Likelihood ratio test=234.5  on 4 df, p=&lt; 2.2e-16
+n= 1502, number of events= 227 </code></pre>
 </div>
 </div>
 <p>Risk score still an estimated hazard ratio higher than 1, with more variability though, still in the expected direction. So we see that this signature provides aditional information to the PAM50 ROR signature.</p>
@@ -530,15 +530,15 @@ survival::coxph(formula = as.formula(paste0("Surv(time = rfs_months, event = rfs
     paste(c("risk_score", "NCN.ROR.asT0", clin_vars), collapse = "+"))), 
     data = endo_only_scanb %&gt;% dplyr::filter(pam50 == "luma"))
 
-                    coef exp(coef)  se(coef)      z     p
-risk_score      0.618442  1.856035  0.954777  0.648 0.517
-NCN.ROR.asT0    0.014975  1.015087  0.010782  1.389 0.165
-tumor_size      0.023170  1.023441  0.021313  1.087 0.277
-node_statuspos -0.287526  0.750117  0.604939 -0.475 0.635
-age            -0.006913  0.993111  0.011490 -0.602 0.547
+                   coef exp(coef) se(coef)      z     p
+risk_score      0.94883   2.58268  0.98705  0.961 0.336
+NCN.ROR.asT0    0.01038   1.01043  0.01120  0.927 0.354
+tumor_size      0.01689   1.01704  0.02187  0.772 0.440
+node_statuspos -0.31774   0.72779  0.62635 -0.507 0.612
+age            -0.01230   0.98778  0.01221 -1.007 0.314
 
-Likelihood ratio test=29.11  on 5 df, p=2.207e-05
-n= 1716, number of events= 79 </code></pre>
+Likelihood ratio test=30.31  on 5 df, p=1.283e-05
+n= 1502, number of events= 71 </code></pre>
 </div>
 </div>
 </section>
@@ -551,14 +551,14 @@ n= 1716, number of events= 79 </code></pre>
 <pre><code># A tibble: 8 × 5
   term           estimate std.error statistic   p.value
   &lt;chr&gt;             &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;
-1 gamma0          -7.91     0.641       NA    NA       
-2 gamma1           1.05     0.304       NA    NA       
-3 gamma2           0.0893   0.283       NA    NA       
-4 gamma3          -0.489    0.846       NA    NA       
-5 gamma4           0.536    0.777       NA    NA       
-6 risk_score       1.82     0.238        7.64  1.11e-14
-7 tumor_size      -0.0136   0.00667     -2.05  2.04e- 2
-8 node_statuspos  -1.03     0.208       -4.96  3.57e- 7</code></pre>
+1 gamma0         -7.84      0.643       NA    NA       
+2 gamma1          0.971     0.299       NA    NA       
+3 gamma2          0.0661    0.290       NA    NA       
+4 gamma3         -0.384     0.901       NA    NA       
+5 gamma4          0.405     0.840       NA    NA       
+6 risk_score      1.66      0.263        6.32  1.30e-10
+7 tumor_size     -0.00950   0.00735     -1.29  9.80e- 2
+8 node_statuspos -0.718     0.224       -3.20  6.80e- 4</code></pre>
 </div>
 </div>
 <p>We use the “hazard” scale to define the proportional hazards model. The estimate is above 0 (1.8), meaning that the higher the risk score the worse it is. Moreover, the p-value is 1.1e-14.</p>
@@ -620,28 +620,28 @@ n= 1716, number of events= 79 </code></pre>
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">low</td>
-<td style="text-align: left;">95% (1,758)</td>
-<td style="text-align: left;">5% (96)</td>
+<td style="text-align: left;">95% (1,539)</td>
+<td style="text-align: left;">5% (79)</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">intermediate</td>
-<td style="text-align: left;">91% (443)</td>
-<td style="text-align: left;">9% (45)</td>
+<td style="text-align: left;">91% (375)</td>
+<td style="text-align: left;">9% (39)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">high</td>
-<td style="text-align: left;">88% (222)</td>
-<td style="text-align: left;">12% (30)</td>
+<td style="text-align: left;">89% (198)</td>
+<td style="text-align: left;">11% (24)</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">ultra-high</td>
-<td style="text-align: left;">77% (131)</td>
-<td style="text-align: left;">23% (39)</td>
+<td style="text-align: left;">77% (105)</td>
+<td style="text-align: left;">23% (31)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Total</td>
-<td style="text-align: left;">92% (2,554)</td>
-<td style="text-align: left;">8% (210)</td>
+<td style="text-align: left;">93% (2,217)</td>
+<td style="text-align: left;">7% (173)</td>
 </tr>
 </tbody>
 </table>
@@ -2079,7 +2079,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb17-1053"><a href="#cb17-1053" aria-hidden="true" tabindex="-1"></a>    <span class="fu">c</span>(<span class="st">"risk_score"</span>, <span class="st">"risk_score_pcs"</span>, <span class="fu">names</span>(pathways_of_interest))</span>
 <span id="cb17-1054"><a href="#cb17-1054" aria-hidden="true" tabindex="-1"></a>], <span class="at">method =</span> <span class="st">"spearman"</span>) </span>
 <span id="cb17-1055"><a href="#cb17-1055" aria-hidden="true" tabindex="-1"></a>names_corr <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
-<span id="cb17-1056"><a href="#cb17-1056" aria-hidden="true" tabindex="-1"></a>    <span class="st">"RS"</span>, <span class="st">"RS_PC"</span>, </span>
+<span id="cb17-1056"><a href="#cb17-1056" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Risk Score"</span>, <span class="st">"Risk Score (PCs only)"</span>, </span>
 <span id="cb17-1057"><a href="#cb17-1057" aria-hidden="true" tabindex="-1"></a>    pathways_of_interest[<span class="fu">rownames</span>(corr_values)[<span class="dv">3</span><span class="sc">:</span><span class="fu">nrow</span>(corr_values)]]</span>
 <span id="cb17-1058"><a href="#cb17-1058" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb17-1059"><a href="#cb17-1059" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(corr_values) <span class="ot">&lt;-</span> names_corr</span>
@@ -2093,7 +2093,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb17-1067"><a href="#cb17-1067" aria-hidden="true" tabindex="-1"></a><span class="co">#|     clinical factors.</span></span>
 <span id="cb17-1068"><a href="#cb17-1068" aria-hidden="true" tabindex="-1"></a>ggcorrplot<span class="sc">::</span><span class="fu">ggcorrplot</span>(</span>
 <span id="cb17-1069"><a href="#cb17-1069" aria-hidden="true" tabindex="-1"></a>    corr_values,</span>
-<span id="cb17-1070"><a href="#cb17-1070" aria-hidden="true" tabindex="-1"></a>    <span class="at">hc.order =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb17-1070"><a href="#cb17-1070" aria-hidden="true" tabindex="-1"></a>    <span class="co">#hc.order = TRUE, </span></span>
 <span id="cb17-1071"><a href="#cb17-1071" aria-hidden="true" tabindex="-1"></a>    <span class="at">type =</span> <span class="st">"lower"</span>,</span>
 <span id="cb17-1072"><a href="#cb17-1072" aria-hidden="true" tabindex="-1"></a>    <span class="at">lab =</span> <span class="cn">TRUE</span>, </span>
 <span id="cb17-1073"><a href="#cb17-1073" aria-hidden="true" tabindex="-1"></a>    <span class="at">lab_size =</span> <span class="dv">6</span>, </span>
@@ -2123,7 +2123,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb17-1099"><a href="#cb17-1099" aria-hidden="true" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">"spearman"</span></span>
 <span id="cb17-1100"><a href="#cb17-1100" aria-hidden="true" tabindex="-1"></a>) </span>
 <span id="cb17-1101"><a href="#cb17-1101" aria-hidden="true" tabindex="-1"></a>names_corr <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
-<span id="cb17-1102"><a href="#cb17-1102" aria-hidden="true" tabindex="-1"></a>    <span class="st">"RS"</span>, <span class="st">"RS PC"</span>, <span class="st">"NCN ROR"</span>,</span>
+<span id="cb17-1102"><a href="#cb17-1102" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Risk Score"</span>, <span class="st">"Risk Score (PCs only)"</span>, <span class="st">"NCN ROR"</span>,</span>
 <span id="cb17-1103"><a href="#cb17-1103" aria-hidden="true" tabindex="-1"></a>    pathways_of_interest[<span class="fu">rownames</span>(corr_values)[<span class="dv">4</span><span class="sc">:</span><span class="fu">nrow</span>(corr_values)]]</span>
 <span id="cb17-1104"><a href="#cb17-1104" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb17-1105"><a href="#cb17-1105" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(corr_values) <span class="ot">&lt;-</span> names_corr</span>
@@ -2137,7 +2137,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb17-1113"><a href="#cb17-1113" aria-hidden="true" tabindex="-1"></a><span class="co">#|     clinical factors.</span></span>
 <span id="cb17-1114"><a href="#cb17-1114" aria-hidden="true" tabindex="-1"></a>ggcorrplot<span class="sc">::</span><span class="fu">ggcorrplot</span>(</span>
 <span id="cb17-1115"><a href="#cb17-1115" aria-hidden="true" tabindex="-1"></a>    corr_values,</span>
-<span id="cb17-1116"><a href="#cb17-1116" aria-hidden="true" tabindex="-1"></a>    <span class="at">hc.order =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb17-1116"><a href="#cb17-1116" aria-hidden="true" tabindex="-1"></a>    <span class="co">#hc.order = TRUE, </span></span>
 <span id="cb17-1117"><a href="#cb17-1117" aria-hidden="true" tabindex="-1"></a>    <span class="at">type =</span> <span class="st">"lower"</span>,</span>
 <span id="cb17-1118"><a href="#cb17-1118" aria-hidden="true" tabindex="-1"></a>    <span class="at">lab =</span> <span class="cn">TRUE</span>, </span>
 <span id="cb17-1119"><a href="#cb17-1119" aria-hidden="true" tabindex="-1"></a>    <span class="at">lab_size =</span> <span class="dv">6</span>, </span>

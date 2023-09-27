@@ -328,9 +328,13 @@ avg_rankings %>% ggplot2::ggplot(
     aes(x = avg_ranking, fill = cohort)
 ) + 
     ggplot2::geom_histogram(alpha = 0.9, bins = 30) +
-    ggplot2::labs(x = "Average ranking of housekeeping genes") + 
+    ggplot2::labs(
+        x = "Average ranking of 44 stable genes",
+        y = "Count",
+        color = "Cohort"
+    ) + 
     ggplot2::facet_wrap(~cohort, scales = "free_y") +
-    ggplot2::theme_bw()
+    ggplot2::theme_bw(base_size = 20)
 ```
 
 The average ranking are somewhat similar. For the two experiments where there
@@ -341,7 +345,7 @@ experiment, the distribution is shifted a bit below.
 important genes in
 breast cancer.
 
-```{r, fig.width = 20, fig.height=12}
+```{r, fig.width = 9, fig.height=6}
 #| label: fig-gene-bc-imp
 #| fig-cap: Distribution of the gene expression levels of ESR1 and TFF1
 #|     in each one of the cohorts
@@ -357,6 +361,20 @@ col_data_genes <- mapply(
 ) %>% 
     dplyr::bind_rows(.id = "cohort") %>%
     dplyr::mutate(cohort = toupper(cohort)) %>%
+    dplyr::mutate(cohort = ifelse(
+        cohort == "SCANB",
+        "SCAN-B",
+        cohort
+    )) %>%
+    dplyr::mutate(er_status = ifelse(
+        er_status == "pos",
+        "Positive",
+        ifelse(
+            er_status == "neg",
+            "Negative",
+            NA
+        )
+    )) %>%
     tidyr::pivot_longer(
         cols = all_of(genes),
         names_to = "gene",
@@ -368,15 +386,34 @@ ggplot2::ggplot(
     aes(x = avg_ranking_genes, fill = er_status)
 ) + 
     ggplot2::geom_histogram(bins = 30, alpha = 0.5, position = "identity") + 
-    ggplot2::facet_wrap(~cohort + gene, scales = "free_y") +
+    ggplot2::facet_grid(cohort~gene, scales = "free") +
     ggplot2::labs(
-        x = "Normalized average ranking by using housekeeping genes"
+        x = "Normalized expression levels",
+        y = "Count",
+        fill = "ER status"
     ) +
-    ggplot2::theme_bw(base_size = 30)
+    ggplot2::theme_bw(base_size = 20)
 ```
 
-ESR1 and TFF1 expressions are divided across ER status, as expected. The
-proliferation marker CCND1 is also highly expressed in all conditions.
+ESR1 and TFF1 expressions are divided across ER status, as expected.
+
+The numbers of samples available for each cohort are shown in the table
+below.
+
+```{r}
+col_data_genes %>%
+    tidyr::pivot_wider(
+        id_cols = c("sample_name", "cohort", "er_status"),
+        names_from = "gene",
+        values_from = "avg_ranking_genes"
+    ) %>%
+    janitor::tabyl(cohort, er_status) %>%
+    janitor::adorn_totals("col") %>%
+    janitor::adorn_percentages("all") %>%
+    janitor::adorn_pct_formatting(digits = 1) %>%
+    janitor::adorn_ns()
+```
+
 
 ### Checking robustness with respect of number of stable genes available
 
@@ -1406,7 +1443,7 @@ from either METABRIC or TCGA.
 
 ```{r, eval = first_run}
 jaccard_indices <- sapply(
-    c("metabric", "scanb", "tcga"), 
+    c("metabric", "tcga"), 
     function(which_cohort, nb_samples){
         
         # set the dataframe to be used
@@ -1482,7 +1519,7 @@ jaccard_indices <- sapply(
             radius = 1,
             which_seed = "0",
             which_cohort = which_cohort,
-            mc.cores = 1
+            mc.cores = 5
         ) %>%
             dplyr::bind_rows()
     }, 
@@ -1494,7 +1531,7 @@ jaccard_indices <- sapply(
 
 saveRDS(
     jaccard_indices,
-    "../results/rds_files/pca_merging/jaccard_indices_125.rds"
+    "../results/rds_files/pca_merging/jaccard_indices.rds"
 )
 ```
 
@@ -1511,7 +1548,7 @@ A thousand samples were randomly selected from each
 cohort individually and the jaccard index for each new embedding was 
 calculated.
 
-```{r, fig.width=5, fig.height=8}
+```{r, fig.width=5, fig.height=6}
 #| label: fig-jac-index
 #| fig-cap: Jaccard index distribution for 1000 samples in each cohort
 #|     individually. Each color corresponds to a different seed and 
@@ -1526,8 +1563,7 @@ jaccard_indices %>%
         ncol = 1,
         labeller = as_labeller(c(
             "tcga" = "TCGA",
-            "metabric" = "METABRIC",
-            "scanb" = "SCANB"
+            "metabric" = "METABRIC"
         ))
     ) +
     ggplot2::labs(
@@ -1785,18 +1821,19 @@ pathways with PC4.
 #| label: fig-pca-mol-land-pathways
 #| fig-cap: Hex biplots colored by different pathways. Each hex is colored
 #|     based on the average score in the hex.
+pathway_names <- c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early", 
+    "HALLMARK_G2M_CHECKPOINT" = "G2M",
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" = "EMT",
+    "SET_ERPR" = "SET ER/PR",
+    "HALLMARK_DNA_REPAIR" = "DNA Repair",
+    "HALLMARK_ANDROGEN_RESPONSE" = "Androgen Response",
+    "HALLMARK_PI3K_AKT_MTOR_SIGNALING" = "PI3K AKT MTOR Signaling",
+    "random_200" = "Random 200 genes"
+)
+
 plots_pathways <- sapply(
-    c(
-        "HALLMARK_ESTROGEN_RESPONSE_EARLY", 
-        "HALLMARK_G2M_CHECKPOINT",
-        "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION",
-        "SET_ERPR",
-        "HALLMARK_DNA_REPAIR",
-        "HALLMARK_ANDROGEN_RESPONSE",
-        "HALLMARK_PI3K_AKT_MTOR_SIGNALING",
-        "random_200",
-        "random_18"
-    ), 
+    names(pathway_names), 
     function(pathway, df_pca_coordinates){
         color <- pathway
         x <- "PC3"
@@ -1808,9 +1845,16 @@ plots_pathways <- sapply(
             ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
                 ggplot2::stat_summary_hex(bins = 35) +
                 ggplot2::scale_fill_viridis_c() +
-                ggplot2::facet_wrap(~cohort) + 
+                ggplot2::facet_wrap(
+                    ~cohort,
+                    labeller = as_labeller(c(
+                        "tcga" = "TCGA",
+                        "metabric" = "METABRIC",
+                        "scanb" = "SCAN-B"
+                    ))
+                ) + 
                 ggplot2::labs(
-                    title = color,
+                    title = pathway_names[color],
                     fill = "Score"
                 ) + 
                 ggplot2::theme_bw(base_size = base_size) + 
@@ -2033,7 +2077,8 @@ forest_plots <- mapply(
                 tidy_survival <- get_df_survival(
                     cohort_fits,
                     pathways_of_interest = names(names_signatures)
-                )
+                ) %>%
+                    dplyr::mutate(pathway = names_signatures[pathway])
                 
                 plot_combined_scores(tidy_survival, range_hr = 6) + 
                     ggplot2::labs(
@@ -2094,7 +2139,7 @@ write.csv(
 )
 ```
 
-```{r, fig.width = 6, fig.height=10}
+```{r, fig.width = 4, fig.height=10}
 #| label: fig-pca-mol-land-survival
 #| fig-cap: Overall survival analysis from all the three big cohorts and their
 #|     scores. The formulas used were the same as for the estrogen
@@ -2109,7 +2154,21 @@ cowplot::plot_grid(plotlist = c(
 
 We see that G2M checkpoint has hazard ratio higher than 1.
 The other scores are a bit more
-variable and can change the sign (type S error). Below is the
+variable and can change the sign (type S error). 
+
+```{r, fig.width=8, fig.height=4}
+#| label: fig-pca-mol-land-survival-scanb-metabric
+#| fig-cap: Overall survival analysis from all the three big cohorts and their
+#|     scores. The formulas used were the same as for the estrogen
+#|     signaling analysis.
+cowplot::plot_grid(plotlist = c(
+    forest_plots$os[c("scanb", "metabric")],
+    forest_plots$rfs[c("scanb", "metabric")]
+), ncol = 2)
+```
+
+
+Below is the
 table with the scores.
 
 ```{r}
@@ -2141,3 +2200,86 @@ survival_results_pc3_above %>%
     DT::formatSignif(columns = c("p.value"))
 ```
 
+## Tumor Purity
+
+One possible problem that might arise in the analysis is the tumor
+purity. We showed already the molecular embedder colored by tumor
+purity but here we look more carefully at the relationship between
+PC3 and PC4 with tumor purity as made available by METABRIC.
+
+We actually compare the PC3 and PC4 with tumor purity stratified by
+molecular subtype, as it is expected that the normal-like subtype
+is correlated with lower tumor purity.
+
+```{r, fig.width=14, fig.height=6}
+df_pca_coordinates %>%
+    dplyr::filter(
+        cohort == "metabric" &
+            CELLULARITY %in% c("Low", "Moderate", "High")
+    ) %>%
+    dplyr::mutate(
+        tumor_purity = factor(
+            CELLULARITY,
+            levels = c("Low", "Moderate", "High")
+        )
+    ) %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(c("PC3", "PC4")),
+        names_to = "PC",
+        values_to = "value"
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = tumor_purity, y = value, color = pam50
+    )) + 
+    ggplot2::geom_jitter(alpha = 0.5) + 
+    ggplot2::geom_violin(alpha = 0.5, color = "black") +
+    ggplot2::scale_x_discrete(guide = guide_axis(angle = 45)) + 
+    ggplot2::labs(
+        color = "Molecular\nsubtype",
+        y = "PC",
+        x = "Tumor purity"
+    ) + 
+    ggplot2::facet_grid(PC ~ pam50, scales = "free_y") +
+    ggplot2::theme_bw(base_size = 20) + 
+    change_guides_point() + 
+    change_plot_aes_point()
+```
+
+And when we look at all subtypes together.
+
+```{r, fig.width=10, fig.height=4}
+df_pca_coordinates %>%
+    dplyr::filter(
+        cohort == "metabric" &
+            CELLULARITY %in% c("Low", "Moderate", "High")
+    ) %>%
+    dplyr::mutate(
+        tumor_purity = factor(
+            CELLULARITY,
+            levels = c("Low", "Moderate", "High")
+        )
+    ) %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(c("PC3", "PC4")),
+        names_to = "PC",
+        values_to = "value"
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = tumor_purity, y = value, color = pam50
+    )) + 
+    ggplot2::geom_jitter(alpha = 0.5) + 
+    ggplot2::geom_violin(alpha = 0.5, color = "black") +
+    ggplot2::scale_x_discrete(guide = guide_axis(angle = 45)) + 
+    ggplot2::labs(
+        color = "Molecular\nsubtype",
+        y = "PC",
+        x = "Tumor purity"
+    ) + 
+    ggplot2::facet_wrap(~PC, scales = "free_y") +
+    ggplot2::theme_bw(base_size = 20) + 
+    change_guides_point() + 
+    change_plot_aes_point()
+```
+
+Overall there is an absence of evidence that tumor purity is affecting 
+PC3 and PC4 in a systematic way.

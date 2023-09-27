@@ -582,7 +582,7 @@ plots_with_scanb$pam50 <- plots_with_scanb$pam50 +
     ggplot2::scale_color_manual(
         values = get_colors_pam50(plots_with_scanb$pam50$data)
     ) +
-    ggplot2::labs(color = "PAM50") + 
+    ggplot2::labs(color = "Molecular\nsubtype") + 
     change_plot_aes_point() +
     change_guides_point()
 
@@ -2414,15 +2414,16 @@ it does not estimate the distribution of the gene expression levels before
 calculating the enrichment score.
 
 ```{r, eval = first_run}
+gene_sets_names <- setdiff(names(gene_sets_), p4_pathways$gs_name %>% unique)
 gene_sets_gsea <- mapply(
     function(gene_set, name_gs){
         GSEABase::GeneSet(
-            gene_set,
+            gene_set %>% unique,
             setName = name_gs
         )
     },
-    gene_set = gene_sets_,
-    name_gs = setdiff(names(gene_sets_), p4_pathways$gs_name %>% unique)
+    gene_set = gene_sets_[gene_sets_names],
+    name_gs = gene_sets_names
 )
         
 singscore_dfs <- mapply(
@@ -2451,6 +2452,7 @@ saveRDS(
 We start by comparing with the GSVA scores.
 
 ```{r, fig.width=20, fig.height=16, dev='png'}
+#| label: fig-all-pathways-gsva-singscores
 df_all_scores <- singscore_dfs %>% 
     t %>%
     data.frame %>%
@@ -2475,13 +2477,224 @@ df_all_scores %>%
     ggplot2::ggplot(aes(
         x = singscore, y = gsva, color = cohort
     )) +
-    ggplot2::geom_point() +
-    ggplot2::facet_wrap(~pathway, scales = "free")
+    ggplot2::geom_point(alpha = 0.3) +
+    ggplot2::facet_wrap(~pathway, scales = "free") +
+    ggplot2::theme_bw()
 ```
 
 We see that in all cases there is a correlation, but the interpretation
 changes. In some of the pathways there is difference in the singscores
 based on the cohort, this is not seen on GSVA. 
+
+```{r, fig.width=12, fig.height=5}
+#| label: fig-selected-pathways-gsva-singscores
+pathway_names <- c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen\nEarly", 
+    "HALLMARK_G2M_CHECKPOINT" = "G2M",
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" = "EMT",
+    #"SET_ERPR" = "SET ER/PR",
+    "HALLMARK_DNA_REPAIR" = "DNA Repair",
+    "HALLMARK_ANDROGEN_RESPONSE" = "Androgen\nResponse",
+    "HALLMARK_PI3K_AKT_MTOR_SIGNALING" = "PI3K AKT\nMTOR Signaling",
+    "HALLMARK_MYC_TARGETS_V1" = "MYC\ntargets V1",
+    "random_200" = "Random\n200 genes",
+    "scanb" = "SCAN-B",
+    "metabric" = "METABRIC",
+    "tcga" = "TCGA"
+)
+df_all_scores %>%
+    dplyr::filter(
+        pathway %in% names(pathway_names) & 
+            cohort %in% c("tcga", "metabric", "scanb")
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = singscore, y = gsva, color = cohort
+    )) +
+    ggplot2::geom_point(alpha = 0.3) +
+    ggplot2::facet_grid(
+        cohort~pathway, 
+        scales = "free",
+        labeller = as_labeller(pathway_names)
+    ) +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::theme(legend.position = "none")
+```
+
+The next figure shows the same comparison but instead of using 
+singscore, we used ssGSEA.
+
+```{r, eval = first_run}
+ssgsea_dfs <- mapply(
+    function(sum_exp, gene_sets, which_exp){
+        GSVA::gsva(
+            expr = assay(sum_exp,which_exp) %>% as.matrix, 
+            gset.idx.list = gene_sets, 
+            method = "ssgsea", 
+            ssgsea.norm = FALSE
+        )
+    },
+    sum_exp = datasets,
+    which_exp = c(which_exp, "poetic" = "normalized_intensity"),
+    MoreArgs = list(gene_sets = gene_sets_)
+)
+
+ssgsea_dfs <- lapply(ssgsea_dfs, t)
+ssgsea_dfs <- Reduce(rbind, x = ssgsea_dfs)
+
+saveRDS(
+    ssgsea_dfs,
+    "../results/rds_files/trying/ssgsea_dfs.rds"
+)
+```
+
+```{r, fig.width=12, fig.height=5}
+ssgsea_dfs_gsva <- ssgsea_dfs %>% 
+    data.frame %>%
+    tibble::rownames_to_column(var = "sample_name") %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(names(gene_sets_)),
+        names_to = "pathway",
+        values_to = "ssGSEA"
+    ) %>%
+    dplyr::inner_join(
+        merged_col_data %>%
+            tidyr::pivot_longer(
+                cols = dplyr::all_of(names(gene_sets_gsea)),
+                names_to = "pathway",
+                values_to = "gsva"
+            ),
+        .,
+        by = c("sample_name", "pathway")
+    ) 
+
+ssgsea_dfs_gsva %>%
+    dplyr::filter(
+        pathway %in% names(pathway_names) & 
+            cohort %in% c("tcga", "metabric", "scanb")
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = ssGSEA, y = gsva, color = cohort
+    )) +
+    ggplot2::geom_point(alpha = 0.3) +
+    ggplot2::facet_grid(
+        cohort~pathway, 
+        scales = "free_y",
+        labeller = as_labeller(pathway_names)
+    ) +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::theme(legend.position = "none")
+```
+
+The picture is similar as before, but now we actually look at the distributions
+across the 3 big cohorts. We used ssGSEA without the normalization, as that
+would be necessary in the case of an individual sample. 
+
+```{r, fig.width=10, fig.height=6}
+#| label: fig-ssgsea-dists
+unique_pathways <- intersect(names(pathway_names), unique(scores$pathway))
+ssgsea_dfs_gsva %>%
+    dplyr::filter(
+        pathway %in% unique_pathways & 
+            cohort %in% c("tcga", "metabric", "scanb")
+    ) %>%
+    dplyr::mutate(cohort = dplyr::case_when(
+        cohort == "tcga" ~ "TCGA",
+        cohort == "metabric" ~ "METABRIC",
+        cohort == "scanb" ~ "SCAN-B"
+    )) %>%
+    ggplot2::ggplot(aes(
+        x = ssGSEA, fill = cohort
+    )) +
+    ggplot2::geom_density(alpha = 0.3) +
+    ggplot2::facet_wrap(
+        ~pathway, 
+        scales = "free",
+        labeller = as_labeller(pathway_names)
+    ) + 
+    ggplot2::scale_y_continuous(labels = NULL, breaks = NULL) + 
+    ggplot2::scale_x_continuous(guide = guide_axis(angle = 45)) + 
+    ggplot2::labs(
+        x = "ssGSEA",
+        y = "Density",
+        fill = "Cohort"
+    ) +
+    ggplot2::theme_bw(base_size = 20) +
+    change_guides_point() +
+    change_plot_aes_point()
+```
+
+We see that overall there is a discrepancy, sometimes big,
+depending on the pathway, including the random genes
+pathway. Next we show the same distribution for 
+singscore. Similarly there is a big discrepancy in several cases. 
+
+```{r, fig.width=10, fig.height=6}
+#| label: fig-singscore-dists
+df_all_scores %>%
+    dplyr::filter(
+        pathway %in% unique_pathways & 
+            cohort %in% c("tcga", "metabric", "scanb")
+    ) %>%
+    dplyr::mutate(cohort = dplyr::case_when(
+        cohort == "tcga" ~ "TCGA",
+        cohort == "metabric" ~ "METABRIC",
+        cohort == "scanb" ~ "SCAN-B"
+    )) %>%
+    ggplot2::ggplot(aes(x = singscore, fill = cohort)) +
+    ggplot2::geom_density(alpha = 0.3) +
+    ggplot2::facet_wrap(
+        ~pathway, 
+        scales = "free",
+        labeller = as_labeller(pathway_names)
+    ) + 
+    ggplot2::scale_y_continuous(labels = NULL, breaks = NULL) + 
+    ggplot2::scale_x_continuous(guide = guide_axis(angle = 45)) + 
+    ggplot2::labs(
+        x = "singscore",
+        y = "Density",
+        fill = "Cohort"
+    ) +
+    ggplot2::theme_bw(base_size = 20) +
+    change_guides_point() +
+    change_plot_aes_point()
+```
+
+But now, @fig-regressed-scores-dists shows that when we calculate
+the scores with the regressed data using our methodology the distributions
+are matched and adjusted, with the expection of G2M, which seems to be 
+something more fundamental instead of batch effect. Note that 
+all the distributions are overlapping significantly.
+
+```{r, fig.width=10, fig.height=6}
+#| label: fig-regressed-scores-dists
+scores %>%
+    dplyr::filter(cohort %in% c("tcga", "scanb", "metabric")) %>%
+    dplyr::mutate(cohort = dplyr::case_when(
+        cohort == "tcga" ~ "TCGA",
+        cohort == "metabric" ~ "METABRIC",
+        cohort == "scanb" ~ "SCAN-B"
+    )) %>%
+    dplyr::filter(pathway %in% unique_pathways) %>%
+    ggplot2::ggplot(aes(
+        x = score_hkg, fill = cohort
+    )) +
+    ggplot2::geom_density(alpha = 0.3) +
+    ggplot2::facet_wrap(
+        ~pathway, 
+        scales = "free",
+        labeller = as_labeller(pathway_names)
+    ) + 
+    ggplot2::scale_y_continuous(labels = NULL, breaks = NULL) + 
+    ggplot2::scale_x_continuous(guide = guide_axis(angle = 45)) + 
+    ggplot2::labs(
+        x = "Regressed score",
+        y = "Density",
+        fill = "Cohort"
+    ) + 
+    ggplot2::theme_bw(base_size = 20) +
+    change_guides_point() +
+    change_plot_aes_point()
+```
 
 The next two figures are the distributions of the singscore and GSVA
 filled by cohort.
@@ -2553,7 +2766,8 @@ df_all_scores_regressed %>%
         x = singscore, y = gsva, color = cohort
     )) +
     ggplot2::geom_point() +
-    ggplot2::facet_wrap(~pathway, scales = "free")
+    ggplot2::facet_wrap(~pathway, scales = "free") +
+    ggplot2::theme_bw()
 ```
 
 We see that in all cases there is a correlation, but the interpretation
@@ -2627,7 +2841,10 @@ gsva_one_pathways <- Reduce(rbind, gsva_one_pathway) %>%
     dplyr::inner_join(
         merged_col_data %>%
             tidyr::pivot_longer(
-                cols = dplyr::all_of(names(gsva_one_pathway)),
+                cols = dplyr::all_of(intersect(
+                    names(gsva_one_pathway),
+                    colnames(merged_col_data)
+                )),
                 names_to = "pathway",
                 values_to = "gsva"
             ),
@@ -2636,7 +2853,7 @@ gsva_one_pathways <- Reduce(rbind, gsva_one_pathway) %>%
     ) 
 ```
 
-```{r, fig.width=20, fig.height=16}
+```{r, fig.width=20, fig.height=16, dev="png"}
 gsva_one_pathways %>%
     ggplot2::ggplot(aes(
         x = one_gsva, y = gsva, color = pam50
@@ -3937,7 +4154,7 @@ scores_nanostring <- sapply(
     tibble::rownames_to_column(var = "sample_name")
 
 scores_nanostring <- dplyr::inner_join(
-    scores,
+    scores_nanostring,
     df_pca,
     by = c("sample_name")
 )

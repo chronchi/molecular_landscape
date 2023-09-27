@@ -197,7 +197,7 @@ The higher this value
 the more it indicates the missing genes are important. We start by
 removing random genes from random samples of the SCANB cohort. Each sample
 will have a random number of genes removed from the set of 1044 genes. 
-Then two scores are calculated, one for PC2 and another for PC3. We also
+Then two scores are calculated, one for PC3 and another for PC4. We also
 calculate the fuzziness score for the top loading genes and the 
 low loadings genes, to compare these values.
 
@@ -597,6 +597,7 @@ pca_coords_random <- parallel::mclapply(
             sum_exp = sum_exp, 
             pca_fit = pca_fit, 
             assay_to_use = assay_to_use, 
+            stable_genes = stable_genes,
             most_variable_genes = most_variable_genes
         )
     },
@@ -834,6 +835,209 @@ embedding_video <- paste0(
 
 cat(embedding_video)
 ```
+
+### Systematic approach 
+
+We now use a more systematic approach to see the impact of the missing
+genes in the position in the embedding. The idea is that we extract
+some metrics from the TCGA samples as we increase the amount of the most
+important genes removed from the sample. What we simply do is 
+for each patient we calculate the distance of the new embedding to the
+original embedding. Since for each proportion we ran the analysis 10 times 
+we get 10 distances. We average over those. In the end we have 
+20 "distances" for each one of the 200 TCGA samples.
+
+```{r}
+distances_og_random <- sapply(
+    pca_random_genes_patients,
+    function(df){
+        og_position <- df %>%
+            dplyr::filter(embedding == "original")
+        
+        df <- df %>%
+            dplyr::filter(embedding != "original")
+        
+        df <- dplyr::bind_cols(
+            df,
+            data.frame(
+                PC3_og = og_position$PC3,
+                PC4_og = og_position$PC4
+            )
+        )
+        
+        df %>%
+            dplyr::mutate(
+                distance = sqrt(
+                    (PC3 - PC3_og)^2 + (PC4 - PC4_og)^2
+                )
+            ) %>%
+            dplyr::group_by(proportion) %>%
+            dplyr::summarise(
+                distance = mean(distance),
+                proportion = proportion[1]
+            ) %>%
+            dplyr::ungroup()
+    },
+    USE.NAMES = TRUE,
+    simplify = FALSE
+) %>%
+    dplyr::bind_rows(.id = "sample_name")
+```
+
+@fig-proportion-missing-genes-distance shows the relationship between
+the proportion of missing top loading genes among the 200 genes that
+were selected out and the average distance to the original embedding. Each
+dot corresponds to the a sample. In total there are 200 dots in each
+proportion.
+
+```{r, fig.width=10, fig.height=5}
+#| label: fig-proportion-missing-genes-distance
+#| fig-cap: Average distance to the original embedding 
+distances_og_random %>%
+    ggplot2::ggplot(
+        aes(
+            x = proportion, 
+            y = distance, 
+            color = proportion
+        )
+    ) + 
+    ggplot2::geom_boxplot(alpha = 0.4, color = "black", outlier.shape = NA) +
+    ggplot2::geom_jitter(size = 0.1) +
+    ggplot2::labs(
+        x = "Proportion of missing genes among the top 200 loadings",
+        y = "Average distance"
+    ) +
+    ggplot2::scale_x_discrete(guide = ggplot2::guide_axis(angle = 45)) +
+    ggplot2::theme_bw(base_size = 20) +
+    ggplot2::theme(legend.position = "none")
+```
+
+We see that the more top loading genes that are
+missing the worse the embedding gets. Still the average distance is 
+a bit difficult to interpret, so next we show the relationship between 
+the variance and the proportion of missing genes. 
+
+```{r}
+#| label: fig-var-proportion-missing-genes
+distances_og_random %>%
+    dplyr::group_by(proportion) %>%
+    dplyr::summarise(
+        mean = mean(distance),
+        var = var(distance)
+    ) %>%
+    dplyr::mutate(proportion = as.numeric(proportion)) %>%
+    ggplot2::ggplot(aes(x = proportion, y = var)) +
+    ggplot2::geom_point() + 
+    ggplot2::geom_smooth(method = "lm", formula = "y~x") +
+    ggplot2::labs(
+        x = "Proportion of top loading missing genes",
+        y = "Variance of the average distance"
+    ) + 
+    ggplot2::theme_bw(base_size = 18)
+```
+
+Indeed as the proportion of the most important genes goes missing, there is
+a higher variance in the average distance.
+
+```{r, eval = first_run}
+# number of samples in a neighborhood as the radius increases
+patients_tcga_distances_avg <- mapply(
+    function(df, sample_name, df_pca){
+        
+        radii <- seq(0.1, 5, by = 0.3)
+        
+        components_sample <- df %>%
+            dplyr::filter(embedding == "original") %>%
+            data.frame %>%
+            dplyr::select(PC3, PC4)
+        
+        components_sample <- components_sample %>% as.matrix
+        components_sample <- components_sample[1, ]
+        
+        sapply(
+            radii,
+            get_samples_neighborhood,
+            components_sample = components_sample,
+            df_pca = df_pca %>%
+                dplyr::filter(cohort %in% c("tcga", "metabric")),
+            sample_name = sample_name,
+            USE.NAMES = TRUE,
+            simplify = FALSE
+        ) %>%
+            `names<-`(radii)
+        
+    },
+    df = pca_random_genes_patients,
+    sample_name = names(pca_random_genes_patients),
+    MoreArgs = list(df_pca = df_pca_coordinates),
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE
+)
+
+patients_tcga_nb_samples_neighborhood <- sapply(
+    patients_tcga_distances_avg,
+    function(x){sapply(x, function(y) length(y$samples))}
+) %>%
+    data.frame(check.names = FALSE) %>%
+    tibble::rownames_to_column(var = "radii") %>%
+    tidyr::pivot_longer(
+        cols = -dplyr::all_of(c("radii")), 
+        names_to = "sample_name",
+        values_to = "nb_samples"
+    )
+
+nb_samples_avg <- patients_tcga_nb_samples_neighborhood %>%
+    dplyr::group_by(radii) %>%
+    dplyr::summarise(
+        nb_samples = mean(nb_samples)
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(nb_samples_perc = 
+        nb_samples/nrow(
+            df_pca_coordinates %>% 
+                dplyr::filter(cohort %in% c("tcga", "metabric"))
+        )*100
+    )
+
+saveRDS(
+    nb_samples_avg,
+    "../results/rds_files/validation/nb_samples_avg.rds"   
+)
+```
+
+Next we evaluate the number of samples in the neighborhood of samples, so
+we can understand a bit better what is distance in the molecular embedder. 
+
+@fig-nb-samples-avg-neighborhood shows the proportion of samples in a 
+neighborhood based on its radius. For samples within a radius of 1, in average
+the percentage of samples from the whole dataset including TCGA and METABRIC
+is of 2.5%.
+
+```{r}
+#| label: fig-nb-samples-avg-neighborhood
+#| fig-cap: Percentage of number of samples in the neighborhood with 
+#|     varyiing radii. The total number of samples is 2873, including all
+#|     samples from TCGA and METABRIC.
+nb_samples_avg %>%
+    dplyr::mutate(radii = as.numeric(radii)) %>%
+    ggplot2::ggplot(aes(x = radii, y = nb_samples_perc)) + 
+    ggplot2::geom_point(size = 4) +
+    ggplot2::labs(
+        x = "Radii", 
+        y = "Percentage of samples\nin the neighborhood"
+    ) +
+    ggplot2::geom_vline(xintercept = 1, linetype = "dashed", color = "red") +
+    ggplot2::geom_hline(yintercept = 2.5, linetype = "dashed", color = "red") +
+    ggplot2::scale_y_continuous(
+        breaks = seq(0, 40, by = 2.5),
+        labels = seq(0, 40, by = 2.5)
+    ) +
+    ggplot2::theme_bw(base_size = 20)
+```
+
+This means that around 30% of top missing genes gives us neighborhoods
+that do not change much, since the average distance from the original embedding
+is below 1, so the neighborhood will not change much.
 
 ## SMC embedding
 
@@ -1377,7 +1581,8 @@ pdx_only_embedding <- function(
         ggplot2::geom_point(
             size = 5, 
             alpha = 0.9,
-            shape = shape_pdx[pdx_name]
+            shape = shape_pdx[pdx_name],
+            stroke = 2.5
         ) + 
         ggplot2::theme_bw(base_size = 15) +
         ggplot2::labs(

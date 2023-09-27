@@ -211,6 +211,17 @@ scanb$node_stage <- ifelse(
     )
 )
     
+unique_samples_scanb <- colData(scanb) %>%
+    data.frame %>%
+    dplyr::filter(is.na(SpecimenType)) %>%
+    dplyr::group_by(Patient) %>%
+    dplyr::slice_max(order_by = RNA.NDConc, n = 1) %>%
+    dplyr::slice_max(order_by = ALIGNED_PAIRS, n = 1) %>%
+    dplyr::ungroup() %>% 
+    dplyr::pull(GEX.assay)
+
+scanb <- scanb[, unique_samples_scanb]
+
 saveRDS(
     list(tcga = tcga, scanb = scanb, metabric = metabric),
     "../results/rds_files/surv_analysis_estrogen/datasets.rds"
@@ -236,12 +247,12 @@ datasets <- readRDS("../results/rds_files/surv_analysis_estrogen/datasets.rds")
 which_exp <- readRDS("../results/rds_files/surv_analysis_estrogen/which_exp.rds")
 ```
 
-## UMAP projection of the datasets
+## UMAP embedding of the datasets
 
 The plots below show how each patient is different in a molecular sense, 
-and even inside each molecular subtype there are some differences. This
-indicates how different patients, at least molecularly. We only do the umap
-of samples that have a PAM50 molecular subtype assigned.
+and even inside each molecular subtype there are some differences.
+We only do the umap
+of samples that have a molecular subtype assigned.
 
 ```{r, eval = first_run}
 # first one uses the library uwot to calculate the umap projection.
@@ -2331,10 +2342,13 @@ plot_fit_km$plot <- plot_fit_km$plot +
         ), 
         size = 5
     ) +
-    ggplot2::labs(caption = paste0(
-        "Baseline group: high ER IHC and low ER sig is baseline\n",
-        "Thresholds: median of signature in the whole dataset, ER IHC 90%"
-    )) + 
+    ggplot2::labs(
+        caption = paste0(
+            "Baseline group: high ER IHC and low ER sig is baseline\n",
+            "Thresholds: median of signature in the whole dataset, ER IHC 90%"
+        ),
+        x = "Time (in months)"
+    ) + 
     ggplot2::guides(color = ggplot2::guide_legend(nrow=2,byrow=TRUE)) + 
     ggplot2::theme(legend.position = "top")
 
@@ -2415,7 +2429,7 @@ labels_risk_score_breaks <- paste0(
     levels_sig_dich
 )
 
-plot(standardized_survival_curves, ci = TRUE) +
+plot(standardized_survival_curves, ci = FALSE) +
     ggplot2::guides(color=guide_legend(nrow=2, byrow = TRUE)) +
     ggplot2::scale_color_manual(
         labels = labels_risk_score,

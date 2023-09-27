@@ -995,7 +995,7 @@ corr_values <- cor(endo_only_sm[
     c("risk_score", "risk_score_pcs", names(pathways_of_interest))
 ], method = "spearman") 
 names_corr <- c(
-    "RS", "RS_PC", 
+    "Risk Score", "Risk Score (PCs only)", 
     pathways_of_interest[rownames(corr_values)[3:nrow(corr_values)]]
 )
 rownames(corr_values) <- names_corr
@@ -1009,7 +1009,7 @@ colnames(corr_values) <- names_corr
 #|     clinical factors.
 ggcorrplot::ggcorrplot(
     corr_values,
-    hc.order = TRUE, 
+    #hc.order = TRUE, 
     type = "lower",
     lab = TRUE, 
     lab_size = 6, 
@@ -1039,7 +1039,7 @@ corr_values <- cor(
     method = "spearman"
 ) 
 names_corr <- c(
-    "RS", "RS PC", "NCN ROR",
+    "Risk Score", "Risk Score (PCs only)", "NCN ROR",
     pathways_of_interest[rownames(corr_values)[4:nrow(corr_values)]]
 )
 rownames(corr_values) <- names_corr
@@ -1053,7 +1053,7 @@ colnames(corr_values) <- names_corr
 #|     clinical factors.
 ggcorrplot::ggcorrplot(
     corr_values,
-    hc.order = TRUE, 
+    #hc.order = TRUE, 
     type = "lower",
     lab = TRUE, 
     lab_size = 6, 

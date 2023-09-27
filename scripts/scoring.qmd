@@ -371,6 +371,52 @@ saveRDS(
 )
 ```
 
+```{r, eval = first_run}
+# before we calculate the scores we filter the poetic dataset
+keep_genes <- rowMeans(assay(datasets$poetic, "normalized_intensity") > 6.4)
+keep_genes <- keep_genes > 0.7
+
+gene_sets <- readRDS(
+    "../results/rds_files/surv_analysis_estrogen/gene_sets.rds"
+)
+
+gene_sets <- sapply(
+    gene_sets$gs_name %>% unique,
+    function(x, gene_sets) gene_sets %>% dplyr::filter(gs_name == x) %>% 
+        dplyr::pull(gene_symbol),
+    gene_sets = gene_sets,
+    USE.NAMES = TRUE,
+    simplify = FALSE
+)
+
+gsva_scores <- mapply(
+    function(sum_exp, which_assay, gene_sets){
+        GSVA::gsva(
+            expr = as.matrix(assay(sum_exp, which_assay)),
+            gset.idx.list = gene_sets, 
+            parallel.sz = 20
+        )
+    },
+    sum_exp = list(poetic = datasets$poetic[keep_genes, ]),
+    which_assay = list(poetic = "normalized_intensity"),
+    MoreArgs = list(gene_sets = gene_sets),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+)
+
+poetic_df_pca[
+    colnames(gsva_scores$poetic), 
+    rownames(gsva_scores$poetic)
+] <- gsva_scores$poetic %>% t
+
+saveRDS(
+    poetic_df_pca,
+    "../results/rds_files/scoring/poetic_df_pca_with_scores.rds"
+)
+
+df_pca_coordinates <- poetic_df_pca
+```
+
 ### Number of samples
 
 In this dataset there are matched samples from patients that 
@@ -890,51 +936,6 @@ responders.
 in average at baseline $SET_{ER/PR}$ is lower in non responders than
 in responders. For the other scores there is no clear difference.
 
-```{r, eval = first_run}
-# before we calculate the scores we filter the poetic dataset
-keep_genes <- rowMeans(assay(datasets$poetic, "normalized_intensity") > 6.4)
-keep_genes <- keep_genes > 0.7
-
-gene_sets <- readRDS(
-    "../results/rds_files/surv_analysis_estrogen/gene_sets.rds"
-)
-
-gene_sets <- sapply(
-    gene_sets$gs_name %>% unique,
-    function(x, gene_sets) gene_sets %>% dplyr::filter(gs_name == x) %>% 
-        dplyr::pull(gene_symbol),
-    gene_sets = gene_sets,
-    USE.NAMES = TRUE,
-    simplify = FALSE
-)
-
-gsva_scores <- mapply(
-    function(sum_exp, which_assay, gene_sets){
-        GSVA::gsva(
-            expr = as.matrix(assay(sum_exp, which_assay)),
-            gset.idx.list = gene_sets, 
-            parallel.sz = 20
-        )
-    },
-    sum_exp = list(poetic = datasets$poetic[keep_genes, ]),
-    which_assay = list(poetic = "normalized_intensity"),
-    MoreArgs = list(gene_sets = gene_sets),
-    SIMPLIFY = FALSE,
-    USE.NAMES = TRUE
-)
-
-poetic_df_pca[
-    colnames(gsva_scores$poetic), 
-    rownames(gsva_scores$poetic)
-] <- gsva_scores$poetic %>% t
-
-saveRDS(
-    poetic_df_pca,
-    "../results/rds_files/scoring/poetic_df_pca_with_scores.rds"
-)
-
-df_pca_coordinates <- poetic_df_pca
-```
 
 ```{r}
 if (!load_at_setup){
@@ -2390,3 +2391,689 @@ All the patients that were misclassified as non responders they have a
 very low third principal component and their baseline Ki67 is quite high, so
 the decrease in proliferation is not actually big enough. It is still
 considered a responder. 
+
+## Differential expression analysis
+
+Instead of looking at the neighborhood, we could do a differential
+expression analysis at baseline between responders and non-responders
+that are close to each other. We can then perform gene set enrichment
+analysis to understand which pathways are different across these two 
+groups. 
+
+```{r}
+patients_responder_deg <- c(
+    comparison_to_average_neighbors$first_sample_name,
+    comparison_to_average_neighbors$second_sample_name
+) %>% unique
+
+poetic_data_deg <- datasets$poetic[, patients_responder_deg]
+poetic_data_deg$is_responder <- ifelse(
+    poetic_data_deg$change_ki67 > -60,
+    "non_responder",
+    "responder"
+)
+is_responder <- factor(
+    poetic_data_deg$is_responder,
+    levels = c("non_responder", "responder")
+)
+
+is_responder_mm <- model.matrix(~ 0 + is_responder)
+colnames(is_responder_mm) <- levels(is_responder)
+
+fit_responder_non_responder <- limma::lmFit(
+    assay(poetic_data_deg, "normalized_intensity"),
+    design = is_responder_mm
+)
+
+contrasts <- limma::makeContrasts(
+    responder-non_responder, 
+    levels = is_responder_mm
+)
+fit_responder_non_responder <- limma::contrasts.fit(
+    fit_responder_non_responder, 
+    contrasts
+)
+fit_responder_non_responder <- limma::eBayes(
+    fit_responder_non_responder, 
+    trend=TRUE
+)
+
+degs <- limma::topTable(fit_responder_non_responder, number = Inf) %>%
+    tibble::rownames_to_column(var = "symbol")
+```
+
+Based on the histogram below there is not differentially expressed
+gene.
+
+```{r}
+degs %>% 
+    ggplot2::ggplot(aes(x = P.Value)) +
+    ggplot2::geom_histogram(bins = 20)
+```
+
+And the plot below shows the position of the selected samples in the 
+embedding. 
+
+```{r}
+df_pca_sub <- df_pca_coordinates %>%
+    dplyr::filter(sample_name %in% patients_responder_deg) %>%
+    dplyr::bind_rows(
+        .,
+        df_pca_coordinates %>%
+            dplyr::filter(cohort != "poetic")
+    )
+
+plots_poetic_sub <- sapply(
+    c("is_responder", "cohort"), 
+    get_plot_new_samples,
+    name_cohort = "poetic",
+    df_pca = df_pca_sub,
+    title = "POETIC samples projected on the molecular landscape",
+    USE.NAMES = TRUE, 
+    simplify = FALSE,
+    x = "PC3",
+    y = "PC4"
+)
+
+plots_poetic_sub$cohort
+```
+
+We now show the position in the embedding colored by the responders and non
+responders but with the threshold set to -10% of change in Ki67 instead of
+the -60%.
+
+```{r}
+df_pca_sub <- df_pca_coordinates %>%
+    dplyr::filter(sample_name %in% patients_responder_deg) %>%
+    dplyr::mutate(is_responder = dplyr::case_when(
+        change_ki67 > -10 ~ "non_responder",
+        TRUE ~ "responder"
+    )) %>%
+    dplyr::bind_rows(
+        .,
+        df_pca_coordinates %>%
+            dplyr::filter(cohort != "poetic")
+    )
+
+plots_poetic_sub <- sapply(
+    c("cohort", "is_responder"), 
+    get_plot_new_samples,
+    name_cohort = "poetic",
+    df_pca = df_pca_sub,
+    title = "POETIC samples projected on the molecular landscape",
+    USE.NAMES = TRUE, 
+    simplify = FALSE,
+    x = "PC3",
+    y = "PC4"
+)
+
+plots_poetic_sub$is_responder
+```
+
+Some of the samples are really in the middle of the embedding, but they are 
+very few, only 5 in total.
+
+We now do a paired analysis of these samples. 
+For each pair of samples we take the difference of the scores and compare
+the results for each one of the selected pathways.
+
+```{r}
+pathways_of_interest <- c(
+    "HALLMARK_G2M_CHECKPOINT" = "G2M checkpoint",
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" = "EMT",
+    "HALLMARK_DNA_REPAIR" = "DNA repair",
+    "HALLMARK_ANDROGEN_RESPONSE" = "Androgen response",
+    "HALLMARK_PI3K_AKT_MTOR_SIGNALING" = "PI3K AKT MTOR signaling",
+    "SET_ERPR" = "SET ER/PR",
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen early",
+    "PC3" = "PC3",
+    "PC4" = "PC4"
+)
+
+subtraction <- function(x, y){x - y}
+
+differences_neighbors <- comparison_to_average_neighbors %>%
+    dplyr::inner_join(
+        .,
+        df_pca_coordinates %>%
+            dplyr::mutate(first_sample_name = sample_name) %>%
+            dplyr::select(dplyr::all_of(c(
+                "first_sample_name", names(pathways_of_interest) 
+            ))),
+        by = "first_sample_name"
+    ) %>%
+    dplyr::inner_join(
+        .,
+        df_pca_coordinates %>%
+            dplyr::mutate(second_sample_name = sample_name) %>%
+            dplyr::select(dplyr::all_of(c(
+                "second_sample_name", names(pathways_of_interest) 
+            ))),
+        by = "second_sample_name",
+        suffix = c("_1", "_2")
+    ) 
+
+differences_neighbors_means <- differences_neighbors %>% 
+    dplyr::group_by(first_sample_name) %>%
+    purrr::map(
+        .x = names(pathways_of_interest), 
+        .f = function(.x, df){
+            df %>% 
+                dplyr::mutate(
+                    !!stringr::str_c(.x, "_mean_2") :=
+                        mean(
+                            dplyr::c_across(
+                                dplyr::starts_with(
+                                    paste0(.x, "_2"), 
+                                    ignore.case = FALSE
+                                )
+                            )
+                        ),
+                    .keep = "none"
+                )
+        },
+        df = . 
+    ) %>%
+    purrr::list_cbind() %>%
+    dplyr::select(dplyr::all_of(
+        c(
+            "first_sample_name...1", 
+            paste0(
+                names(pathways_of_interest), "_mean_2"
+            )
+        )
+    )) %>%
+    dplyr::rename(first_sample_name = `first_sample_name...1`)
+
+# we keep only one row for each first_sample_name since all the scores
+# have been averaged over
+differences_neighbors_means <- differences_neighbors_means %>%
+    dplyr::distinct(first_sample_name, .keep_all = TRUE) %>%
+    dplyr::inner_join(
+        differences_neighbors,
+        differences_neighbors_means,
+        by = "first_sample_name", 
+        keep = FALSE
+    ) %>%  
+    dplyr::bind_cols(
+        .,
+        purrr::map(
+            .x = names(pathways_of_interest), 
+            .f = function(.x, df){
+                df %>% 
+                    dplyr::rowwise() %>% 
+                    dplyr::mutate(
+                        !!stringr::str_c("diff_", .x) :=
+                            subtraction(
+                                dplyr::c_across(
+                                    dplyr::starts_with(
+                                        paste0(.x, "_1"), 
+                                        ignore.case = FALSE
+                                    )
+                                ),
+                                dplyr::c_across(
+                                    dplyr::starts_with(
+                                        paste0(.x, "_mean_2"), 
+                                        ignore.case = FALSE
+                                    )
+                                )
+                            ),
+                        .keep = "none"
+                    )
+            },
+            df = . 
+        ) %>%
+            purrr::list_cbind()
+    )
+
+differences_neighbors_means <- differences_neighbors_means[
+    !duplicated(differences_neighbors_means$first_sample_name),
+]
+
+differences_neighbors_means_long <- differences_neighbors_means %>%
+    tidyr::pivot_longer(
+        cols = dplyr::starts_with("diff"),
+        names_to = "pathway",
+        values_to = "difference"
+    ) 
+
+differences_neighbors_means_long %>% 
+    dplyr::filter(is_responder_first == "non_responder") %>%
+    ggplot2::ggplot(aes(x = difference)) + 
+    ggplot2::geom_histogram(bins = 20) + 
+    ggplot2::facet_wrap(~pathway) + 
+    ggplot2::theme_bw()
+```
+
+
+We next show the plot with the average of the score for the responders if 
+there is only one non-responders in the neighborhood versus the difference.
+
+```{r}
+plots_comparison_diff <- sapply(
+    names(pathways_of_interest), 
+    function(pathway, df){
+        
+        y <- paste0(pathway, "_mean_2")
+        x <- paste0("diff_", pathway)
+        
+        df %>%
+            dplyr::filter(is_responder_first == "non_responder") %>%
+            ggplot2::ggplot(aes(x = !!sym(x), y = !!sym(y))) + 
+            ggplot2::geom_point() + 
+            ggplot2::geom_hline(
+                yintercept = 0,
+                linetype = "dashed", 
+                alpha = 0.5
+            ) + 
+            ggplot2::geom_vline(
+                xintercept = 0,
+                linetype = "dashed", 
+                alpha = 0.5
+            ) +
+            ggplot2::geom_abline(
+                slope = -1, 
+                intercept = 0, 
+                linetype = "dashed",
+                alpha = 0.5
+            ) + 
+            ggplot2::geom_smooth(
+                method = "lm",
+                formula = "y~x"
+            ) + 
+            ggplot2::labs(
+                x = "Difference",
+                y = "Mean of responders",
+                title = pathway
+            ) + 
+            ggplot2::theme_bw()
+    }, 
+    df = differences_neighbors_means,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+```
+
+```{r, fig.width=14, fig.height=12}
+cowplot::plot_grid(
+    plotlist = plots_comparison_diff,
+    ncol = 3
+)
+```
+
+First we see that there is a negative correlation in Androgen response and
+PI3K AKT MTOR signaling. Moreover, all responders had a negative PI3K AKT
+MTOR signaling score, whereas among the non-responders there were 4 with
+positive scores. The dashed lines correspond to the lines crossing 0 in both
+directions and the identity line, slope 1 and intercept 0.
+
+Next we do an analysis on the remaining samples just out of curiosity. 
+Since all the non-responders on the basal like region are in this other set,
+we expect to see many DEGs and also ER signaling down in the 
+non-responders.
+
+```{r}
+df_pca_sub <- df_pca_coordinates %>%
+    dplyr::filter(!(sample_name %in% patients_responder_deg)) %>%
+    dplyr::filter(
+        cohort == "poetic" & 
+            timepoint == "baseline" & 
+            group == "treated" &
+            is_responder %in% c("responder", "non_responder")
+    ) %>%
+    dplyr::bind_rows(
+        .,
+        df_pca_coordinates %>%
+            dplyr::filter(cohort != "poetic")
+    )
+
+plots_poetic_sub <- sapply(
+    c("cohort"), 
+    get_plot_new_samples,
+    name_cohort = "poetic",
+    df_pca = df_pca_sub,
+    title = "POETIC samples projected on the molecular landscape",
+    USE.NAMES = TRUE, 
+    simplify = FALSE,
+    x = "PC3",
+    y = "PC4"
+)
+
+plots_poetic_sub$cohort
+```
+
+```{r}
+patients_responder_deg <- df_pca_sub %>%
+    dplyr::filter(
+        cohort %in% c("poetic") & 
+            is_responder %in% c("responder", "non_responder") &
+            timepoint == "baseline"
+    ) %>%
+    dplyr::pull(sample_name)
+
+poetic_data_deg <- datasets$poetic[, patients_responder_deg]
+poetic_data_deg$is_responder <- ifelse(
+    poetic_data_deg$change_ki67 > -60,
+    "non_responder",
+    "responder"
+)
+is_responder <- factor(
+    poetic_data_deg$is_responder,
+    levels = c("non_responder", "responder")
+)
+
+is_responder_mm <- model.matrix(~ 0 + is_responder)
+colnames(is_responder_mm) <- levels(is_responder)
+
+fit_responder_non_responder <- limma::lmFit(
+    assay(poetic_data_deg, "normalized_intensity"),
+    design = is_responder_mm
+)
+
+contrasts <- limma::makeContrasts(
+    responder-non_responder, 
+    levels = is_responder_mm
+)
+fit_responder_non_responder <- limma::contrasts.fit(
+    fit_responder_non_responder, 
+    contrasts
+)
+fit_responder_non_responder <- limma::eBayes(
+    fit_responder_non_responder, 
+    trend=TRUE
+)
+
+degs <- limma::topTable(fit_responder_non_responder, number = Inf) %>%
+    tibble::rownames_to_column(var = "symbol")
+```
+
+As expected the distribution of p-values below shows that there are 
+statistically significant differentially expressed genes.
+
+```{r}
+degs %>% 
+    ggplot2::ggplot(aes(x = P.Value)) +
+    ggplot2::geom_histogram(bins = 20)
+```
+
+And the plot below shows also that there are differences in the 
+pathways when comparing responders and non-responders. 
+
+```{r}
+df_pca_coordinates %>%
+    dplyr::filter(sample_name %in% patients_responder_deg) %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(names(pathways_of_interest)),
+        names_to = "pathway",
+        values_to = "GSVA"
+    ) %>%
+    ggplot2::ggplot(aes(x = is_responder, y = GSVA)) + 
+    ggplot2::geom_boxplot(outlier.shape = NA) + 
+    ggplot2::geom_jitter(mapping = aes(color = change_ki67)) + 
+    ggplot2::scale_color_viridis_c() + 
+    ggplot2::facet_wrap(
+        ~pathway, 
+        scales = "free_y",
+        labeller = as_labeller(pathways_of_interest)
+    ) + 
+    ggplot2::theme_bw()
+```
+
+The differences in ER signaling are clear and also differences in
+PI3K AKT MTOR signaling, but mostly driven by the samples that are
+in the basal like region.
+
+## Thresholding change in Ki67
+
+We saw previously that the line between responders and non responders is
+very thin. Next we change the thresholds of Ki67 to see how much the 
+responder and non-responder proportion of androgen response with 
+respect to the neighborhood changes. We should look at different thresholds
+since Ki67 is a noisy estimate.
+
+```{r}
+thresholds <- c(-60, -50, -40, -30, -20, -10)
+
+threshold_responder_pathways <- sapply(
+    thresholds, 
+    function(threshold, df){
+        
+        first_responders <- df %>%
+            dplyr::filter(change_ki67_first <= threshold)
+        
+        second_responders <- df %>%
+            dplyr::filter(change_ki67_second <= threshold)
+        
+        
+        first_non_responders <- df %>%
+            dplyr::filter(change_ki67_first > threshold)
+        
+        second_non_responders <- df %>%
+            dplyr::filter(change_ki67_second > threshold)
+        
+        
+        responders <- data.frame(
+            androgen = c(
+                first_responders$responder_androgen,
+                second_responders$responder_androgen
+            ),
+            set_erpr = c(
+                first_responders$responder_set_erpr,
+                second_responders$responder_set_erpr
+            ),
+            er_early = c(
+                first_responders$responder_er_early,
+                second_responders$responder_er_early
+            ),
+            sample_name = c(
+                first_responders$first_sample_name,
+                second_responders$second_sample_name
+            ),
+            first_or_second = c(
+                rep("first", nrow(first_responders)),
+                rep("second", nrow(second_responders))
+            )
+        ) %>%
+            dplyr::distinct(sample_name, .keep_all = TRUE)
+        
+        non_responders <- data.frame(
+            androgen = c(
+                first_non_responders$non_responder_androgen,
+                second_non_responders$non_responder_androgen
+            ),
+            set_erpr = c(
+                first_non_responders$responder_set_erpr,
+                second_non_responders$responder_set_erpr
+            ),
+            er_early = c(
+                first_non_responders$responder_er_early,
+                second_non_responders$responder_er_early
+            ),
+            sample_name = c(
+                first_non_responders$first_sample_name,
+                second_non_responders$second_sample_name
+            ),
+            first_or_second = c(
+                rep("first", nrow(first_non_responders)),
+                rep("second", nrow(second_non_responders))
+            )
+        ) %>%
+            dplyr::distinct(sample_name, .keep_all = TRUE)
+        
+        
+        dplyr::bind_rows(
+            list(
+                responder = responders,
+                non_responder = non_responders
+            ),
+            .id = "is_responder"
+        )
+        
+    }, 
+    df = comparison_to_average_neighbors,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+) %>%
+    `names<-`(thresholds) %>%
+    dplyr::bind_rows(.id = "threshold")
+
+pct_format <- scales::percent_format(accuracy = .1)
+
+pct_format_values <- function(count, PANEL, x) {
+    data.frame(PANEL = PANEL, count = count, x = x) %>% 
+        dplyr::group_by(PANEL, x) %>% 
+        dplyr::reframe(
+            count = count, 
+            pct = count/sum(count),
+            PANEL = PANEL
+        ) %>%
+        dplyr::arrange(PANEL, x) %>%
+        dplyr::pull(pct)
+}
+
+comparison_to_average_neighbors_all <- sapply(
+    pipeline_scores_plots, 
+    function(pipeline){
+        
+        df <- pipeline$plot$data
+        pathways <- pipeline$scores_patient %>%
+            data.frame 
+        
+        apply(
+            pathways, 
+            1,
+            function(x, df){
+                
+                df_sub <- df %>% 
+                    dplyr::filter(pathway == x[1]) %>%
+                    dplyr::pull(`(Intercept)`)
+                
+                min_score <- min(df_sub)
+                max_score <- max(df_sub)
+                
+                score <- as.numeric(x[2])
+                
+                dplyr::case_when(
+                    dplyr::between(score, min_score, max_score) ~ "m",
+                    score > max_score ~ "a",
+                    score < min_score ~ "b"
+                )
+                
+            }, 
+            df = df,
+            simplify = TRUE
+        ) %>%
+            `names<-`(pathways[, 1])
+        
+    }, 
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+) %>%
+    lapply(., function(x) data.frame(pathway = names(x), position = x)) %>%
+    dplyr::bind_rows(.id = "sample_name") %>%
+    `rownames<-`(NULL) %>%
+    dplyr::inner_join(
+        .,
+        threshold_responder_pathways %>%
+            dplyr::select(threshold, is_responder, sample_name),
+        by = "sample_name"
+    )
+```
+
+Just to double check we randomly select one patient and compare visually
+the results.
+
+```{r}
+comparison_to_average_neighbors_all %>% 
+    dplyr::filter(sample_name == "treated_nb65_baseline" & 
+                      threshold == "-60") %>%
+    dplyr::arrange(pathway)
+```
+
+
+```{r, fig.width=10, fig.height=6}
+pipeline_scores_plots$treated_nb65_baseline$plot
+```
+
+All looks good, we can move on and do a similar analysis for the 
+Androgen response signature.
+
+```{r}
+plots_proportions_all <- sapply(
+    comparison_to_average_neighbors_all$pathway %>%
+        unique, 
+    function(pathway_name, df){
+        
+        amb <- c("a" = "Above", "m" = "Middle", "b" = "Below")
+        
+        df %>%
+            dplyr::filter(pathway == pathway_name) %>%
+            dplyr::mutate(
+                pathway = factor(
+                    amb[position], 
+                    levels = amb
+                )
+            ) %>%
+            ggplot2::ggplot(aes(x = threshold, fill = pathway)) + 
+            ggplot2::geom_bar(position = "fill") + 
+            ggplot2::scale_y_continuous(labels = scales::percent) + 
+            ggplot2::facet_wrap(
+                ~is_responder, 
+                ncol = 1,
+                labeller = as_labeller(c(
+                    "responder" = "Responder",
+                    "non_responder" = "Non responder"
+                ))
+            ) + 
+            ggplot2::geom_text(
+                aes(label = sprintf(
+                    '%d (%s)',
+                    after_stat(count),
+                    pct_format(pct_format_values(count, PANEL, x))
+                )),
+                stat = "count",
+                position = position_fill(vjust=0.5)
+            ) +
+            ggplot2::labs(
+                x = "Change in Ki67 threshold", 
+                y = "Proportion (% of samples)",
+                title = pathway_name,
+                fill = "Score relative to\naverage distribution"
+            ) +
+            ggplot2::theme_bw(base_size = 15) +
+            change_guides_point() +
+            change_plot_aes_point()
+            
+    }, 
+    df = comparison_to_average_neighbors_all,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+```
+
+```{r, fig.width=17, fig.height=23}
+cowplot::plot_grid(
+    plotlist = plots_proportions_all,
+    ncol = 2
+)
+```
+
+Here we see that there is a distinction as one changes the threshold for
+androgen response and TGF$\beta$ signaling. Androgen response is expected
+and TGF$\beta$ signaling has been linked to EMT and an increase in proliferation
+in several cancers. @fig-comparison-responder-threshold-proportions shows
+the differences across the difference thresholds for both AR and TGFb signaling.
+
+```{r, fig.width=9, fig.height=12}
+#| label: fig-comparison-responder-threshold-proportions
+#| fig-cap: Comparison between responders and non-responders and the
+#|     proportion of samples in each group when comparing to the 
+#|     average distribution and changing threshold for the change in
+#|     Ki67.
+cowplot::plot_grid(
+    plotlist = plots_proportions_all[c("TGFb signaling", "Androgen response")],
+    ncol = 1, 
+    rel_widths = c(0.4, 0.6)
+)
+```
+
