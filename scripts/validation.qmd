@@ -1971,7 +1971,7 @@ saveRDS(
 
 saveRDS(
     plot_estimates_all,
-    "../results/rds_files/validation/plot_estimates_all.rds"
+    "..results/rds_files/validation/plot_estimates_all.rds"
 )
 ```
 

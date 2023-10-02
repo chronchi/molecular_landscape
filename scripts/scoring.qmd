@@ -43,6 +43,11 @@ the molecular data to try to understand the responsiveness.
 The definition of responders are those patients that have a 
 reduction of at least 60\%
 in Ki67 levels when comparing pre-treatment versus surgery. 
+The change in Ki67 in the paper is calculated as following.
+
+$$
+\text{Change Ki67} = -100*(1 - \frac{\text{Surgery Ki67}}{\text{Baseline Ki67}})
+$$
 
 Here we use this cohort to draw conclusions on responders
 and non responders and how the molecular landscape can be 
@@ -2448,7 +2453,8 @@ gene.
 ```{r}
 degs %>% 
     ggplot2::ggplot(aes(x = P.Value)) +
-    ggplot2::geom_histogram(bins = 20)
+    ggplot2::geom_histogram(bins = 20) +
+    ggplot2::theme_bw()
 ```
 
 And the plot below shows the position of the selected samples in the 
@@ -2477,6 +2483,30 @@ plots_poetic_sub <- sapply(
 
 plots_poetic_sub$cohort
 ```
+
+Below we show the embedding using the response status to color.
+
+```{r, fig.width=8, fig.height=4}
+#| label: fig-resp-non-resp-pairs
+plots_poetic_sub$is_responder +
+    ggplot2::labs(title = NULL, subtitle = NULL, color = "Is responder?") +
+    ggplot2::scale_color_manual(values = c(
+        "responder" = scales::hue_pal()(3)[3],
+        "non_responder" = scales::hue_pal()(3)[1]
+    )) +
+    ggplot2::scale_size_manual(
+        values = c(.1, 3, .1, .1),
+        guide = "none"
+    ) +
+    ggplot2::scale_alpha_manual(
+        values = c(.3, 1, .3, .3),
+        guide = "none"
+    ) +
+    ggplot2::labs(
+        color = "Is responder?"
+    )
+```
+
 
 We now show the position in the embedding colored by the responders and non
 responders but with the threshold set to -10% of change in Ki67 instead of
@@ -2728,7 +2758,7 @@ df_pca_sub <- df_pca_coordinates %>%
     )
 
 plots_poetic_sub <- sapply(
-    c("cohort"), 
+    c("cohort", "is_responder"), 
     get_plot_new_samples,
     name_cohort = "poetic",
     df_pca = df_pca_sub,
@@ -2739,7 +2769,7 @@ plots_poetic_sub <- sapply(
     y = "PC4"
 )
 
-plots_poetic_sub$cohort
+plots_poetic_sub$is_responder
 ```
 
 ```{r}
@@ -3077,3 +3107,176 @@ cowplot::plot_grid(
 )
 ```
 
+And next we do a similar analysis as done by the SET ER/PR and Estrogen 
+response early. For each pair of samples we compare the responders and 
+non-responders and check if Androgen response is above average for
+non-responders and below/middle average for non-responders. On the 
+other hand we do similarly for TGF$\beta$ signaling but we compare
+below average for non-responders versus middle/above average for 
+responders.
+
+```{r}
+comparison_pairs <- apply(
+    comparison_to_average_neighbors,
+    1,
+    function(patients, scores){
+        
+        if (patients["is_responder_first"] == "responder"){
+            responder_patient <- patients["first_sample_name"]    
+            non_responder_patient <- patients["second_sample_name"]    
+        } else {
+            responder_patient <- patients["second_sample_name"]    
+            non_responder_patient <- patients["first_sample_name"]
+        }
+        
+        sapply(
+            c("Androgen response", "TGFb signaling"),
+            function(pathway_name, scores, responder_patient, non_responder_patient){
+                
+                scores <- scores %>%
+                    dplyr::filter(
+                        pathway == pathway_name & 
+                            sample_name %in% 
+                                c(responder_patient, non_responder_patient) &
+                            threshold == "-60"
+                    )
+                
+                
+                score_responder <- scores %>% 
+                    dplyr::filter(sample_name == responder_patient)
+                
+                score_non_responder <- scores %>% 
+                    dplyr::filter(sample_name == non_responder_patient)
+                
+                if (pathway_name == "Androgen response"){
+                    if (
+                        score_non_responder[1, "position"] == "a" & 
+                            score_responder[1, "position"] %in% c("b", "m")
+                    ){
+                        return("yes")
+                    } else { 
+                        return("no")
+                    }
+                }
+                
+                if (pathway_name == "TGFb signaling"){
+                    if (
+                        score_non_responder[1, "position"] == "b" & 
+                            score_responder[1, "position"] %in% c("a", "m")
+                    ){
+                        return("yes")
+                    } else { 
+                        return("no")
+                    }
+                }
+            },
+            scores = scores,
+            responder_patient = responder_patient,
+            non_responder_patient = non_responder_patient
+        )
+        
+    },
+    scores = comparison_to_average_neighbors_all
+)
+
+comparison_to_average_neighbors <- cbind(
+    comparison_to_average_neighbors,
+    comparison_pairs %>% t
+)
+```
+
+```{r}
+comparison_pairs %>%
+    t %>%
+    data.frame(check.names = FALSE) %>%
+    janitor::tabyl("Androgen response")
+```
+
+```{r}
+comparison_pairs %>%
+    t %>%
+    data.frame(check.names = FALSE) %>%
+    janitor::tabyl("TGFb signaling")
+```
+
+
+And the number of neighborhoods that have both comparisons with a
+"yes" are:
+
+```{r}
+comparison_pairs_summary <- comparison_pairs %>%
+    t %>%
+    data.frame(check.names = FALSE) %>%
+    janitor::tabyl(`Androgen response`, `TGFb signaling`) %>%
+    janitor::adorn_percentages("all") %>%
+    janitor::adorn_pct_formatting(digits = 1) %>%
+    janitor::adorn_ns() %>%
+    janitor::adorn_title() %>%
+    as.data.frame 
+
+comparison_pairs_summary_tabyl <- comparison_pairs %>%
+    t %>%
+    data.frame(check.names = FALSE) %>%
+    janitor::tabyl(`Androgen response`, `TGFb signaling`)
+
+comparison_pairs_summary_df <- data.frame(
+    `Androgen response` = c("No", "Yes", "No", "Yes"),
+    `TGFb signaling` = c("No", "No", "Yes", "Yes"),
+    counts = c(
+        comparison_pairs_summary[2, 2],
+        comparison_pairs_summary[3, 2],
+        comparison_pairs_summary[2, 3],
+        comparison_pairs_summary[3, 3]
+    ),
+    value = c(
+        comparison_pairs_summary_tabyl[1, 2],
+        comparison_pairs_summary_tabyl[2, 2],
+        comparison_pairs_summary_tabyl[1, 3],
+        comparison_pairs_summary_tabyl[2, 3]
+    ),
+    check.names = FALSE
+)
+
+comparison_pairs_summary
+```
+
+We see that in general there is a kind of matching, i.e., high 
+androgen response in non-responders and low/median for responders
+and also low TGF$\beta$ signaling for non-responders and the opposite
+for responders in the majority of the cases. In only two pairs
+there was the mismatch in the expected directions. But in these two
+pairs they represent samples that are close to each other, meaning that
+there is just one responders where this happens and two non-responders. 
+Below is a figure representing that as well.
+
+```{r, fig.width=9, fig.height=8}
+#| label: fig-androgen-tgfb-comparison-neighborhoods
+comparison_pairs_summary_df %>%
+    ggplot2::ggplot(aes(
+        x = `Androgen response`, 
+        y = `TGFb signaling`, 
+        fill = value
+    )) +
+    ggplot2::geom_tile() +
+    ggplot2::coord_fixed() +
+    ggplot2::scale_fill_viridis_c() + 
+    ggplot2::geom_label(
+        fill = "white",
+        aes(label = counts), 
+        size = 6, 
+        color = "black"
+    ) +
+    ggplot2::labs(
+        fill = "Counts",
+        caption = paste0(
+            "Androgen response: Yes means responder below average or",
+            "\nmiddle and non-responder above average. No otherwise.\n\n",
+            "TGFb signaling: Yes means responder at middle or above average and",
+            "\nnon-responder below average. No otherwise."
+        )
+    ) + 
+    ggplot2::theme_bw(base_size = 20) + 
+    ggplot2::theme(legend.position = "none") +
+    change_guides_point() +
+    change_plot_aes_point()
+```
