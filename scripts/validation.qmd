@@ -1659,7 +1659,6 @@ plots_pathways <- mapply(
             ) + 
             ggplot2::scale_color_manual(values = c(
                 "black",
-                "red",
                 "blue"
             )) + 
             ggplot2::facet_wrap(
