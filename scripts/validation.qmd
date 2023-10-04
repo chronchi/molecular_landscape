@@ -1720,7 +1720,6 @@ pdx_df_pca_sub %>%
     ) + 
     ggplot2::scale_color_manual(values = c(
         "black",
-        "red",
         "blue"
     )) + 
     ggplot2::facet_grid(
