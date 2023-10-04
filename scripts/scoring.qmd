@@ -519,7 +519,11 @@ plots_poetic <- sapply(
     c("cohort", "er_status", "pam50"), 
     get_plot_new_samples,
     name_cohort = "poetic",
-    df_pca = poetic_df_pca,
+    df_pca = poetic_df_pca %>%
+        dplyr::mutate(cohort = factor(cohort, levels = c(
+            "metabric", "scanb", "tcga", "poetic"
+        ))) %>%
+        dplyr::arrange(cohort),
     title = "POETIC samples projected on the molecular landscape",
     USE.NAMES = TRUE, 
     simplify = FALSE,
@@ -535,8 +539,17 @@ plots_poetic$pam50 <- plots_poetic$pam50 +
         )
     ) 
 
+plots_poetic$cohort <- plots_poetic$cohort +
+    ggplot2::scale_alpha_manual(
+        values = c(.2, .2, .2, 1),
+        guide = "none"
+    ) + 
+    ggplot2::labs(title = NULL, subtitle = NULL)
+
 cowplot::plot_grid(plotlist = plots_poetic, labels = "AUTO")
 ```
+
+
 
 @fig-pca-responders-baseline shows the embedding of baseline samples
 from patients that received endocrine therapy prior to surgery. 
@@ -629,12 +642,7 @@ poetic_df_pca %>%
     ggplot2::labs(
         color = "Cohort",
         alpha = "Cohort",
-        size = "Cohort",
-        title = paste0(
-            "First two components of POETIC overlayed on all the three\n",
-            "big cohorts in the the molecular landscape"
-        ),
-        subtitle = "All samples from TCGA, METABRIC and SCANB are plotted"
+        size = "Cohort"
     ) + 
     ggplot2::theme_bw(base_size = 14) +
     change_plot_aes_point() +

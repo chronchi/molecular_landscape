@@ -390,7 +390,7 @@ ggplot2::ggplot(
     ggplot2::labs(
         x = "Normalized expression levels",
         y = "Count",
-        fill = "ER status"
+        fill = "ER IHC"
     ) +
     ggplot2::theme_bw(base_size = 20)
 ```
@@ -754,10 +754,6 @@ explains the ER status and the two cohorts are well inter mingled. When plotting
 the third and fourth components and coloring by the molecular subtype, we see a
 clear distinction, recapitulating the biology.
 
-```{r}
-
-```
-
 
 The plot below shows how the loadings of the first component are really
 concentrated around zero, so there are not actually specific genes that
@@ -962,7 +958,7 @@ plot_pca_coordinates(
         " and METABRIC"
     )
 ) + ggplot2::scale_color_viridis_d() +
-    ggplot2::labs(color = "ER status") +
+    ggplot2::labs(color = "ER IHC") +
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point() +
     change_guides_point()

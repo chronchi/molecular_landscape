@@ -2589,7 +2589,7 @@ The picture is similar as before, but now we actually look at the distributions
 across the 3 big cohorts. We used ssGSEA without the normalization, as that
 would be necessary in the case of an individual sample. 
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=12, fig.height=6}
 #| label: fig-ssgsea-dists
 unique_pathways <- intersect(names(pathway_names), unique(scores$pathway))
 ssgsea_dfs_gsva %>%
