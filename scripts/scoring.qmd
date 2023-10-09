@@ -1174,6 +1174,12 @@ means %>%
     change_plot_aes_point()
 ```
 
+```{r}
+means %>%
+    tidybayes::median_qi()
+```
+
+
 And the figure below shows the posterior distribution of the differences
 in average.
 

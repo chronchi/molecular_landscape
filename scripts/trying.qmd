@@ -2163,6 +2163,19 @@ they follow what we saw previously. The only pathway that is
 a bit different is the PI3K AKT MTOR signaling. This pathway had a noisier
 correlation with the GSVA score as well.
 
+```{r}
+read.csv("../results/tables/trying/survival_results.csv") %>%
+    DT::datatable(options = list(scrollX = TRUE), filter = 'top') %>% 
+    DT::formatRound(
+        columns=c(
+            "estimate", "std.error", "statistic", "HR"
+        ), 
+        digits = 2
+    ) %>% 
+    DT::formatSignif(columns = c("p.value"))
+```
+
+
 ## Regressing the PDXs
 
 We can use the regressing strategy to score the PDXs and then evaluate

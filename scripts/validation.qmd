@@ -69,7 +69,7 @@ plot_pca_coordinates(
         "Embedding of all samples from TCGA,\n",
         "METABRIC and SCANB"
     )
-) + ggplot2::scale_color_viridis_d() +
+) + ggplot2::scale_color_viridis_d(alpha = 0.5) +
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point() +
     change_guides_point()
@@ -1412,7 +1412,7 @@ pdx_df_pca_sub <- pdx_df_pca %>%
     dplyr::mutate(pam50 = "not available") %>%
     dplyr::mutate(pdx = factor(
         pdx, 
-        levels = c("METS15", "T113", "T111", "T105", "T109", "T110")
+        levels = c("METS15", "T105", "T109", "T110", "T111", "T113")
     ))
 
 pdx_ctrl_plot <- p +
@@ -1426,7 +1426,7 @@ pdx_ctrl_plot <- p +
     ggplot2::labs(
         caption = "Grey points correspond to the PDX cohort",
         title = "PDX cohort, only control samples",
-        color = "Molecular subtype",
+        color = "Molecular\nsubtype",
         shape = "PDX"
     ) + 
     ggplot2::scale_color_manual(
@@ -1507,8 +1507,8 @@ pdx_df_pca_sub <- pdx_df_pca %>%
     ) %>%
     dplyr::mutate(pam50 = "nc") %>%
     dplyr::mutate(pdx = factor(pdx, levels = c(
-        "METS15", "T113", "T109",
-        "T105", "T111", "T110"
+        "METS15", "T105", "T109",
+        "T110", "T111", "T113"
     ))) %>%
     dplyr::filter(pdx %in% pdxs_to_use)
 
@@ -1873,6 +1873,24 @@ cowplot::plot_grid(plotlist = pdx_plots_embedding_e2, ncol = 3)
 It looks like there is not big changes in the molecular landscape 
 as there was for samples treated with progesterone.
 
+And lastly we show for Ki67 as well.
+
+```{r, fig.height=6}
+#| label: fig-quantification-pdx-ki67
+#| fig-cap: Quantification of Ki67+ cells based on DAB stainings performed
+#|     on the patient derived xenografts.
+plot_quantification(
+    staining_pdxs %>%
+        dplyr::filter(treatment %in% c("CTRL", "P4")),
+    "Ki67",
+    base_size = 18
+) +
+    ggplot2::scale_color_manual(
+        values = c("black", "blue")
+    )
+```
+
+
 ### Growth curves
 
 ```{r, message=FALSE, eval = first_run}
@@ -1987,7 +2005,8 @@ lapply(plot_estimates_all, \(x) x$results_differences) %>%
         y = "Density",
         fill = "PDX",
         title = paste0(
-            "Distributions of the effect sizes. P4 vs CTRL."
+            "In vivo growth analysis P4 vs CTRL\n",
+            "Distributions of the effect sizes"
         )
     ) +
     ggplot2::scale_fill_viridis_d(option = "H") + 
