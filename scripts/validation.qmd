@@ -2001,7 +2001,11 @@ staining_pdxs %>%
     ) %>%
     ggplot2::ggplot(aes(x = treatment, y = positive_percentage*100)) +
     ggplot2::geom_boxplot(outlier.shape = NA) + 
-    ggplot2::geom_jitter(mapping=aes(color=treatment)) + 
+    ggplot2::geom_jitter(
+        size = 3, 
+        alpha = 0.9, 
+        mapping = aes(color = treatment)
+    ) + 
     ggplot2::scale_color_manual(values = c("black", "blue")) +
     ggplot2::facet_grid(staining~pdx, scales = "free_y") +
     ggplot2::labs(
@@ -2017,7 +2021,7 @@ staining_pdxs %>%
         vjust = 1.5,
         size = 7
     ) + 
-    ggplot2::theme_bw(base_size = 20) + 
+    ggplot2::theme_bw(base_size = 25) + 
     ggplot2::theme(legend.position = "none") + 
     change_guides_point() + 
     change_plot_aes_point()
