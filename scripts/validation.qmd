@@ -1992,7 +1992,7 @@ staining_pvalues <- sapply(
     dplyr::mutate(p.value = format.pval(p.value, digits = 1))
 ```
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=16, fig.height=7}
 #| label: fig-staining-quant-pr-ki67
 staining_pdxs %>%
     dplyr::filter(
@@ -2013,9 +2013,9 @@ staining_pdxs %>%
         mapping = aes(label = p.value),
         x = -Inf,
         y = +Inf,
-        hjust = -1.8,
+        hjust = -2.5,
         vjust = 1.5,
-        size = 5
+        size = 7
     ) + 
     ggplot2::theme_bw(base_size = 20) + 
     ggplot2::theme(legend.position = "none") + 
