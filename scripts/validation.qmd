@@ -1554,7 +1554,7 @@ as well.
 # boxplots for PC3 and PC4 components
 pdx_ctrl_plot_build <- ggplot2::ggplot_build(pdx_ctrl_plot)
 shape_pdx <- pdx_ctrl_plot_build$data[[2]]$shape %>% unique
-names(shape_pdx) <-  c("METS15", "T113", "T111", "T105", "T109", "T110") %>%
+names(shape_pdx) <-  c("METS15", "T105", "T109", "T110", "T111", "T113") %>%
     sort
 pdx_only_embedding <- function(
     pdx_name, 
@@ -1593,7 +1593,7 @@ pdx_only_embedding <- function(
 }
 
 pdx_plots_embedding_p4 <- sapply(
-    c("METS15", "T113", "T111", "T105", "T109", "T110"), 
+    c("METS15", "T105", "T109", "T110", "T111", "T113"), 
     pdx_only_embedding,
     pdx_df_pca = pdx_df_pca,
     treatments_pdx = c("CTRL", "P4"),
@@ -1635,8 +1635,8 @@ pdx_df_pca_sub <- pdx_df_pca %>%
     ) %>%
     dplyr::mutate(pam50 = "nc") %>%
     dplyr::mutate(pdx = factor(pdx, levels = c(
-        "METS15", "T113", "T109",
-        "T105", "T111", "T110"
+        "METS15", "T105", "T109",
+        "T110", "T111", "T113"
     ))) %>% 
     dplyr::filter(pdx %in% pdxs_to_use)
 
@@ -1752,7 +1752,7 @@ First for G2M:
 # And below we perform differential expression analysis for each PDX
 # individually.
 pathway <- "HALLMARK_G2M_CHECKPOINT"
-pdx_df_pca_sub %>%
+g2m_pvalues <- pdx_df_pca_sub %>%
     dplyr::filter(treatment %in% c("CTRL", "P4")) %>%
     dplyr::group_by(pdx) %>%
     dplyr::group_modify(
@@ -1765,11 +1765,12 @@ pdx_df_pca_sub %>%
     dplyr::mutate(
         dplyr::across(
             -dplyr::all_of(c("pdx", "term")), 
-            .fns = format, 
-            digits = 2
+            .fns = \(x) format(x, digits = 2)
         )
     ) %>%
-    dplyr::select(pdx, estimate, p.value, pathway) %>%
+    dplyr::select(pdx, estimate, p.value, pathway) 
+
+g2m_pvalues %>%
     DT::datatable()
 ```
 
@@ -1779,7 +1780,7 @@ Then to Estrogen Early:
 # And below we perform differential expression analysis for each PDX
 # individually.
 pathway <- "HALLMARK_ESTROGEN_RESPONSE_EARLY"
-pdx_df_pca_sub %>%
+estrogen_early_pvalues <- pdx_df_pca_sub %>%
     dplyr::filter(treatment %in% c("CTRL", "P4")) %>%
     dplyr::group_by(pdx) %>%
     dplyr::group_modify(
@@ -1792,12 +1793,84 @@ pdx_df_pca_sub %>%
     dplyr::mutate(
         dplyr::across(
             -dplyr::all_of(c("pdx", "term")), 
-            .fns = format, 
-            digits = 2
+            .fns = \(x) format(x, digits = 2)
         )
     ) %>%
-    dplyr::select(pdx, estimate, p.value, pathway) %>%
+    dplyr::select(pdx, estimate, p.value, pathway)
+    
+estrogen_early_pvalues %>%
     DT::datatable()
+```
+
+Next we add these p-values to the plot.
+
+```{r, fig.width=16, fig.height=7}
+#| label: fig-pdx-scores-with-pvalues
+pvalues_pdxs <- rbind(
+    estrogen_early_pvalues,
+    g2m_pvalues
+) %>%
+    dplyr::mutate(dplyr::across(
+        c(estimate, p.value),
+        as.numeric
+    )) %>%
+    dplyr::mutate(
+        pdx = factor(
+            pdx, 
+            levels = c("METS15", "T105", "T109", "T110","T111","T113")
+        )
+    ) %>%
+    dplyr::mutate(
+        p.value = format.pval(p.value, digits = 1)
+    )
+
+pdx_df_pca_sub %>%
+    tidyr::pivot_longer(
+        cols = dplyr::all_of(names(pathways)),
+        names_to = "pathway",
+        values_to = "score"
+    ) %>%
+    dplyr::filter(pathway != "GOBP_RESPONSE_TO_PROGESTERONE") %>%
+    dplyr::mutate(pathway = factor(pathway, levels = names(pathways))) %>%
+    ggplot2::ggplot(aes(x = treatment, y = score)) +
+    ggplot2::geom_boxplot(outlier.shape = NA) + 
+    ggplot2::geom_jitter(
+        size = 3, 
+        alpha = 0.9, 
+        mapping = aes(color = treatment)
+    ) + 
+    ggplot2::scale_color_manual(values = c(
+        "black",
+        "blue"
+    )) + 
+    ggplot2::geom_text(
+        data = pvalues_pdxs, 
+        mapping = aes(label = p.value),
+        x = -Inf,
+        y = +Inf,
+        hjust = -0.1,
+        vjust = 1.5,
+        size = 7
+    ) + 
+    ggplot2::facet_grid(
+        pathway ~ pdx, 
+        labeller = as_labeller(c(pathways, pdxs_to_use))
+    ) +
+    ggplot2::labs(
+        x = "Treatment",
+        y = "GSVA score"
+    ) +
+    ggplot2::coord_cartesian(
+        ylim = c(-0.6, 0.5)
+    ) + 
+    ggplot2::scale_y_continuous(labels = scales::number_format(
+        accuracy = 0.1,
+        decimal.mark = '.'
+    )) + 
+    ggplot2::theme_bw(base_size = 25) +
+    ggplot2::theme(legend.position="none") +
+    change_guides_point() +
+    change_plot_aes_point()
 ```
 
 We now further validate the results with the stainings performed
@@ -1824,7 +1897,7 @@ staining_pdxs <- read.csv("../data/quantification.csv") %>%
     dplyr::filter(!is.na(positive_percentage))
 ```
 
-```{r, fig.height=6}
+```{r, fig.height=7, fig.width=9}
 #| label: fig-quantification-pdx-pr
 #| fig-cap: Quantification of PR+ cells based on DAB stainings performed
 #|     on the patient derived xenografts.
@@ -1834,9 +1907,7 @@ plot_quantification(
     "PR",
     base_size = 18
 ) +
-    ggplot2::scale_color_manual(
-        values = c("black", "blue")
-    )
+    ggplot2::scale_color_manual(values = c("black", "blue"))
 ```
 
 We see that T111 has a big increase in absolute values. T113 as well
@@ -1890,6 +1961,67 @@ plot_quantification(
     )
 ```
 
+And below we plot both results together with the respective p-values.
+
+```{r}
+staining_pvalues <- sapply(
+    c("PR", "Ki67"), 
+    function(staining_protein, staining_pdxs){
+        staining_pdxs %>%
+            dplyr::filter(treatment %in% c("CTRL", "P4")) %>%
+            dplyr::filter(staining == staining_protein) %>%
+            dplyr::group_by(pdx) %>%
+            dplyr::group_modify(
+                ~ broom::tidy(glm(
+                    positive_percentage ~ treatment, 
+                    data = .,
+                    family = Gamma(link = "identity")
+                ))
+            ) %>%
+            dplyr::filter(term == "treatmentP4") %>%
+            dplyr::ungroup() %>%
+            dplyr::mutate(staining = c(staining_protein)) %>%
+            dplyr::arrange(estimate) %>%
+            dplyr::select(pdx, estimate, p.value, staining) 
+    }, 
+    staining_pdxs = staining_pdxs,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+) %>%
+    dplyr::bind_rows() %>%
+    dplyr::mutate(p.value = format.pval(p.value, digits = 1))
+```
+
+```{r, fig.width=10, fig.height=6}
+#| label: fig-staining-quant-pr-ki67
+staining_pdxs %>%
+    dplyr::filter(
+        staining %in% c("PR", "Ki67") & 
+            treatment %in% c("CTRL", "P4")
+    ) %>%
+    ggplot2::ggplot(aes(x = treatment, y = positive_percentage*100)) +
+    ggplot2::geom_boxplot(outlier.shape = NA) + 
+    ggplot2::geom_jitter(mapping=aes(color=treatment)) + 
+    ggplot2::scale_color_manual(values = c("black", "blue")) +
+    ggplot2::facet_grid(staining~pdx, scales = "free_y") +
+    ggplot2::labs(
+        x = "Treatment",
+        y = paste0("% (Positive cells)")
+    ) +
+    ggplot2::geom_text(
+        data = staining_pvalues, 
+        mapping = aes(label = p.value),
+        x = -Inf,
+        y = +Inf,
+        hjust = -1.8,
+        vjust = 1.5,
+        size = 5
+    ) + 
+    ggplot2::theme_bw(base_size = 20) + 
+    ggplot2::theme(legend.position = "none") + 
+    change_guides_point() + 
+    change_plot_aes_point()
+```
 
 ### Growth curves
 
@@ -1997,6 +2129,14 @@ lapply(plot_estimates_all, \(x) x$results_differences) %>%
         into = c("date", "pdx")
     ) %>%
     dplyr::filter(pdx %in% c("METS15", "T111", "T113", "T110", "T109", "T105")) %>%
+    dplyr::mutate(pdx = dplyr::case_when(
+        pdx == "METS15" ~ "METS15 (**)",
+        pdx == "T105" ~ "T105 (*)",
+        pdx == "T109" ~ "T109 (n.s.)",
+        pdx == "T110" ~ "T110 (n.s.)",
+        pdx == "T111" ~ "T111 (***)",
+        pdx == "T113" ~ "T113 (****)"
+    )) %>%
     ggplot2::ggplot(aes(x = difference, fill = pdx)) +
     ggdist::stat_halfeye(alpha = 0.5) +
     ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
@@ -2022,12 +2162,12 @@ lapply(plot_estimates_all, \(x) x$results_differences) %>%
 #| label: fig-pdx-curves-ivis-together
 #| fig-cap: Average growth curves for each PDX individually with their 
 #|     estimates. The credible intervals corresponds to the 25th and 50th CIs.
-pdxs_responders <- c("T111", "T113", "METS15", "T110", "T105", "T109")
+pdxs_responders <- c("T111", "T113", "METS15", "T105", "T110", "T109")
 responder_non_responder <- c(
     "Responder", 
     "Responder",
-    "Partial responder", 
-    "Non-responder",
+    "Partial responder",
+    "Partial responder",
     "Non-responder",
     "Non-responder"
 )
