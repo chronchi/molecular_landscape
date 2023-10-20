@@ -2161,6 +2161,38 @@ received some kind of hormonal therapy. As seen before, for the TCGA
 dataset we select ER+ BC patients that have the molecular subtype luminal
 A and B instead. 
 
+Just before moving on we plot the embedding colored by molecular subtype
+stratified by cohort so it can go together with a figure in the paper and it
+is easier to compare the pathways.
+
+```{r, fig.width=10, fig.height=4}
+#| label: fig-cohorts-mol-sub-stratified
+df_pca_coordinates %>% 
+    dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")) %>%
+    dplyr::filter(pam50 %in% c("luma", "lumb", "basal", "her2", "normal")) %>%
+    ggplot2::ggplot(aes(
+        x = PC3,
+        y = PC4,
+        color = pam50
+    )) + 
+    ggplot2::geom_point() + 
+    ggplot2::labs(
+        color = "Molecular\nsubtype"
+    ) + 
+    ggplot2::facet_wrap(
+        ~ cohort,
+        labeller = as_labeller(c(
+            "tcga" = "TCGA",
+            "metabric" = "METABRIC",
+            "scanb" = "SCAN-B"
+        ))
+    ) + 
+    ggplot2::theme_bw(base_size = 20) + 
+    change_guides_point() + 
+    change_plot_aes_point()
+```
+
+
 ```{r, eval = first_run}
 tcga_samples <- colData(datasets$tcga) %>% data.frame %>%
     dplyr::filter(
