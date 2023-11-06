@@ -341,6 +341,32 @@ The average ranking are somewhat similar. For the two experiments where there
 are RNA-seq samples, the distribution is the same. For METABRIC, a microarray
 experiment, the distribution is shifted a bit below.
 
+```{r avg-rankings-hkg, fig.height=4, fig.width=8}
+#| label: fig-avg-ranking-hkg-wo-scanb
+#| fig-cap: Distribution of the average ranking of the housekeeping genes
+#|     defined previously for each cohort separately.
+
+avg_rankings <- lapply(
+    datasets_normalized, 
+    function(x) colData(x) %>% data.frame %>% dplyr::select(avg_ranking)
+) %>% dplyr::bind_rows(.id = "cohort") %>%
+    dplyr::mutate(cohort = toupper(cohort))
+
+avg_rankings %>% 
+    dplyr::filter(cohort != "SCANB") %>%
+    ggplot2::ggplot(
+        aes(x = avg_ranking, fill = cohort)
+    ) + 
+        ggplot2::geom_histogram(alpha = 0.9, bins = 30) +
+        ggplot2::labs(
+            x = "Average ranking of 44 stable genes",
+            y = "Count",
+            color = "Cohort"
+        ) + 
+        ggplot2::facet_wrap(~cohort, scales = "free_y") +
+        ggplot2::theme_bw(base_size = 20)
+```
+
 @fig-gene-bc-imp shows histograms of gene expression from some
 important genes in
 breast cancer.
@@ -396,6 +422,59 @@ ggplot2::ggplot(
 ```
 
 ESR1 and TFF1 expressions are divided across ER status, as expected.
+
+```{r, fig.width = 7, fig.height=5}
+#| label: fig-gene-bc-imp-wo-scanb
+#| fig-cap: Distribution of the gene expression levels of ESR1 and TFF1
+#|     in each one of the cohorts
+
+genes <- c("TFF1", "ESR1")
+col_data_genes <- mapply(
+    get_gene_col_data,
+    sum_exp = datasets_normalized,
+    assay_to_use = "avg_ranking",
+    MoreArgs = list(genes = genes),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+) %>% 
+    dplyr::bind_rows(.id = "cohort") %>%
+    dplyr::mutate(cohort = toupper(cohort)) %>%
+    dplyr::mutate(cohort = ifelse(
+        cohort == "SCANB",
+        "SCAN-B",
+        cohort
+    )) %>%
+    dplyr::mutate(er_status = ifelse(
+        er_status == "pos",
+        "Positive",
+        ifelse(
+            er_status == "neg",
+            "Negative",
+            NA
+        )
+    )) %>%
+    tidyr::pivot_longer(
+        cols = all_of(genes),
+        names_to = "gene",
+        values_to = "avg_ranking_genes"
+    )
+
+ggplot2::ggplot(
+    col_data_genes %>%
+        dplyr::filter(cohort != "SCAN-B"),
+    aes(x = avg_ranking_genes, fill = er_status)
+) + 
+    ggplot2::geom_histogram(bins = 30, alpha = 0.5, position = "identity") + 
+    ggplot2::facet_grid(cohort~gene, scales = "free") +
+    ggplot2::labs(
+        x = "Normalized expression levels",
+        y = "Count",
+        fill = "ER IHC"
+    ) +
+    ggplot2::theme_bw(base_size = 20)
+```
+
+
 
 The numbers of samples available for each cohort are shown in the table
 below.
@@ -1862,6 +1941,24 @@ jaccard_indices %>%
     change_guides_point()
 ```
 
+And below we show the standard deviation of the average of the distributions.
+
+```{r}
+jaccard_indices %>%
+    dplyr::filter(!is.na(jaccard)) %>%
+    dplyr::group_by(which_seed) %>%
+    dplyr::summarise(
+        jaccard_mean = mean(jaccard)
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::summarise(
+        mean_of_jaccard_mean = mean(jaccard_mean),
+        sd_of_jaccard_mean = sd(jaccard_mean)
+    )
+```
+
+This indicates a high agreement.
+
 ## Normalization is necessary to reduce batch effects in other components
 
 Since PCA is removing batch effects from the datasets, one could argue it could
@@ -2188,8 +2285,8 @@ df_pca_coordinates %>%
         ))
     ) + 
     ggplot2::theme_bw(base_size = 20) + 
-    change_guides_point() + 
-    change_plot_aes_point()
+    change_plot_aes_point() + 
+    change_guides_point()
 ```
 
 
