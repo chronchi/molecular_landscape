@@ -48,6 +48,7 @@ db_files <- list(
         datasets_normalized = "datasets_normalized",
         pipeline_scores_plots = "pipeline_scores_plots",
         pipeline_scores_plots_er_only = "pipeline_scores_plots_er_only",
+        pipeline_scores_plots_er_androgen = "pipeline_scores_plots_er_androgen",
         comparison_to_average_neighbors = "comparison_to_average_neighbors"
     ),
     trying = c(

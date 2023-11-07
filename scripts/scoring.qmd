@@ -1376,6 +1376,19 @@ pipeline_scores_plots_er_only <- sapply(
     simplify = FALSE
 )
 
+pipeline_scores_plots_er_androgen <- sapply(
+    patients_all, 
+    get_patient_scores_distributions_all,
+    df_pca = poetic_df_pca,
+    scores_to_use = scores_to_use[
+        c("HALLMARK_ESTROGEN_RESPONSE_EARLY", "SET_ERPR",
+          "HALLMARK_ANDROGEN_RESPONSE")
+    ],
+    base_size = 20,
+    USE.NAMES = TRUE, 
+    simplify = FALSE
+)
+
 saveRDS(
     pipeline_scores_plots,
     "../results/rds_files/scoring/pipeline_scores_plots.rds"
@@ -1385,6 +1398,12 @@ saveRDS(
     pipeline_scores_plots_er_only,
     "../results/rds_files/scoring/pipeline_scores_plots_er_only.rds"
 )
+
+saveRDS(
+    pipeline_scores_plots_er_androgen,
+    "../results/rds_files/scoring/pipeline_scores_plots_er_androgen.rds"
+)
+
 ```
 
 Patient 63 @fig-pt63 is considered a responder. According to 
@@ -1414,6 +1433,25 @@ pipeline_scores_plots$treated_nb236_baseline$plot +
 
 When comparing these two patients, there is also a difference in the androgen
 response score, which could be a reflection of different estrogen signaling.
+
+Now we show only the plots from the ER signaling signatures and
+androgen response as well.
+
+```{r, fig.height=4, fig.width=10}
+#| label: fig-pt63-sub
+#| fig-cap: Posterior distribution of the average scores in the neighborhood
+#|     of patient 236 from POETIC trial. Each dot corresponds to a 1% quantile.
+pipeline_scores_plots_er_androgen$treated_nb63_baseline$plot +
+    change_plot_aes_point()
+```
+
+```{r, fig.height=4, fig.width=10}
+#| label: fig-pt236-sub
+#| fig-cap: Posterior distribution of the average scores in the neighborhood
+#|     of patient 236 from POETIC trial. Each dot corresponds to a 1% quantile.
+pipeline_scores_plots_er_androgen$treated_nb236_baseline$plot +
+    change_plot_aes_point()
+```
 
 ### Matching other responders and non-responders
 
