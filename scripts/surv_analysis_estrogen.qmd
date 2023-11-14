@@ -627,7 +627,8 @@ selected_data <- lapply(
 ) %>% 
     lapply(., \(x) x[, cols_to_select]) %>%
     dplyr::bind_rows(.id = "cohort") %>%
-    dplyr::filter(pam50 %in% levels(pam50))
+    dplyr::filter(pam50 %in% levels(pam50)) %>%
+    dplyr::filter(pam50 != "claudin-low")
 
 selected_data %>% 
     ggplot2::ggplot(aes(
@@ -654,12 +655,17 @@ selected_data %>%
     )+ 
     ggplot2::labs(
         x = "ER status",
-        color = "PAM50",
+        color = "Molecular\nsubtype",
         y = "SET ER/PR score",
         title = paste0(pathway_to_get[1], " scores by cohort")
     ) +
     ggplot2::theme_bw(base_size = 15) + 
-    ggplot2::scale_color_manual(values = get_colors_pam50(selected_data)) +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(selected_data),
+        labels = c(
+            "Basal-like", "HER2-enriched", "LumB", "LumA", "Normal-like"
+        )
+    ) +
     change_plot_aes_point() +
     change_guides_point() +
     ggplot2::theme(strip.text = element_text(size = 18))
@@ -679,7 +685,8 @@ selected_data <- lapply(
     "data"
 ) %>% 
     lapply(., \(x) x[, cols_to_select]) %>%
-    dplyr::bind_rows(.id = "cohort")
+    dplyr::bind_rows(.id = "cohort") %>%
+    dplyr::filter(pam50 != "claudin-low")
 
 selected_data %>% 
     ggplot2::ggplot(aes(
@@ -705,13 +712,18 @@ selected_data %>%
         ))
     )+ 
     ggplot2::labs(
-        x = "ER status",
+        x = "ER IHC",
         color = "PAM50",
         y = "Estrogen Early score"#,
         #title = paste0(pathway_to_get[1], " scores by cohort")
     ) +
     ggplot2::theme_bw(base_size = 20) + 
-    ggplot2::scale_color_manual(values = get_colors_pam50(selected_data)) +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(selected_data),
+        labels = c(
+            "Basal-like", "HER2-enriched", "LumB", "LumA", "Normal-like"
+        )
+    ) +
     change_plot_aes_point() +
     change_guides_point() +
     ggplot2::theme(strip.text = element_text(size = 18))
@@ -1780,7 +1792,7 @@ df %>%
         x = "ER IHC index",
         y = "Molecular score",
         #shape = "Treatment group",
-        color = "PAM50",
+        color = "Molecular\nsubtype",
         title = paste0(
             "Correlation between ER IHC percentage\nand",
             " molecular ER signaling scores"
@@ -1798,7 +1810,12 @@ df %>%
     ) +
     ggplot2::scale_y_continuous(labels = \(x)  sprintf("%.1f", x)) +
     ggplot2::theme_bw(base_size = 20) +
-    ggplot2::scale_color_manual(values = get_colors_pam50(df)) +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(df),
+        labels = c(
+            "Basal-like", "HER2-enriched", "LumB", "LumA", "Normal-like"
+        )
+    ) +
     change_plot_aes_point() +
     change_guides_point()
 ```

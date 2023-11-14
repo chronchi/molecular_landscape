@@ -1420,7 +1420,8 @@ pdx_ctrl_plot <- p +
         pdx_df_pca_sub,
         mapping = aes(x = PC3, y = PC4, shape = pdx),
         size = 5,
-        alpha = 1
+        alpha = 1,
+        stroke =  1
     ) + 
     ggplot2::theme_bw(base_size = 15) +
     ggplot2::labs(
@@ -1433,7 +1434,10 @@ pdx_ctrl_plot <- p +
         values = c(
             get_colors_pam50(p$data),
             "not available" = "black"
-        )
+        ),
+        labels = c("Basal-like", "HER2-enriched", 
+                   "LumB", "LumA", "Normal-like", 
+                   "Not available")
     ) +
     change_plot_aes_point() +
     change_guides_point(shape = TRUE)
@@ -2366,7 +2370,7 @@ normal_swiss_df_pca %>%
     change_guides_point()
 ```
 
-```{r fig.width=9, fig.height=6}
+```{r fig.width=7, fig.height=4}
 #| label: fig-pca-normal-pam50
 #| fig-cap: Embedding of Normal Swiss cohort with the 
 #|     other cohorts colored by the PAM50. 
@@ -2387,18 +2391,20 @@ p +
         size = 3
     ) + 
     ggplot2::labs(
-        title = paste0(
-            "Healthy Swiss Cohort"
-        ),
-        subtitle = "All samples from TCGA, SCANB and METABRIC are plotted",
-        caption = "Grey points correspond to the Swiss cohort",
-        color = "Molecular subtype"
+        #title = paste0(
+        #    "Healthy Swiss Cohort"
+        #),
+        #subtitle = "All samples from TCGA, SCANB and METABRIC are plotted",
+        #caption = "Grey points correspond to the Swiss cohort",
+        color = "Molecular\nsubtype"
     ) +
     ggplot2::scale_color_manual(
         values = c(
             get_colors_pam50(p$data),
             "not available" = "grey"
-        )
+        ),
+        labels = c("Basal-like", "HER2-enriched", 
+                   "LumB", "LumA", "Normal-like")
     ) +
     ggplot2::theme_bw(base_size = 20) + 
     change_plot_aes_point() +

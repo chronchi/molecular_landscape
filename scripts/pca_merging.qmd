@@ -2262,17 +2262,24 @@ Just before moving on we plot the embedding colored by molecular subtype
 stratified by cohort so it can go together with a figure in the paper and it
 is easier to compare the pathways.
 
-```{r, fig.width=10, fig.height=4}
+```{r, fig.width=11, fig.height=4}
 #| label: fig-cohorts-mol-sub-stratified
-df_pca_coordinates %>% 
+sub_df <- df_pca_coordinates %>% 
     dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")) %>%
-    dplyr::filter(pam50 %in% c("luma", "lumb", "basal", "her2", "normal")) %>%
+    dplyr::filter(pam50 %in% c("luma", "lumb", "basal", "her2", "normal"))
+
+sub_df %>%
     ggplot2::ggplot(aes(
         x = PC3,
         y = PC4,
         color = pam50
     )) + 
     ggplot2::geom_point() + 
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(sub_df), 
+        labels = c("Basal-like", "HER2-enriched", 
+                   "LumB", "LumA", "Normal-like")
+    ) +
     ggplot2::labs(
         color = "Molecular\nsubtype"
     ) + 
@@ -2285,8 +2292,8 @@ df_pca_coordinates %>%
         ))
     ) + 
     ggplot2::theme_bw(base_size = 20) + 
-    change_plot_aes_point() + 
-    change_guides_point()
+    change_guides_point() + 
+    change_plot_aes_point() 
 ```
 
 

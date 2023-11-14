@@ -1257,7 +1257,7 @@ poetic_df_pca %>%
 @fig-pt63-236 shows the embedding of two distinct patients 
 in a similar neighborhood.
 
-```{r, fig.width=10, fig.height=7}
+```{r, fig.width=9, fig.height=6}
 #| label: fig-pt63-236
 #| fig-cap: Plot of two selected patients in the molecular landscape. One
 #|     is a responder and the other is a non responder. The patient id numbers
@@ -1270,12 +1270,25 @@ poetic_df_pca_baseline <- poetic_df_pca %>%
 
 base_plot <- get_base_plot(
     poetic_df_pca %>% 
-        dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")),
+        dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")) %>%
+        dplyr::filter(pam50 != "claudin-low"),
     size_dots = 2,
     alpha_val = 0.1,
     size_legend = 4,
     base_size = 10
-)    
+) + 
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(
+            poetic_df_pca %>% 
+                dplyr::filter(cohort %in% c("tcga", "metabric", "scanb")) %>%
+                dplyr::filter(pam50 != "claudin-low")
+        ), 
+        labels = c(
+            "Basal-like", "HER2-enriched", "LumB", "LumA", "Normal-like"
+        )
+    ) + 
+    ggplot2::labs(color = "Molecular\nsubtype")
+
 df <- poetic_df_pca_baseline %>% dplyr::filter(cohort == "poetic")
 
 plot_patients <- base_plot + 
@@ -1289,7 +1302,9 @@ plot_patients <- base_plot +
         size = 7,
         shape = 22
     ) + 
-    ggplot2::scale_fill_viridis_d() +
+    ggplot2::scale_fill_viridis_d(
+        labels = c("Non responder", "Responder")
+    ) +
     ggrepel::geom_label_repel(
         data = df %>% dplyr::mutate(patient_nb = paste0("#", patient_nb)),
         mapping = aes(x = PC3, y = PC4, label = patient_nb),
@@ -1298,15 +1313,15 @@ plot_patients <- base_plot +
         box.padding = 0.5
     ) +
     ggplot2::labs(
-        fill = "Is responder?",
-        title = paste0(
-            "Responder status for each patient in the baseline\n",
-            "and treated group"
-        ),
-        caption = paste0(
-            "Responder is defined as having at least 5% baseline Ki67\nand",
-            " reduction of at least 60% in Ki67 levels"
-        )
+        fill = "Is responder?"#,
+        #title = paste0(
+        #    "Responder status for each patient in the baseline\n",
+        #    "and treated group"
+        #),
+        #caption = paste0(
+        #    "Responder is defined as having at least 5% baseline Ki67\nand",
+        #    " reduction of at least 60% in Ki67 levels"
+        #)
     ) + 
     ggplot2::theme_bw(base_size = 18) +
     change_plot_aes_point()
