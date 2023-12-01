@@ -14,3 +14,4 @@ scripts/tests.qmd
 scripts/ivis_analysis.qmd
 !results/tables/risk_score/risk_score_model.csv
 corrections/
+docs/

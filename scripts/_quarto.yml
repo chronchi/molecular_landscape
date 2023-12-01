@@ -1,24 +1,26 @@
 project:
   type: book
-  output-dir: "../results/book"
+  output-dir: "../docs"
 
 book:
   title: > 
-    Molecular landscape: a new framework for 
-    personalized medicine in Breast Cancer.
-  author: "Carlos Ronchi, Cathrin Brisken"
+    EMBER creates a unified space for 
+    independent breast cancer transcriptomic 
+    datasets enabling precision oncology.
+  author: "Carlos Ronchi, Syed Haider, Cathrin Brisken"
   date: "2022.07.21"
   chapters:
     - index.qmd
-    - intro.qmd
-    - surv_analysis_estrogen.qmd
-    - pca_merging.qmd
-    - validation.qmd
-    - scoring.qmd
-    - risk_score.qmd
-    - trying.qmd
-    - discussion.qmd
-    - references.qmd
+    - chapters/intro.qmd
+    - chapters/surv_analysis_estrogen.qmd
+    - chapters/pca_merging.qmd
+    - chapters/validation.qmd
+    - chapters/scoring.qmd
+    - chapters/risk_score.qmd
+    - chapters/expanding_ember.qmd
+    - chapters/trying.qmd
+    - chapters/discussion.qmd
+    - chapters/references.qmd
   page-footer: 
     right: 
       - icon: github
@@ -29,7 +31,7 @@ book:
   repo-actions: [issue]
   sharing: [twitter]
 
-bibliography: references.bib
+bibliography: chapters/references.bib
 
 execute: 
   eval: true

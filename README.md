@@ -1,7 +1,7 @@
-# Molecular landscape: a new framework to think about personalized medicine
+# EMBER creates a unified space for independent breast cancer transcriptomic datasets enabling precision oncology.
 
-This repo contain the scripts used to generate the images from the 
-molecular landscape.
+This repo contain the scripts used to generate all the figures from the 
+EMBER paper and also instructions on how to run the analysis yourself.
 
 ## Directory structure
 
@@ -18,19 +18,26 @@ the server. For now this folder is empty.
 ## Book
 
 The book when generated should be available on the folder `results/book`. 
-Whenever there is an image, one can right click and open image in a new tab
-to get a higher quality version of the image.
+Also an automatically generated online version is available at [chronchi.github.io/molecular_landscape](https://chronchi.github.io/molecular_landscape).
 
 ## Files that are ignored
 
 Overall we are ignoring all the rds, rdb and RData files that are generated
 in the analysis. We also ignore the cache folders and the files folders. 
-This folder will be served using a shiny server instead and therefore can be visualized
-in a website. The data folders and results folders are also ignored, they would
+The data folders and results folders are also ignored, they would
 make the repo too big. Check the gitignore files for a complete list. The only
 folder with its contents that is available from the `results` is the `book`,
 which contains the files to visualize the whole analysis.
 
-# TODO
+## Docker
 
-- [ ] Generate docker image to reproduce the whole analysis
+The analysis here has a docker image with all the datasets available. The
+docker image is used to automatically run the whole analysis and generate
+the report using github actions. Also, if you would like to rerun some
+specific parts of the analysis you can download the docker image
+`chronchi/molecular_landscape` and run it. This is a Rstudio server
+docker image so you will be able to generate the whole analysis in your
+computer as well.
+
+### Instructions for running docker
+
