@@ -1,0 +1,24 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build the Docker image
+      run: docker build -t run_analysis .
+    - name: Docker Run Action
+      run: docker run --rm --name generate_docs -v /github/workspace/docs/:/home/rstudio/ember/docs/:rw run_analysis
+    - uses: actions/upload-artifact@v3
+      with:
+        name: generate-docs
+        path: /github/workspace/docs/
