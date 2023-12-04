@@ -31,13 +31,42 @@ which contains the files to visualize the whole analysis.
 
 ## Docker
 
-The analysis here has a docker image with all the datasets available. The
-docker image is used to automatically run the whole analysis and generate
-the report using github actions. Also, if you would like to rerun some
-specific parts of the analysis you can download the docker image
-`chronchi/molecular_landscape` and run it. This is a Rstudio server
-docker image so you will be able to generate the whole analysis in your
-computer as well.
+The analysis here has a docker image with all the datasets available. 
+Unfortunately we cannot use github actions to automatically generate
+the report and feed to github pages. The docker image size is too big
+(~10GB compressed) and the github runners provide up to 14GB SSD storage
+space. So instead one would need to run locally the whole docker. For that
+before pushing to the main branch of github I check if there is any difference
+in the `renv.lock` file. If there is a new image is automatically generated
+and submitted to docker hub to get uptodate images for running the analysis. 
 
-### Instructions for running docker
+After the image is run another Dockerfile is used to generate the report
+that will be used in the github pages. The report is saved in the 
+docs folder. So if you would like to run the analysis locally the only
+thing that you will need to do is run the command below at the root
+of this repository. Make sure to change the absolute path to the 
+volume so it fetches the scripts as well. 
 
+```bash
+# clone the repo to have the latest script available
+git clone git@github.com:chronchi/molecular_landscape.git
+
+# build the image that depends on the chronchi/ember:v1 stored
+docker build -f Dockerfile.report -t run_analysis .
+
+# Run docker with previously built image to fetch the docs and store in the
+# docs folder of the cloned repo
+docker run --rm --name generate_docs -v /path/to/github/repo/docs/:/home/rstudio/ember/docs/:rw run_analysis
+```
+
+After this you should be able to access the report on `docs/index.html`. 
+
+Moreover, if you want to play with the data and the code, you can access
+the Rstudio server available from the docker image directly using the 
+commands below. 
+
+``
+
+This will open up the port 8000 (change in the file `` if this port
+is being used) and then you can access the rstudio server at
+`localhost:8000`.

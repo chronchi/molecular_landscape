@@ -8,7 +8,7 @@
 # we start adding more packages the ember image needs to be updated to account
 # for that. This Dockerfile here is created for the paper version
 
-FROM chronchi/ember:v1
+FROM chronchi/ember:latest
 
 COPY scripts/ /home/rstudio/ember/scripts
 
