@@ -19,6 +19,7 @@ book:
     - chapters/risk_score.qmd
     - chapters/expanding_ember.qmd
     - chapters/trying.qmd
+    - chapters/revision.qmd
     - chapters/discussion.qmd
     - chapters/references.qmd
   page-footer: 

@@ -217,6 +217,12 @@ div.csl-indent {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../chapters/revision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Revision</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../chapters/discussion.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Discussion</span></a>
   </div>
@@ -275,9 +281,9 @@ div.csl-indent {
 </div>
 <div class="cell-output cell-output-stdout">
 <pre><code>    ../../results/plots/risk_score ../../results/rds_files/risk_score 
-                              TRUE                               TRUE 
+                             FALSE                              FALSE 
    ../../results/tables/risk_score 
-                              TRUE </code></pre>
+                             FALSE </code></pre>
 </div>
 </div>
 <p>We develop a risk score for early stage breast cancer patients that received only endocrine therapy (ET). The idea is similar to what was done with the EndoPredict signatures, but here we extend it by using the molecular landscape information. This provides a full framework where we can analyse the risk of recurrence even for patients that have high ER+ percentage.</p>
@@ -2237,17 +2243,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-1203"><a href="#cb18-1203" aria-hidden="true" tabindex="-1"></a><span class="co"># save all the results</span></span>
 <span id="cb18-1204"><a href="#cb18-1204" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(</span>
 <span id="cb18-1205"><a href="#cb18-1205" aria-hidden="true" tabindex="-1"></a>    abim_100,</span>
-<span id="cb18-1206"><a href="#cb18-1206" aria-hidden="true" tabindex="-1"></a>    <span class="st">"../../results/rds_files/validation/abim_100.rds"</span></span>
+<span id="cb18-1206"><a href="#cb18-1206" aria-hidden="true" tabindex="-1"></a>    <span class="st">"../../results/rds_files/risk_score/abim_100.rds"</span></span>
 <span id="cb18-1207"><a href="#cb18-1207" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb18-1208"><a href="#cb18-1208" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1209"><a href="#cb18-1209" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(</span>
 <span id="cb18-1210"><a href="#cb18-1210" aria-hidden="true" tabindex="-1"></a>    abim_100_df_pca <span class="sc">%&gt;%</span> data.frame,</span>
-<span id="cb18-1211"><a href="#cb18-1211" aria-hidden="true" tabindex="-1"></a>    <span class="st">"../../results/rds_files/validation/abim_100_df_pca.rds"</span></span>
+<span id="cb18-1211"><a href="#cb18-1211" aria-hidden="true" tabindex="-1"></a>    <span class="st">"../../results/rds_files/risk_score/abim_100_df_pca.rds"</span></span>
 <span id="cb18-1212"><a href="#cb18-1212" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb18-1213"><a href="#cb18-1213" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1214"><a href="#cb18-1214" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(</span>
 <span id="cb18-1215"><a href="#cb18-1215" aria-hidden="true" tabindex="-1"></a>    abim_100_normalized,</span>
-<span id="cb18-1216"><a href="#cb18-1216" aria-hidden="true" tabindex="-1"></a>    <span class="st">"../../results/rds_files/validation/abim_100_normalized.rds"</span></span>
+<span id="cb18-1216"><a href="#cb18-1216" aria-hidden="true" tabindex="-1"></a>    <span class="st">"../../results/rds_files/risk_score/abim_100_normalized.rds"</span></span>
 <span id="cb18-1217"><a href="#cb18-1217" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb18-1218"><a href="#cb18-1218" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-1219"><a href="#cb18-1219" aria-hidden="true" tabindex="-1"></a></span>

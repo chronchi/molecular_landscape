@@ -66,7 +66,10 @@ source("../R/first_run.R")
 
 name_document <- "surv_analysis_estrogen"
 sapply(
-    paste0("../../results/", c("plots", "rds_files", "tables"), "/", name_document),
+    paste0(
+        "../../results/", c("plots", "rds_files", "tables"),
+        "/", name_document
+    ),
     dir.create,
     showWarnings = FALSE,
     recursive = TRUE
@@ -515,6 +518,7 @@ gsva_scores <- readRDS(
 datasets <- readRDS(
     "../../results/rds_files/surv_analysis_estrogen/datasets_with_scores.rds"
 )
+
 ```
 
 
@@ -1014,6 +1018,16 @@ scanb_samples <- colData(datasets$scanb) %>% data.frame %>%
     ) %>% 
     dplyr::pull(sample_name)
 
+scanb_samples_her2_neg <- colData(datasets$scanb) %>% data.frame %>%
+    dplyr::filter(
+        node_stage != "NX" &
+        !(tumor_stage %in% c("T4", "Tis", "TX")) & 
+        er_status == "pos" & 
+        TreatGroup == "Endo" & 
+        HER2 == "Negative"
+    ) %>% 
+    dplyr::pull(sample_name)
+
 # we select also patients with high ER percentage > 90 for comparison
 # down in the analysis
 scanb_high_er <- colData(datasets$scanb) %>% data.frame %>%
@@ -1056,6 +1070,16 @@ metabric_samples <- colData(datasets$metabric) %>% data.frame %>%
         CHEMOTHERAPY == "NO" &
         er_status == "pos" & 
         HORMONE_THERAPY == "YES"
+    ) %>% 
+    dplyr::pull(sample_name)
+
+
+metabric_samples_her2_neg <- colData(datasets$metabric) %>% data.frame %>%
+    dplyr::filter(
+        CHEMOTHERAPY == "NO" &
+        er_status == "pos" & 
+        HORMONE_THERAPY == "YES" & 
+        HER2_SNP6 != "GAIN"
     ) %>% 
     dplyr::pull(sample_name)
 
@@ -1131,6 +1155,35 @@ nb_pts_events <- data.frame(
 nb_pts_events
 ```
 
+The total number of HER2+ samples in the lists is:
+
+```{r}
+data.frame(
+    cohort = c(
+        "SCANB", "METABRIC"
+    ),
+    number_patients = c(
+        length(scanb_samples),
+        length(metabric_samples)
+    ),
+    her2_positive = c(
+       datasets$scanb %>% colData %>% data.frame %>%
+            dplyr::filter(
+                sample_name %in% scanb_samples & HER2 == "Positive"
+            ) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n),
+       datasets$metabric %>% colData %>% data.frame %>%
+            dplyr::filter(sample_name %in% metabric_samples & 
+                              HER2_SNP6 == "GAIN"
+            ) %>%
+            dplyr::summarise(n = n()) %>%
+            dplyr::pull(n)
+    )
+) %>% kableExtra::kbl() %>%
+    kableExtra::kable_classic(full_width = FALSE)
+```
+
 
 ```{r, eval = first_run}
 # run the survival analysis for each dataset with its own formula.
@@ -1140,13 +1193,17 @@ nb_pts_events
 formulas_survival <- c(
     "os_tcga" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
+    "os_scanb_her2_neg" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb_high_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb_low_er" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_scanb_high_esr1" = "Surv(os_months, os_status) ~ age + node_stage + tumor_stage",
     "os_metabric" = "Surv(os_months, os_status) ~ age + npi",
+    "os_metabric_her2_neg" = "Surv(os_months, os_status) ~ age + npi",
     "os_metabric_high_esr1" = "Surv(os_months, os_status) ~ age + npi",
     "rfs_metabric" = "Surv(rfs_months, rfs_status) ~ age + npi",
+    "rfs_metabric_her2_neg" = "Surv(rfs_months, rfs_status) ~ age + npi",
     "rfs_scanb" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
+    "rfs_scanb_her2_neg" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
     "rfs_scanb_high_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
     "rfs_scanb_low_er" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
     "rfs_scanb_high_esr1" = "Surv(rfs_months, rfs_status) ~ age + node_stage + tumor_stage",
@@ -1267,7 +1324,9 @@ survival_results <- sapply(
             scanb_high_er = datasets$scanb,
             scanb_low_er = datasets$scanb,
             scanb_high_esr1 = datasets$scanb,
-            metabric_high_esr1 = datasets$metabric
+            metabric_high_esr1 = datasets$metabric,
+            scanb_her2_neg = datasets$scanb,
+            metabric_her2_neg = datasets$metabric
         ),
         patients = list(
             tcga_samples, 
@@ -1276,7 +1335,9 @@ survival_results <- sapply(
             scanb_high_er,
             scanb_low_er,
             scanb_high_esr1,
-            metabric_high_esr1
+            metabric_high_esr1,
+            scanb_samples_her2_neg,
+            metabric_samples_her2_neg
         ),
         USE.NAMES = TRUE,
         SIMPLIFY = FALSE
@@ -1799,6 +1860,78 @@ tables_survival %>%
     change_plot_aes_point() +
     ggplot2::theme(plot.caption = ggplot2::element_text(size = 15))
 ```
+
+And now including only SCANB and METABRIC using the HER2- samples only.
+
+```{r, fig.width=13, fig.height=6}
+#| fig-cap: Hazard ratios for estrogen early and SET ER/PR for all the
+#|      three cohorts of only endocrine treated patients with ER+ HER2- BC. 
+#| label: fig-surv-all-cohorts-her2-neg
+terms_to_plot <- c(
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY" = "Estrogen Early", 
+    "SET_ERPR" = "SET ER/PR"
+)
+
+tables_survival %>%
+    dplyr::filter(
+        term %in% names(terms_to_plot) & 
+            cohort %in% c("scanb_her2_neg", "metabric_her2_neg")
+    ) %>% 
+    dplyr::mutate(
+        cohort = toupper(cohort),
+        type_analysis = toupper(type_analysis),
+        term = terms_to_plot[term]
+    ) %>%
+    ggplot2::ggplot(aes(
+        y = cohort, 
+        x = estimate, 
+        xmin = conf.low, 
+        xmax = conf.high
+    )) +
+    ggplot2::geom_pointrange(size = 1, linewidth = 1) + 
+    ggplot2::geom_vline(xintercept = 1, lty = 2) + 
+    ggplot2::labs(
+        x = "Hazard ratio (95% CI)",
+        y = "",
+        caption = paste0(
+            "Patients selected for survival analysis: SCAN-B ET only, HER2-; METABRIC ET only, HER2-.\n",
+            "OS: Overall survival, RFS: Recurrence free survival"
+        )
+    ) +
+    ggplot2::facet_grid(type_analysis ~ term, scales = "free_y") +
+    ggplot2::theme_bw(base_size = 30) + 
+    change_guides_point() +
+    change_plot_aes_point() +
+    ggplot2::theme(plot.caption = ggplot2::element_text(size = 15))
+```
+
+```{r}
+cor.test(
+    colData(datasets$scanb)[
+        scanb_samples_her2_neg, 
+        "HALLMARK_ESTROGEN_RESPONSE_EARLY"
+    ],
+    colData(datasets$scanb)[
+        scanb_samples_her2_neg, 
+        "SET_ERPR"
+    ]
+)
+```
+
+
+```{r}
+cor.test(
+    colData(datasets$metabric)[
+        metabric_samples_her2_neg, 
+        "HALLMARK_ESTROGEN_RESPONSE_EARLY"
+    ],
+    colData(datasets$metabric)[
+        metabric_samples_her2_neg, 
+        "SET_ERPR"
+    ]
+)
+```
+
 
 ## Comparison of ER IHC and molecular ER signaling
 

@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 80
----
-
 # A new framework for personalized medicine: integrating
 
 In the next few chapters we will show a new framework for personalized medicine.
@@ -44,7 +38,7 @@ genes. After using this new normalization, we proceed with PCA on a subset of
 two cohorts using the 1000 most variable genes. We then validate the integration
 with new samples from a completely different cohort.
 
-```{r setup}
+```{r}
 renv::restore()
 
 library(tidyverse)
@@ -241,6 +235,16 @@ p <- dplyr::inner_join(cv_genes, sd_genes, by = "symbol") %>%
         title = "Comparison of scores when selecting most variable genes"
     ) +
     ggplot2::theme_bw()
+
+saveRDS(
+    cv_genes,
+    "../../results/rds_files/pca_merging/cv_genes.rds"
+)
+
+saveRDS(
+    sd_genes,
+    "../../results/rds_files/pca_merging/sd_genes.rds"
+)
 
 p
 ```
@@ -512,7 +516,7 @@ was the Pearson correlation.
 
 ```{r, eval = first_run}
 set.seed(02943)
-sizes_sets <- floor(runif(10, min = 20, max = 44))
+sizes_sets <- seq(from = 2, to = 44, by = 3)
 random_subsets <- sapply(
     sizes_sets,
     sample,
@@ -552,7 +556,7 @@ correlation_scores <- lapply(
         sapply(
             most_variable_genes,
             function(gene, df, og_values){
-                cor(df[gene, ], og_values[gene, ])
+                cor(df[gene, ], og_values[gene, ], method = "spearman")
             },
             df = df,
             og_values = assay(og_sum_exp, "avg_ranking")
@@ -578,27 +582,33 @@ if (!load_at_setup){
 }
 ```
 
-```{r, fig.width=21, fig.height=12}
+```{r, fig.width=18, fig.height=10}
 #| label: fig-correlation
 #| fig-cap: Correlation distribution for different subsets of housekeeping
 #|     genes (HKGs). Each different subset has a different number of HKGs.
 correlation_df <- lapply(
     correlation_scores,
     function(x) data.frame(correlation = x, gene = names(x), row.names = NULL)
-) %>% dplyr::bind_rows(.id = "nb_genes")
+) %>% 
+    dplyr::bind_rows(.id = "nb_genes") %>%
+    dplyr::mutate(nb_genes = factor(
+        nb_genes,
+        levels = stringr::str_sort(unique(nb_genes), numeric = TRUE)
+    ))
 
-correlation_df %>% ggplot2::ggplot(
-    aes(x = correlation) 
-) + 
+correlation_df %>% 
+    ggplot2::ggplot(
+        aes(x = correlation) 
+    ) + 
     ggplot2::geom_histogram(bins = 30) +
     ggplot2::labs(
         x = "Correlation", 
         title = paste0(
             "Correlation distribution for different",
-            " subsets of the housekeeping genes"
+            " subsets of the stable genes"
         )
     ) + 
-    ggplot2::facet_wrap(~nb_genes) + 
+    ggplot2::facet_wrap(~nb_genes, ncol = 5) + 
     ggplot2::theme_bw(base_size = 30) +
     ggplot2::theme(panel.spacing = unit(3, "lines"))
 ```
@@ -607,6 +617,63 @@ correlation_df %>% ggplot2::ggplot(
 housekeeping genes. All the correlation coefficients are close to 1. This means
 that if a subset of housekeeping genes are missing it is fine, as the others
 will compensate.
+
+```{r}
+correlation_df %>%
+    dplyr::group_by(nb_genes) %>%
+    dplyr::summarise(tibble::as_tibble_row(quantile(
+        correlation, probs = c(0, 0.01, 0.1, 0.25, 0.5, 0.75, 1)
+    ))) %>%
+    DT::datatable(options = list(scrollX = TRUE))
+```
+
+
+```{r}
+#| label: fig-nb-genes-quantiles
+correlation_df %>%
+    dplyr::group_by(nb_genes) %>%
+    dplyr::summarise(tibble::as_tibble_row(quantile(
+        correlation, probs = c(0, 0.01, 0.1, 0.25, 0.5, 0.75, 1)
+    ))) %>%
+    tidyr::pivot_longer(
+        cols = -dplyr::all_of(c("nb_genes")),
+        names_to = "quantile",
+        values_to = "val"
+    ) %>%
+    dplyr::mutate(
+        quantile = as.numeric(stringr::str_replace(quantile, "%", "")),
+        nb_genes = as.numeric(stringr::str_replace(nb_genes, "nb_genes_", "")),
+        nb_genes = factor(nb_genes, levels = unique(nb_genes))
+    ) %>%
+    ggplot2::ggplot(aes(
+        x = quantile, 
+        y = val, 
+        group = nb_genes,
+        color = nb_genes
+    )) + 
+    ggplot2::geom_point(size = 1) + 
+    ggplot2::geom_line(linewidth = 1) + 
+    ggplot2::geom_hline(
+        yintercept = 0.95, 
+        linetype = "dashed"
+    ) + 
+    ggplot2::coord_cartesian(ylim = c(0, 1)) + 
+    ggplot2::labs(
+        x = "Quantiles (%)", 
+        y = "Correlation",
+        color = "Number of\ngenes"
+    ) + 
+    ggplot2::theme_bw(base_size = 20) +
+    gghighlight::gghighlight(
+        min(val) < 0.95, 
+        use_direct_label = FALSE
+    ) + 
+    ggplot2::theme(
+        legend.position = c(0.25, 0.5),
+        legend.background = element_rect(color = "grey")
+    )
+```
+
 
 ## Integrating TCGA and METABRIC using PCA
 
@@ -892,8 +959,7 @@ if (!load_at_setup){
 ```
 
 @fig-pca-og shows all the samples from TCGA and cohort projected into the
-molecular landscape. The samples are mixing well, the only thing is that
-METABRIC is a bit offset to the left bottom.
+molecular landscape. 
 
 ```{r, eval = first_run}
 df_pca_coordinates <- datasets_pca_coordinates %>% 
@@ -916,25 +982,37 @@ saveRDS(
 #| label: fig-pca-og
 #| fig-cap: Original PC3 and PC4 of all samples, including test and 
 #|     train samples, of TCGA and METABRIC.
+
+cohort_names <- c("metabric" = "METABRIC", "tcga" = "TCGA")
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
-        dplyr::slice(sample(1:n())),
+        dplyr::slice(sample(1:n())) %>%
+        dplyr::mutate(cohort = cohort_names[cohort]),
     color = "cohort",
     x = "PC3",
     y = "PC4",
     size = 1,
-    base_size = 10,
-    title = paste0(
-        "Embedding of all samples from TCGA",
-        " and METABRIC"
-    )
+    base_size = 10
 ) + 
+    ggplot2::labs(
+        x = paste0(
+            "PC3, ", 
+            round(100*(pca_fit$variance/sum(pca_fit$variance))[3], digits = 2),
+            "% variation"
+        ),
+        y = paste0(
+            "PC4, ", 
+            round(100*(pca_fit$variance/sum(pca_fit$variance))[4], digits = 2),
+            "% variation"
+        ),
+        title = NULL
+    ) + 
+    ggplot2::labs(color = "Cohort") + 
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point() +
     change_guides_point()
 ```
-
 
 And the first two PCs.
 
@@ -945,17 +1023,28 @@ And the first two PCs.
 plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
-        dplyr::slice(sample(1:n())),
+        dplyr::slice(sample(1:n())) %>%
+        dplyr::mutate(cohort = cohort_names[cohort]),
     color = "cohort",
     x = "PC1",
     y = "PC2",
     size = 1,
-    base_size = 10,
-    title = paste0(
-        "Embedding of all samples from TCGA",
-        " and METABRIC"
-    )
+    base_size = 10
 ) + 
+    ggplot2::labs(
+        x = paste0(
+            "PC1, ", 
+            round(100*(pca_fit$variance/sum(pca_fit$variance))[1], digits = 2),
+            "% variation"
+        ),
+        y = paste0(
+            "PC2, ", 
+            round(100*(pca_fit$variance/sum(pca_fit$variance))[2], digits = 2),
+            "% variation"
+        ),
+        title = NULL
+    ) + 
+    ggplot2::labs(color = "Cohort") + 
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point() +
     change_guides_point()

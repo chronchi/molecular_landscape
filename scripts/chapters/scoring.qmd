@@ -1368,7 +1368,7 @@ scores_to_use <- c(
 ```
 
 
-```{r, eval = first_run}
+```{r, eval = first_run, results = 'hide'}
 patients_all <- df_pca_coordinates %>%
     dplyr::filter(timepoint == "baseline" & 
                       grepl("^treated", sample_name)) %>%

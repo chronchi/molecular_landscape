@@ -1141,17 +1141,17 @@ abim_100_df_pca <- get_pca_coordinates(abim_100_normalized, pca_fit) %>%
 # save all the results
 saveRDS(
     abim_100,
-    "../../results/rds_files/validation/abim_100.rds"
+    "../../results/rds_files/risk_score/abim_100.rds"
 )
 
 saveRDS(
     abim_100_df_pca %>% data.frame,
-    "../../results/rds_files/validation/abim_100_df_pca.rds"
+    "../../results/rds_files/risk_score/abim_100_df_pca.rds"
 )
 
 saveRDS(
     abim_100_normalized,
-    "../../results/rds_files/validation/abim_100_normalized.rds"
+    "../../results/rds_files/risk_score/abim_100_normalized.rds"
 )
 ```
 

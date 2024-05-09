@@ -144,6 +144,23 @@ db_files <- list(
         pdx_regressed = "pdx_regressed",
         scores = "scores_regressed_only",
         ssgsea_dfs = "ssgsea_dfs"
+    ),
+    revision = c(
+        datasets = "datasets_with_poetic",
+        which_exp = "which_exp",
+        which_cohorts_training = "which_cohorts_training",
+        merged_col_data = "merged_col_data_trying",
+        gene_sets = "gene_sets",
+        df_pca = "poetic_df_pca_with_scores",
+        pca_fit = "pca_fit",
+        datasets_normalized_og = "datasets_normalized",
+        cv_genes = "cv_genes",
+        stable_genes = "stable_genes",
+        pca_fits_nb_genes = "pca_fits_nb_genes",
+        genes_for_pca = "genes_for_pca",
+        tcga_ffpe_df_pca = "tcga_ffpe_df_pca",
+        gse_sum_exp = "gse_sum_exp"
+        
     )
 )
 
