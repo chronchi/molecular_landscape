@@ -2004,7 +2004,7 @@ A thousand samples were randomly selected from each
 cohort individually and the jaccard index for each new embedding was 
 calculated.
 
-```{r, fig.width=5, fig.height=6}
+```{r, fig.width=8, fig.height=4}
 #| label: fig-jac-index
 #| fig-cap: Jaccard index distribution for 1000 samples in each cohort
 #|     individually. Each color corresponds to a different seed and 
@@ -2016,7 +2016,7 @@ jaccard_indices %>%
     ggplot2::facet_wrap(
         ~cohort, 
         scales = "free_y", 
-        ncol = 1,
+        ncol = 2,
         labeller = as_labeller(c(
             "tcga" = "TCGA",
             "metabric" = "METABRIC"
@@ -2026,7 +2026,7 @@ jaccard_indices %>%
         x = "Jaccard Index",
         y = "Density",
         title = paste0(
-            "Comparison of neighborhoods\nfor 1000 samples"
+            "Comparison of neighborhoods for 1000 samples"
         ),
         caption = "Neighborhood with radius 1"
     ) +
