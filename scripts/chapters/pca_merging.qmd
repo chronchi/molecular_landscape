@@ -1457,7 +1457,7 @@ size <- 1
 base_size <- 10
 title <- "Embedding of all samples from TCGA and METABRIC"
 
-p1 <- df_pca_coordinates %>% 
+p1_est_late <- df_pca_coordinates %>% 
     dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
     ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
         ggplot2::stat_summary_hex(bins = 35) +
@@ -1469,7 +1469,7 @@ p1 <- df_pca_coordinates %>%
         ggplot2::theme_bw(base_size = 15) +
         change_plot_aes_point() 
 
-p1
+p1_est_late
 ```
 
 In all cases the mixing is relatively good. For $SET_{ER/PR}$ you have a
