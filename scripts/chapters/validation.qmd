@@ -211,24 +211,6 @@ cowplot::plot_grid(
 ```
 
 
-```{r, fig.width=20, fig.height=8}
-plots_aligned <- cowplot::align_plots(
-    plots_paper$scanb_pc1_pc2,
-    plots_paper$mol_sub,
-    align = "hv", greedy = TRUE
-)
-cowplot::plot_grid(
-    plots_aligned[[1]],
-    plots_paper$scanb_pc3_pc4,
-    plots_paper$er_ihc,
-    plots_aligned[[2]],
-    nrow = 2, 
-    ncol = 3,
-    labels = letters[1:length(plots_paper)],
-    label_size = 20
-)
-```
-
 
 ## Missing genes
 
@@ -2493,13 +2475,13 @@ plots_aligned <- cowplot::align_plots(
 
 plots_aligned_2 <- cowplot::align_plots(
     plots_paper$er_ihc,
-    plots_paper$normal_samples,
+    plots_paper$pdx_ctrl_plot,
     align = "hv", greedy = TRUE
 )
 
 plots_aligned_3 <- cowplot::align_plots(
     plots_paper$scanb_pc3_pc4,
-    plots_paper$pdx_ctrl_plot,
+    plots_paper$normal_samples,
     align = "hv", greedy = TRUE
 )
 cowplot::plot_grid(
