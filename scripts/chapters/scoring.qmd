@@ -2567,6 +2567,13 @@ df_pca_sub <- df_pca_coordinates %>%
         .,
         df_pca_coordinates %>%
             dplyr::filter(cohort != "poetic")
+    ) %>%
+    dplyr::mutate(
+        is_responder = dplyr::case_when(
+            is_responder == "responder" ~ "Responder",
+            is_responder == "non_responder" ~ "Non responder",
+            TRUE ~ is_responder
+        )
     )
 
 plots_poetic_sub <- sapply(
@@ -2588,11 +2595,11 @@ Below we show the embedding using the response status to color.
 
 ```{r, fig.width=8, fig.height=4}
 #| label: fig-resp-non-resp-pairs
-plots_poetic_sub$is_responder +
+plot_list$is_responder_middle <- plots_poetic_sub$is_responder +
     ggplot2::labs(title = NULL, subtitle = NULL, color = "Is responder?") +
     ggplot2::scale_color_manual(values = c(
-        "responder" = scales::hue_pal()(3)[3],
-        "non_responder" = scales::hue_pal()(3)[1]
+        "Responder" = scales::hue_pal()(3)[3],
+        "Non responder" = scales::hue_pal()(3)[1]
     )) +
     ggplot2::scale_size_manual(
         values = c(.1, 3, .1, .1),
@@ -2605,6 +2612,8 @@ plots_poetic_sub$is_responder +
     ggplot2::labs(
         color = "Is responder?"
     )
+
+plot_list$is_responder_middle
 ```
 
 
@@ -3399,7 +3408,7 @@ plots_aligned <- cowplot::align_plots(
 
 plots_aligned_2 <- cowplot::align_plots(
     plot_list$is_responder,
-    plot_list$differenc_responder_non_responder,
+    plot_list$plot_patients,
     align = "none", 
     axis = "l",
     #align = "v",
@@ -3408,7 +3417,7 @@ plots_aligned_2 <- cowplot::align_plots(
 
 plots_aligned_3 <- cowplot::align_plots(
     plot_list$diff_pc3_poetic,
-    plot_list$plot_patients,
+    plot_list$is_responder_middle,
     align = "none", 
     axis = "l",
     #align = "v",
@@ -3431,9 +3440,9 @@ cowplot::plot_grid(
         plots_aligned_3[[2]],
         nrow = 1, 
         ncol = 3,
-        labels = letters[4:6],
+        labels = c(letters[4:5], "h"),
         label_size = 20, 
-        rel_widths = c(.8, .9, 1)
+        rel_widths = c(.8, 1, 1)
     ),
     nrow = 2
 )
