@@ -797,10 +797,13 @@ avg_rankings <- lapply(
 
 First we plot by ER status in both METABRIC and TCGA.
 
-```{r, fig.width=6, fig.height=8}
+```{r, fig.width=4, fig.height=5}
 #| label: fig-avg-rank-er-ihc
+
+er_status_labels <- c("neg" = "Negative", "pos" = "Positive")
 avg_rankings %>% 
     dplyr::filter(cohort != "SCANB") %>%
+    dplyr::mutate(er_status = er_status_labels[er_status]) %>% 
     ggplot2::ggplot(
         aes(y = er_status, x = avg_ranking)
     ) + 
@@ -810,10 +813,10 @@ avg_rankings %>%
         color = "black"
     ) +
     ggplot2::labs(
-        x = "Average ranking of stable genes",
+        x = "Average ranking of\nstable genes",
         y = "ER IHC"
     ) + 
-    ggplot2::facet_wrap(~cohort, scales = "free", ncol = 1) +
+    ggplot2::facet_wrap(~cohort, ncol = 1) +
     ggplot2::coord_cartesian(xlim = c(0, 1)) + 
     ggplot2::theme_bw(base_size = 20)
 ```
@@ -1650,7 +1653,7 @@ library protocol, namely: dUTP, NeoPrep and TruSeq.
 Here we show that EMBER is capable of fully removing any
 effects associated to library protocol.
 
-```{r, fig.width=10, fig.height=5}
+```{r, fig.width=5, fig.height=13}
 #| label: fig-scanb-libprep
 
 sub_scanb <- df_pca %>% 
@@ -1680,12 +1683,16 @@ df_pca %>%
         color = LibraryProtocol
     )) + 
     ggplot2::geom_point() + 
-    ggplot2::facet_wrap(~LibraryProtocol) +
+    ggplot2::facet_wrap(~LibraryProtocol, ncol = 1) +
     ggplot2::labs(
-        title = paste0("LISI score: ", round(mean(lisi_scores_scanb[, 1]), digits = 2)),
-        subtitle = paste0("Expected maximum LISI score: ", unname(expected_ilisi_vals))
+        title = paste0(
+            "LISI score: ", 
+            round(mean(lisi_scores_scanb[, 1]), digits = 2)),
+        subtitle = paste0(
+            "Expected maximum LISI score: ", unname(expected_ilisi_vals)
+        )
     ) + 
-    ggplot2::theme_bw(base_size = 20) + 
+    ggplot2::theme_bw(base_size = 19) + 
     ggplot2::theme(legend.position = "none")
 ```
 
