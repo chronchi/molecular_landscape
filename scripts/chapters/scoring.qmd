@@ -516,6 +516,11 @@ they will not affect the position of the patients in the embedding.
 all the patients are scattered across the whole landscape. Here all samples
 are plotted, meaning that every two dots correspond to a single patient.
 
+```{r}
+plot_list <- list()
+```
+
+
 ```{r, fig.width=19, fig.height=12}
 #| label: fig-pca-poetic-er-pam50
 #| fig-cap: PCA embedding of all samples from TCGA, SCANB and METABRIC including
@@ -547,11 +552,19 @@ plots_poetic$pam50 <- plots_poetic$pam50 +
     ) 
 
 plots_poetic$cohort <- plots_poetic$cohort +
-    ggplot2::scale_alpha_manual(
-        values = c(.2, .2, .2, 1),
-        guide = "none"
-    ) + 
-    ggplot2::labs(title = NULL, subtitle = NULL)
+    #ggplot2::scale_alpha_manual(
+    #    values = c(.2, .2, .2, 1),
+    #    guide = "none"
+    #) + 
+    ggplot2::scale_color_manual(
+        labels = c("metabric" = "METABRIC", "tcga" = "TCGA",
+                   "scanb" = "SCAN-B", "poetic" = "POETIC"),
+        values = scales::hue_pal()(4)
+    ) +
+    ggplot2::labs(title = NULL, subtitle = NULL, color = "Cohort") +
+    ggplot2::theme_bw(base_size = 20)
+
+plot_list$cohorts <- plots_poetic$cohort
 
 cowplot::plot_grid(plotlist = plots_poetic, labels = "AUTO")
 ```
@@ -597,26 +610,29 @@ plot_responder_poetic <- poetic_df_pca_baseline %>%
         )
     ) +
     ggplot2::geom_point() +
-    ggplot2::scale_color_manual(values = c(
-        "grey",
-        scales::hue_pal()(3)
-    )) +
+    ggplot2::scale_color_manual(
+        values = scales::hue_pal()(3),
+        limits = c("Non responder", "Not available", "Responder")
+    ) +
     ggplot2::scale_size_manual(
         values = c(1, 4, 2, 4),
         guide = "none"
     ) +
     ggplot2::scale_alpha_manual(
-        values = c(.1, 1, .7, 1)
+        values = c(.1, 1, .7, 1),
+        guide = "none"
     ) +
     ggplot2::labs(
         alpha = "Is responder?",
         size = "Is responder?",
         color = "Is responder?",
-        title = title
+        title = NULL
     ) + 
     ggplot2::theme_bw(base_size = 20) + 
     change_plot_aes_point() +
     change_guides_point()
+
+plot_list$is_responder <- plot_responder_poetic 
 
 plot_responder_poetic
 ```
@@ -664,7 +680,7 @@ according to the third component.
 ```{r, fig.width=6, fig.height=5}
 #| label: fig-comp-responders-pc3
 #| fig-cap: Comparison of the PC3 between responders and non responders
-poetic_df_pca_baseline %>%
+plot_list$diff_pc3_poetic <- poetic_df_pca_baseline %>%
     dplyr::filter(cohort == "poetic" & is_responder != "not_available") %>%
     dplyr::mutate(is_responder = dplyr::case_when(
         is_responder == "responder" ~ "Responder",
@@ -678,7 +694,7 @@ poetic_df_pca_baseline %>%
     ) +
     ggplot2::geom_jitter() +
     ggplot2::labs(
-        title = "Third component score",
+        title = NULL,
         color = "Is responder?",
         x = "Response status"
     ) +
@@ -689,6 +705,8 @@ poetic_df_pca_baseline %>%
     ggplot2::theme(legend.position = "none") + 
     change_guides_point() +
     change_plot_aes_point()
+
+plot_list$diff_pc3_poetic
 ```
 
 We see that there is a clear difference, we now use bayesian stats to do the
@@ -728,7 +746,7 @@ responders and non responders.
 #| fig-cap: Comparison of the PC3 between responders and non responders. 
 #|     Difference in the expected posterior predictive distributions. Each
 #|     dot corresponds to a 1% quantile.
-pc3_responders_comparison_df %>%
+plot_list$diff_pc3_poetic_bayes <- pc3_responders_comparison_df %>%
     modelr::data_grid(is_responder) %>%
     tidybayes::add_epred_draws(pc3_responders_comparison) %>%
     tidyr::pivot_wider(
@@ -741,16 +759,18 @@ pc3_responders_comparison_df %>%
     ggplot2::geom_vline(xintercept = 0, linetype = "dashed") + 
     tidybayes::stat_dotsinterval(quantiles = 100, .width = c(.66, .95)) + 
     ggplot2::labs(
-        x = "Difference from expection of\nthe posterior predictive distribution",
-        y = NULL
+        x = "Difference from expection of\nthe posterior predictive distribution"#,
+        #y = "Prob"
     ) +
-    ggplot2::theme_bw(base_size = 18) + 
+    ggplot2::theme_bw(base_size = 20) + 
     ggplot2::theme(
         axis.text.y = element_blank(),
         axis.ticks.y = element_blank()
     ) +
     change_plot_aes_point() + 
     change_guides_point()
+
+plot_list$diff_pc3_poetic_bayes
 ```
 
 We see that the difference is 100% higher than 0 and
@@ -767,7 +787,7 @@ pc3_responders_comparison_df %>%
     ggplot2::ggplot(aes(x = .epred, y = is_responder)) +
     tidybayes::stat_dotsinterval(quantiles = 100, .width = c(.66, .95)) + 
     ggplot2::labs(
-        x = "Expection of the posterior predictive distribution",
+        x = "Expectation of the posterior predictive distribution",
         y = NULL
     ) +
     ggplot2::theme_bw(base_size = 20) + 
@@ -1170,7 +1190,10 @@ in the embedding of the projections.
 #| label: fig-diff-embedding-poetic-averages
 #| fig-cap: Differences of the embeddings for each patient individually
 #|     stratified by response status. Each dot corresponds to a single patient.
-means %>%
+plot_list$differenc_responder_non_responder <- means %>%
+    dplyr::mutate(
+        is_responder = c("non_responder" = "Non responder", "responder" = "Responder")[is_responder]
+    ) %>%
     ggplot2::ggplot(aes(x = .epred, y = is_responder)) +
     tidybayes::stat_dotsinterval(quantiles = 100, overlaps = "keep") + 
     ggplot2::labs(
@@ -1179,6 +1202,8 @@ means %>%
     ) + 
     ggplot2::theme_bw() + 
     change_plot_aes_point()
+
+plot_list$differenc_responder_non_responder
 ```
 
 ```{r}
@@ -1330,12 +1355,13 @@ plot_patients <- base_plot +
         #    " reduction of at least 60% in Ki67 levels"
         #)
     ) + 
-    ggplot2::theme_bw(base_size = 18) +
+    ggplot2::theme_bw(base_size = 20) +
     change_plot_aes_point()
+
+plot_list$plot_patients <- plot_patients
 
 plot_patients
 ```
-
 
 And now we calculate the average scores for each patient neighborhoods. We 
 start by defining a radius value. After that we select the patients in the
@@ -3354,3 +3380,62 @@ comparison_pairs_summary_df %>%
     change_guides_point() +
     change_plot_aes_point()
 ```
+
+## Figure for the paper
+
+Below we compiled some of the plots for a figure in the paper, so they look
+nicer together.
+
+```{r, fig.width=22, fig.height=10}
+#| label: fig-all-fig-poetic
+#| fig-cap: All plots combined for Figure 4 in the paper.
+plots_aligned <- cowplot::align_plots(
+    plot_list$cohorts,
+    plot_list$diff_pc3_poetic_bayes,
+    axis = "l",
+    align = "v",
+    greedy = TRUE
+)
+
+plots_aligned_2 <- cowplot::align_plots(
+    plot_list$is_responder,
+    plot_list$differenc_responder_non_responder,
+    align = "none", 
+    axis = "l",
+    #align = "v",
+    greedy = TRUE
+)
+
+plots_aligned_3 <- cowplot::align_plots(
+    plot_list$diff_pc3_poetic,
+    plot_list$plot_patients,
+    align = "none", 
+    axis = "l",
+    #align = "v",
+    greedy = TRUE
+)
+cowplot::plot_grid(
+    cowplot::plot_grid(
+        plots_aligned[[1]],
+        plots_aligned_2[[1]],
+        plots_aligned_3[[1]],
+        nrow = 1, 
+        ncol = 3,
+        labels = letters[1:3],
+        label_size = 20, 
+        rel_widths = c(1, 1, .7)
+    ),
+    cowplot::plot_grid(
+        plots_aligned[[2]],
+        plots_aligned_2[[2]],
+        plots_aligned_3[[2]],
+        nrow = 1, 
+        ncol = 3,
+        labels = letters[4:6],
+        label_size = 20, 
+        rel_widths = c(.8, .9, 1)
+    ),
+    nrow = 2
+)
+```
+

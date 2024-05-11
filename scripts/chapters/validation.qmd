@@ -49,6 +49,15 @@ source("../R/load_rds_files.R")
 # to use ggplot2::ggsave to save the plots. this also works 
 knitr::opts_chunk$set(dev = c('png', 'pdf'))
 options(bitmapType = 'cairo')
+
+mol_subs <- c(
+    "basal" = "Basal-like", 
+    "her2"= "HER2-enriched", 
+    "lumb" = "LumB", 
+    "luma" = "LumA", 
+    "normal" = "Normal-like",
+    "claudin-low" = "Claudin-low"
+)
 ```
 
 
@@ -95,30 +104,39 @@ normalization procedures. If genes are not scaled correctly, the PCA
 shows an inverse picture.
 
 ```{r}
+plots_paper <- list()
+```
+
+
+```{r}
 #| label: fig-pca-scanb-pc1
 #| fig-cap: PCA embedding colored by cohort. The components used are the
 #|     first and second components.
-plot_pca_coordinates(
-    df_pca_coordinates,
+plots_paper$scanb_pc1_pc2 <- plot_pca_coordinates(
+    df_pca_coordinates %>%
+        dplyr::mutate(
+            cohort = toupper(cohort),
+            cohort = ifelse(cohort == "SCANB", "SCAN-B", cohort)
+        ),
     color = "cohort",
     x = "PC1",
     y = "PC2",
     size = 1,
     base_size = 10,
-    title = paste0(
-        "Embedding of all samples from TCGA,\n",
-        "METABRIC and SCANB"
-    )
+    title = NULL
 ) + 
+    ggplot2::labs(color = "Cohort") + 
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point() +
     change_guides_point()
+
+plots_paper$scanb_pc1_pc2
 ```
 
 @fig-pca-scanb-er-pam50 shows that the SCANB samples are also well mixed
 regarding the clinical factors, including the $SET_{ER/PR}$ signature.
 
-```{r, fig.width=16, fig.height=12}
+```{r, fig.width=18, fig.height=12}
 #| label: fig-pca-scanb-er-pam50
 #| fig-cap: PCA embedding of all samples from TCGA, SCANB and METABRIC.
 #|     (A) Colored by cohort,
@@ -130,35 +148,42 @@ base_size <- 20
 plots_with_scanb <- sapply(
     c("cohort", "er_status", "pam50", "SET_ERPR"), 
     plot_pca_coordinates,
-    df_pca = df_pca_coordinates %>% dplyr::filter(
-        pam50 %in% c("luma", "lumb", "basal", "her2", "normal")
-    ) %>%
-        dplyr::slice(sample(1:n())),
+    df_pca = df_pca_coordinates %>% 
+        dplyr::filter(
+            pam50 %in% c("luma", "lumb", "basal", "her2", "normal")
+        ) %>%
+        dplyr::slice(sample(1:n())) %>%
+        dplyr::mutate(
+            cohort = toupper(cohort),
+            cohort = ifelse(cohort == "SCANB", "SCAN-B", cohort)
+        ),
     x = "PC3", 
     y = "PC4",
     size = size,
     base_size = base_size,
-    title = paste0(
-        "Embedding of all samples from TCGA,\n",
-        "METABRIC and SCANB"
-    ),
+    title = NULL,
     USE.NAMES = TRUE, 
     simplify = FALSE
 )
 
 plots_with_scanb$cohort <- plots_with_scanb$cohort +
+    ggplot2::labs(color = "Cohort") +
     change_plot_aes_point() +
     change_guides_point()
 
 plots_with_scanb$pam50 <- plots_with_scanb$pam50 +
     ggplot2::scale_color_manual(
-        values = get_colors_pam50(plots_with_scanb$pam50$data)
+        values = get_colors_pam50(plots_with_scanb$pam50$data),
+        labels = mol_subs
     ) +
+    ggplot2::labs(color = "Molecular\nsubtype") +
     change_plot_aes_point() +
     change_guides_point()
 
 plots_with_scanb$er_status <-  plots_with_scanb$er_status +
-    ggplot2::scale_color_viridis_d() +
+    ggplot2::scale_color_viridis_d(
+        labels = c("neg" = "Negative", "pos" = "Positive")
+    ) +
     ggplot2::labs(color = "ER IHC") +
     change_plot_aes_point() +
     change_guides_point()
@@ -175,9 +200,32 @@ plots_with_scanb$SET_ERPR <- df_pca_coordinates %>%
         ggplot2::theme_bw(base_size = base_size) +
         change_plot_aes_point()
 
+plots_paper$scanb_pc3_pc4 <- plots_with_scanb$cohort
+plots_paper$er_ihc <- plots_with_scanb$er_status
+plots_paper$mol_sub <- plots_with_scanb$pam50
+
 cowplot::plot_grid(
     plotlist = plots_with_scanb,
     ncol = 2
+)
+```
+
+
+```{r, fig.width=20, fig.height=8}
+plots_aligned <- cowplot::align_plots(
+    plots_paper$scanb_pc1_pc2,
+    plots_paper$mol_sub,
+    align = "hv", greedy = TRUE
+)
+cowplot::plot_grid(
+    plots_aligned[[1]],
+    plots_paper$scanb_pc3_pc4,
+    plots_paper$er_ihc,
+    plots_aligned[[2]],
+    nrow = 2, 
+    ncol = 3,
+    labels = letters[1:length(plots_paper)],
+    label_size = 20
 )
 ```
 
@@ -1449,8 +1497,16 @@ pdx_ctrl_plot <- p +
     change_plot_aes_point() +
     change_guides_point(shape = TRUE)
 
+plots_paper$pdx_ctrl_plot <- pdx_ctrl_plot
+
 pdx_ctrl_plot
 ```
+
+```{r}
+plots_paper$pdx_ctrl_plot <- plots_paper$pdx_ctrl_plot +
+    ggplot2::labs(title = NULL, caption = NULL)
+```
+
 
 And we check the PDXs response to estrogen and see how much they move
 away from the untreated sample.
@@ -2391,7 +2447,7 @@ normal_df_pca_sub <- normal_swiss_df_pca %>%
     dplyr::filter(cohort == "normal_swiss") %>%
     dplyr::mutate(pam50 = "nc")
 
-p +
+normal_plot <- p +
     ggplot2::geom_point(
         normal_df_pca_sub,
         mapping = aes(x = PC3, y = PC4),
@@ -2416,6 +2472,48 @@ p +
     ggplot2::theme_bw(base_size = 20) + 
     change_plot_aes_point() +
     change_guides_point()
+
+plots_paper$normal_samples <- normal_plot
+
+normal_plot
+```
+
+
+And since we finished getting all the plots for the second figure in the 
+paper, we combine it below.
+
+```{r, fig.width=22, fig.height=8}
+#| label: fig-all-fig2
+#| fig-cap: All figures combined for Fig2 in the paper.
+plots_aligned <- cowplot::align_plots(
+    plots_paper$scanb_pc1_pc2,
+    plots_paper$mol_sub,
+    align = "hv", greedy = TRUE
+)
+
+plots_aligned_2 <- cowplot::align_plots(
+    plots_paper$er_ihc,
+    plots_paper$normal_samples,
+    align = "hv", greedy = TRUE
+)
+
+plots_aligned_3 <- cowplot::align_plots(
+    plots_paper$scanb_pc3_pc4,
+    plots_paper$pdx_ctrl_plot,
+    align = "hv", greedy = TRUE
+)
+cowplot::plot_grid(
+    plots_aligned[[1]],
+    plots_aligned_3[[1]],
+    plots_aligned_2[[1]],
+    plots_aligned[[2]],
+    plots_aligned_3[[2]],
+    plots_aligned_2[[2]],
+    nrow = 2, 
+    ncol = 3,
+    labels = letters[1:length(plots_paper)],
+    label_size = 20
+)
 ```
 
 ## Third component as a prognostic measure?
