@@ -84,6 +84,15 @@ source("../R/load_rds_files.R")
 # to use ggplot2::ggsave to save the plots. this also works 
 knitr::opts_chunk$set(dev = c('png', 'pdf'))
 options(bitmapType = 'cairo')
+
+mol_subs <- c(
+    "basal" = "Basal-like", 
+    "her2"= "HER2-enriched", 
+    "lumb" = "LumB", 
+    "luma" = "LumA", 
+    "normal" = "Normal-like",
+    "claudin-low" = "Claudin-low"
+)
 ```
 
 ## Transcriptomics and qPCR normalization
@@ -984,7 +993,7 @@ saveRDS(
 #|     train samples, of TCGA and METABRIC.
 
 cohort_names <- c("metabric" = "METABRIC", "tcga" = "TCGA")
-plot_pca_coordinates(
+p1 <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
         dplyr::slice(sample(1:n())) %>%
@@ -1012,6 +1021,8 @@ plot_pca_coordinates(
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point() +
     change_guides_point()
+
+p1
 ```
 
 And the first two PCs.
@@ -1064,23 +1075,25 @@ df <- df_pca_coordinates %>%
         ) %>%
         dplyr::slice(sample(1:n()))
 
-plot_pca_coordinates(
+p2 <- plot_pca_coordinates(
     df,
     color = "pam50",
     x = "PC3",
     y = "PC4",
     size = 1,
     base_size = 10,
-    title = paste0(
-        "Embedding of all samples from TCGA",
-        " and METABRIC"
-    )
+    title = NULL
 ) + 
-    ggplot2::labs(color = "PAM50") +
+    ggplot2::labs(color = "Molecular\nsubtype") +
     ggplot2::theme_bw(base_size = 15) +
-    ggplot2::scale_color_manual(values = get_colors_pam50(df)) +
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(df),
+        labels = mol_subs
+    ) +
     change_plot_aes_point() +
     change_guides_point()
+
+p2
 ```
 
 In order to check if the integration made sense, it is possible to color by ER
@@ -1090,11 +1103,16 @@ are used to color the projection.
 
 @fig-pca-age shows the coloring by age.
 
+
+```{r}
+plots_supp <- list()
+```
+
 ```{r}
 #| label: fig-pca-age
 #| fig-cap: PC3 and PC4 of samples from TCGA and METABRIC
 #|     colored by age.
-plot_pca_coordinates(
+plots_supp$age <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga", "metabric")),
     color = "age",
@@ -1103,13 +1121,14 @@ plot_pca_coordinates(
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from TCGA",
-        " and METABRIC"
+        "TCGA and METABRIC"
     )
 ) + ggplot2::scale_color_viridis_c() +
     ggplot2::labs(color = "Age") +
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point()
+
+plots_supp$age
 ```
 
 Age seems to be well mixed. @fig-pca-er-status shows the
@@ -1119,23 +1138,25 @@ PCA colored by ER status.
 #| label: fig-pca-er-status
 #| fig-cap: PC3 and PC4 of samples from TCGA and METABRIC
 #|     colored by ER status.
-plot_pca_coordinates(
+p3 <- plot_pca_coordinates(
     df_pca_coordinates %>% 
-        dplyr::filter(cohort %in% c("tcga", "metabric")),
+        dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
+        dplyr::mutate(
+            er_status = c("neg" = "Negative", "pos" = "Positive")[er_status]
+        ),
     color = "er_status",
     x = "PC3",
     y = "PC4",
     size = 1,
     base_size = 10,
-    title = paste0(
-        "Embedding of all samples from TCGA",
-        " and METABRIC"
-    )
+    title = NULL
 ) + ggplot2::scale_color_viridis_d() +
     ggplot2::labs(color = "ER IHC") +
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point() +
     change_guides_point()
+
+p3
 ```
 
 It has a very good separation among the different patients.
@@ -1146,7 +1167,7 @@ have this information.
 #| label: fig-pca-npi
 #| fig-cap: PC3 and PC4 of samples from METABRIC only
 #|     colored by NPI.
-plot_pca_coordinates(
+npi_metabric <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("metabric")),
     color = "npi",
@@ -1155,12 +1176,16 @@ plot_pca_coordinates(
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from METABRIC"
+        "METABRIC only"
     )
 ) + ggplot2::scale_color_viridis_c(na.value = 0) +
     ggplot2::labs(color = "NPI") + 
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point()
+
+plots_supp$npi_metabric <- npi_metabric
+
+npi_metabric
 ```
 
 It looks good, ER+ BC patients have lower NPI, which makes sense. 
@@ -1190,7 +1215,7 @@ df_pca_coordinates %>%
 #| label: fig-pca-tumor-purity
 #| fig-cap: PC3 and PC4 of samples from METABRIC only
 #|     colored by tumor purity.
-plot_pca_coordinates(
+tumor_purity_metabric <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("metabric")) %>%
         dplyr::filter(CELLULARITY != ""),
@@ -1200,13 +1225,17 @@ plot_pca_coordinates(
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from METABRIC"
+        "METABRIC"
     )
 ) + ggplot2::scale_color_viridis_d(na.value = 0) +
     ggplot2::labs(color = "Tumor purity") + 
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point() +
     change_guides_point()
+
+plots_supp$tumor_purity_metabric <- tumor_purity_metabric
+
+tumor_purity_metabric
 ```
 
 The tumor purity is not a factor that is affecting the embedding as samples
@@ -1245,7 +1274,7 @@ patient menopausal status (@fig-pca-men-status)
 #| label: fig-pca-men-status
 #| fig-cap: PC3 and PC4 of samples from METABRIC only
 #|     colored by menopausal status.
-plot_pca_coordinates(
+men_pause_metabric <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("metabric")),
     color = "INFERRED_MENOPAUSAL_STATE",
@@ -1254,13 +1283,17 @@ plot_pca_coordinates(
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from METABRIC"
+        "METABRIC only"
     )
 ) + ggplot2::scale_color_viridis_d(na.value = 0) +
     ggplot2::labs(color = "Menopausal\nstatus") + 
     ggplot2::theme_bw(base_size = 15) +
     change_plot_aes_point() +
     change_guides_point()
+
+plots_supp$men_pause_metabric <- men_pause_metabric
+
+men_pause_metabric
 ```
 
 We don't see any difference between the two status. We proceed now with 
@@ -1271,16 +1304,16 @@ the analysis using clinical factors from TCGA.
 #| fig-cap: PC3 and PC4 of samples from TCGA only
 #|     colored by tumor stage and node stage.
 
-p1 <- plot_pca_coordinates(
+tumor_stage_tcga <- plot_pca_coordinates(
     df_pca_coordinates %>% 
-        dplyr::filter(cohort %in% c("tcga")),
+        dplyr::filter(cohort %in% c("tcga") & !is.na(tumor_stage)),
     color = "tumor_stage",
     x = "PC3",
     y = "PC4",
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from TCGA"
+        "TCGA only"
     )
 ) + ggplot2::scale_color_viridis_d() +
     ggplot2::geom_point(size = 2) + 
@@ -1289,7 +1322,7 @@ p1 <- plot_pca_coordinates(
     change_plot_aes_point() +
     change_guides_point()
 
-p2 <- plot_pca_coordinates(
+node_stage_tcga <- plot_pca_coordinates(
     df_pca_coordinates %>% 
         dplyr::filter(cohort %in% c("tcga")),
     color = "node_stage",
@@ -1298,7 +1331,7 @@ p2 <- plot_pca_coordinates(
     size = 1,
     base_size = 10,
     title = paste0(
-        "Embedding of all samples from TCGA"
+        "TCGA only"
     )
 ) + ggplot2::scale_color_viridis_d() +
     ggplot2::geom_point(size = 2) + 
@@ -1307,7 +1340,14 @@ p2 <- plot_pca_coordinates(
     change_plot_aes_point() +
     change_guides_point()
 
-cowplot::plot_grid(p1, p2, ncol = 2)
+plots_supp$node_stage_tcga <- node_stage_tcga
+plots_supp$tumor_stage_tcga <- tumor_stage_tcga
+
+cowplot::plot_grid(
+    tumor_stage_tcga,
+    node_stage_tcga,
+    nrow = 1
+)
 ```
 
 For both tumor and node stage the samples seem to have mixed well, indicating
@@ -1362,7 +1402,7 @@ size <- 1
 base_size <- 10
 title <- "Embedding of all samples from TCGA and METABRIC"
 
-p1 <- df_pca_coordinates %>% 
+p1_seterpr <- df_pca_coordinates %>% 
     dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
     ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
         ggplot2::stat_summary_hex(bins = 35) +
@@ -1374,7 +1414,7 @@ p1 <- df_pca_coordinates %>%
         ggplot2::theme_bw(base_size = 15) +
         change_plot_aes_point() 
 
-p1
+p1_seterpr
 ```
 
 ```{r}
@@ -1389,20 +1429,20 @@ size <- 1
 base_size <- 10
 title <- "Embedding of all samples from TCGA and METABRIC"
 
-p1 <- df_pca_coordinates %>% 
+p1_estrogen <- df_pca_coordinates %>% 
     dplyr::filter(cohort %in% c("tcga", "metabric")) %>%
     ggplot2::ggplot(aes_string(x = x, y = y, z = color)) + 
         ggplot2::stat_summary_hex(bins = 35) +
         ggplot2::scale_fill_viridis_c() +
         ggplot2::labs(
-            title = title,
-            fill = "Estrogen\nearly"
+            title = NULL,
+            fill = "Estrogen\nResponse\nEarly"
         ) + 
         ggplot2::theme_bw(base_size = 15) +
         change_plot_aes_point() +
         change_guides_point()
 
-p1
+p1_estrogen
 ```
 
 ```{r}
@@ -1435,6 +1475,53 @@ p1
 In all cases the mixing is relatively good. For $SET_{ER/PR}$ you have a
 gradient going from the right to the left, showing again that
 patients on the far top right probably are those patients with better prognosis.
+
+
+And we now display the plots together to include in the first figure of the
+paper.
+
+```{r, fig.width=20, fig.height=8}
+#| label: fig-1-paper-4-plots
+plots_aligned <- cowplot::align_plots(p1, p1_estrogen, align = "hv")
+cowplot::plot_grid(
+    plots_aligned[[1]],
+    p3,
+    p2,
+    plots_aligned[[2]],
+    nrow = 2,
+    ncol = 3,
+    labels = c(letters[1:4]),
+    label_size = 20
+)
+```
+
+
+And now we also plot by age (TCGA and METABRIC), NPI, tumor purity and 
+menopausal state (METABRIC only) and Node stage (TCGA only) all 
+combined for the supplementary figure of the paper.
+
+```{r, fig.width=20, fig.height=9}
+#| label: fig-supp-paper-6-plots
+plots_aligned <- cowplot::align_plots(
+    plots_supp$age, plots_supp$npi_metabric, 
+    plots_supp$tumor_purity_metabric, plots_supp$men_pause_metabric, 
+    plots_supp$tumor_stage_tcga, plots_supp$node_stage_tcga,
+    align = "v"
+)
+cowplot::plot_grid(
+    plots_aligned[[1]],
+    plots_aligned[[2]],
+    plots_aligned[[3]],
+    plots_aligned[[4]],
+    plots_aligned[[5]],
+    plots_aligned[[6]],
+    nrow = 2,
+    ncol = 3,
+    labels = c(letters[1:6]),
+    label_size = 20
+)
+```
+
 
 And lastly we use the correlation plot available from PCAtools to check the
 PC correlation with all the clinical factors, we check the first 10 components
