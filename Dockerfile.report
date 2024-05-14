@@ -10,7 +10,8 @@
 
 FROM chronchi/ember:latest
 
-COPY scripts/ /home/rstudio/ember/scripts
+COPY scripts/ /home/rstudio/ember/scripts/
 
-CMD cd /home/rstudio/ember/scripts
-CMD bash quarto_render.sh
+WORKDIR /home/rstudio/ember/scripts
+
+CMD ["bash", "quarto_render.sh"]

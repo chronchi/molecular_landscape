@@ -1,7 +1,7 @@
-# name of the docker image: molecular_landscape
-# date: 2023-12-04 (YYYY-MM-DD) 
+# name of the docker image: ember
+# date: 2024-05-13 (YYYY-MM-DD) 
 # run the command to build the docker:
-# sudo docker build --cpuset-cpus=0-30 -f Dockerfile.data -t molecular_landscape .
+# sudo docker build --cpuset-cpus=0-30 -f Dockerfile.data -t ember .
 # The number of cpus used to get the docker image is 30 
 
 FROM rocker/rstudio:4.2.0
@@ -41,29 +41,27 @@ RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.0.37/quar
 RUN dpkg -i quarto-1.0.37-linux-amd64.deb
 RUN rm quarto-1.0.37-linux-amd64.deb
 
-WORKDIR /home/rstudio/molecular_landscape
+WORKDIR /home/rstudio/ember
 
 # Move the packages file so we can use it to indicate which packages
 # will be installed
 COPY --chown=rstudio:rstudio renv.lock .Rprofile .gitignore ./
-#COPY renv.lock .Rprofile .gitignore ./
 COPY --chown=rstudio:rstudio renv renv
-#COPY renv renv
+
+# we add the R project file because we can then use renv directly
+COPY --chown=rstudio:rstudio molecular_landscape.Rproj ./
+COPY --chown=rstudio:rstudio data data
 
 # this will be removed and fetched automatically from github
 COPY --chown=rstudio:rstudio scripts scripts
-#COPY scripts scripts
 
-# we add the R project file because we can then use renv directly
-COPY --chown=rstudio:rstudio 20220721_molecular_landscape.Rproj ./
-COPY --chown=rstudio:rstudio data data
-
-RUN bash -c 'mkdir -p results/'
+RUN bash -c 'mkdir -p results/ docs/'
 RUN chown -R rstudio results/
+RUN chown -R rstudio docs/
 
 # gives sudo access to everything in this folder, so the user can actually
 # create new folders
-RUN chown -R rstudio /home/rstudio/molecular_landscape
+RUN chown -R rstudio /home/rstudio/ember
 
 # initialize the renv repo
-RUN R -q -e 'renv::restore()'
+# RUN R -q -e 'renv::restore()'

@@ -1469,19 +1469,21 @@ FFPE with two different library preparation protocols: Illumina-Access and
 Nugen-Ovation.
 
 ```{r, eval = first_run}
-GEOquery::getGEOSuppFiles(
-    GEO = "GSE130397",
-    baseDir = "../../data",
-    makeDirectory = TRUE, 
-    fetch_files = TRUE 
-)
-
-system(paste0(
-    "tar xf ../../data/GSE130397/",
-    "GSE130397_RAW.tar"
-))
-
-system(paste0("gunzip ../../data/GSE130397/*.gz"))
+# The code below was first used to get the data that is now stored
+# in the data folder, so we don't need to actually rerun it anymore
+# GEOquery::getGEOSuppFiles(
+#     GEO = "GSE130397",
+#     baseDir = "../../data",
+#     makeDirectory = TRUE, 
+#     fetch_files = TRUE 
+# )
+# 
+# system(paste0(
+#     "tar xf ../../data/GSE130397/",
+#     "GSE130397_RAW.tar"
+# ))
+# 
+# system(paste0("gunzip ../../data/GSE130397/*.gz"))
 
 col_data_gse <- GEOquery::getGEO(
     GEO = "GSE130397",
