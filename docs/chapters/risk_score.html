@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.3.361">
+<meta name="generator" content="quarto-1.4.554">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -22,7 +22,7 @@ ul.task-list li input[type="checkbox"] {
 }
 /* CSS for syntax highlighting */
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -58,6 +58,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
+  margin-bottom: 0em;
 }
 .hanging-indent div.csl-entry {
   margin-left:2em;
@@ -100,7 +101,13 @@ div.csl-indent {
   "collapse-after": 3,
   "panel-placement": "start",
   "type": "textbox",
-  "limit": 20,
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
   "language": {
     "search-no-results-text": "No results",
     "search-matching-documents-text": "matching documents",
@@ -109,17 +116,44 @@ div.csl-indent {
     "search-more-match-text": "more match in this document",
     "search-more-matches-text": "more matches in this document",
     "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
     "search-detached-cancel-button-title": "Cancel",
     "search-submit-button-title": "Submit",
     "search-label": "Search"
   }
 }</script>
-
 <script src="../site_libs/kePrint-0.0.1/kePrint.js"></script>
 <link href="../site_libs/lightable-0.0.1/lightable.css" rel="stylesheet">
 
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 </head>
 
@@ -129,12 +163,12 @@ div.csl-indent {
   <header id="quarto-header" class="headroom fixed-top">
   <nav class="quarto-secondary-nav">
     <div class="container-fluid d-flex">
-      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-      <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/risk_score.html"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Risk score model</span></a></li></ol></nav>
-      <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
-      </a>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/risk_score.html"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Risk score model</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
       <button type="button" class="btn quarto-search-button" aria-label="" onclick="window.quartoOpenSearch();">
         <i class="bi bi-search"></i>
       </button>
@@ -144,7 +178,7 @@ div.csl-indent {
 <!-- content -->
 <div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
 <!-- sidebar -->
-  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal sidebar-navigation floating overflow-auto">
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
     <div class="pt-lg-2 mt-2 text-left sidebar-header">
     <div class="sidebar-title mb-0 py-0">
       <a href="../">EMBER creates a unified space for independent breast cancer transcriptomic datasets enabling precision oncology.</a> 
@@ -236,7 +270,7 @@ div.csl-indent {
     </ul>
     </div>
 </nav>
-<div id="quarto-sidebar-glass" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass"></div>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
         <nav id="TOC" role="doc-toc" class="toc-active">
@@ -250,7 +284,7 @@ div.csl-indent {
   <li><a href="#risk-score-vs-pathways" id="toc-risk-score-vs-pathways" class="nav-link" data-scroll-target="#risk-score-vs-pathways"><span class="header-section-number">5.5</span> Risk score vs pathways</a></li>
   <li><a href="#abim-and-ncounter-data" id="toc-abim-and-ncounter-data" class="nav-link" data-scroll-target="#abim-and-ncounter-data"><span class="header-section-number">5.6</span> ABiM and nCounter data</a></li>
   </ul>
-<div class="toc-actions"><div><i class="bi bi-github"></i></div><div class="action-links"><p><a href="https://github.com/chronchi/molecular_landscape/issues/new" class="toc-action">Report an issue</a></p></div></div></nav>
+<div class="toc-actions"><ul><li><a href="https://github.com/chronchi/molecular_landscape/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
@@ -270,7 +304,9 @@ div.csl-indent {
   </div>
   
 
+
 </header>
+
 
 <p>Several risk signatures were developed over the years using transcriptomic datasets. Some examples were given in the previous chapters, such as OncotypeDX, Prosigna and EndoPredict. They were all derived in a similar manner, subsetting genes related to usually estrogen and proliferation signaling and then using recurrence free survival data to calculate the risk scores.</p>
 <p>In this chapter we introduce a new risk score that does not subset genes and uses the information of the molecular landscape. The concept is simple, we will use the third and fourth components as covariates in the survival modeling along with tumor size and node status. This way we avoid subsetting and selecting specific genes and we use all the information the molecular landscape is providing us. Also it avoids any kind of binning for patients based on molecular subtype, thus not being necessary calculating correlations with pre-defined molecular subtypes.</p>
@@ -411,13 +447,17 @@ Score (logrank) test = 96.79  on 1 df,   p=&lt;2e-16</code></pre>
 </div>
 </div>
 <p>Again the risk score is prognostic with a high coefficient, meaning that the higher the score the worse it is for the patient.</p>
-<p>We now visualize a bit the risk scores developed here in terms of the molecular landscape. <a href="#fig-risk-endo-pam50">Figure&nbsp;<span>5.1</span></a></p>
+<p>We now visualize a bit the risk scores developed here in terms of the molecular landscape. <a href="#fig-risk-endo-pam50" class="quarto-xref">Figure&nbsp;<span>5.1</span></a></p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-risk-endo-pam50" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-risk-endo-pam50-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.1: Molecular landscape of SCANB patients treated with only endocrine therapy and that have ER+ breast cancer. Only patients with risk score less than 2 are plotted here. There are only 26 patients out of 2829 with risk score higher than 2 that would skew the color scale.</figcaption>
+<div id="fig-risk-endo-pam50" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-risk-endo-pam50-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-risk-endo-pam50-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-risk-endo-pam50-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.1: Molecular landscape of SCANB patients treated with only endocrine therapy and that have ER+ breast cancer. Only patients with risk score less than 2 are plotted here. There are only 26 patients out of 2829 with risk score higher than 2 that would skew the color scale.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -447,13 +487,17 @@ Score (logrank) test = 55.63  on 1 df,   p=9e-14</code></pre>
 </div>
 </div>
 <p>We see that the score is still prognostic, meaning that even patients that have high ER IHC percentage, there are those with higher risk. Note though that the analysis still is a bit limited due to the followup time that in median is 5.3 years.</p>
-<p>We also compare the risk score for the high risk group and low/intermediate risk group of the ROR signature (<a href="#fig-risk-ror">Figure&nbsp;<span>5.2</span></a>) obtained by the SCANB team using single sample predictor models, where rule based algorithms are used to determine if a patient is high or low/intermediate risk. They validate this on prosigna’s own sequencing and showed good results <span class="citation" data-cites="SCANB2022">(<a href="references.html#ref-SCANB2022" role="doc-biblioref">Staaf et al. 2022</a>)</span>.</p>
+<p>We also compare the risk score for the high risk group and low/intermediate risk group of the ROR signature (<a href="#fig-risk-ror" class="quarto-xref">Figure&nbsp;<span>5.2</span></a>) obtained by the SCANB team using single sample predictor models, where rule based algorithms are used to determine if a patient is high or low/intermediate risk. They validate this on prosigna’s own sequencing and showed good results <span class="citation" data-cites="SCANB2022">(<a href="references.html#ref-SCANB2022" role="doc-biblioref">Staaf et al. 2022</a>)</span>.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-risk-ror" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-risk-ror-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.2: Risk score stratified by binary category risk as defined by the SCANB team at <span class="citation" data-cites="SCANB2022">(<a href="references.html#ref-SCANB2022" role="doc-biblioref">Staaf et al. 2022</a>)</span>. ER+ BC patients that received only ET were considered.</figcaption>
+<div id="fig-risk-ror" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-risk-ror-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-risk-ror-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-risk-ror-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.2: Risk score stratified by binary category risk as defined by the SCANB team at <span class="citation" data-cites="SCANB2022">(<a href="references.html#ref-SCANB2022" role="doc-biblioref">Staaf et al. 2022</a>)</span>. ER+ BC patients that received only ET were considered.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -473,13 +517,17 @@ Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 </div>
 </div>
 <p>We see that by adding the risk score it provides aditional value on top of the binary category from prosigna. On top of that the SCANB team calculated also the ROR score based on the original paper. So we actually have the actual scores derived from the nearest centroid technique for all patients.</p>
-<p><a href="#fig-ror-riskscore-comparison">Figure&nbsp;<span>5.3</span></a> shows the comparison between risk score and the ROR score from prosigna calculated by using NC.</p>
+<p><a href="#fig-ror-riskscore-comparison" class="quarto-xref">Figure&nbsp;<span>5.3</span></a> shows the comparison between risk score and the ROR score from prosigna calculated by using NC.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-ror-riskscore-comparison" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-ror-riskscore-comparison-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.3: Comparison of the risk score developed here with the ROR from Prosigna.</figcaption>
+<div id="fig-ror-riskscore-comparison" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-ror-riskscore-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-ror-riskscore-comparison-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ror-riskscore-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.3: Comparison of the risk score developed here with the ROR from Prosigna.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -583,13 +631,21 @@ n= 1502, number of events= 71 </code></pre>
 <p>Before moving on we just compare the risk score distributions between METABRIC and SCANB.</p>
 <div class="cell">
 <div class="cell-output-display">
-<p><img src="risk_score_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid" width="672"></p>
+<div>
+<figure class="figure">
+<p><img src="risk_score_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
 </div>
 </div>
 <p>The distribution shift makes sense as the majority of patients in SCANB have lower tumor stage. Let us compare by molecular subtype.</p>
 <div class="cell">
 <div class="cell-output-display">
-<p><img src="risk_score_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid" width="1536"></p>
+<div>
+<figure class="figure">
+<p><img src="risk_score_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" width="1536"></p>
+</figure>
+</div>
 </div>
 </div>
 <p>In general they agree a bit more when looking by subtype.</p>
@@ -604,10 +660,14 @@ n= 1502, number of events= 71 </code></pre>
 <p>First we show the marginal survival curves.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-rfs-marginal-curve" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-rfs-marginal-curve-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.4: <strong>?(caption)</strong></figcaption>
+<div id="fig-rfs-marginal-curve" class="quarto-figure quarto-figure-center quarto-float anchored" width="672">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-rfs-marginal-curve-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-rfs-marginal-curve-1.png" id="fig-rfs-marginal-curve" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-rfs-marginal-curve-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.4
+</figcaption>
 </figure>
 </div>
 </div>
@@ -615,10 +675,14 @@ n= 1502, number of events= 71 </code></pre>
 <p>And now the marginal curves for the differences with the low risk as the baseline.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-rfs-difference-marginal-curve" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-rfs-difference-marginal-curve-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.5: <strong>?(caption)</strong></figcaption>
+<div id="fig-rfs-difference-marginal-curve" class="quarto-figure quarto-figure-center quarto-float anchored" width="672">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-rfs-difference-marginal-curve-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-rfs-difference-marginal-curve-1.png" id="fig-rfs-difference-marginal-curve" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-rfs-difference-marginal-curve-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.5
+</figcaption>
 </figure>
 </div>
 </div>
@@ -627,6 +691,7 @@ n= 1502, number of events= 71 </code></pre>
 <p>The confidence intervals are larger as you increase the risk groups due to the number of patients available in each category.</p>
 <div class="cell">
 <div class="cell-output-display">
+<div>
 <table class="lightable-classic table table-sm table-striped small" data-quarto-postprocess="true">
 <thead>
 <tr class="header">
@@ -667,28 +732,37 @@ n= 1502, number of events= 71 </code></pre>
 
 </div>
 </div>
+</div>
 <p>Still the number of events in percentage goes up as one goes up in the risk category, as expected.</p>
 </section>
 <section id="risk-score-and-poetic-trial" class="level2" data-number="5.4">
 <h2 data-number="5.4" class="anchored" data-anchor-id="risk-score-and-poetic-trial"><span class="header-section-number">5.4</span> Risk score and POETIC trial</h2>
-<p>We can evaluate one of the two risk scores, the one using only the principal components, in the POETIC trial data. The first question we can address is if there is difference in scores in the baseline tissue (<a href="#fig-poetic-risk-score">Figure&nbsp;<span>5.6</span></a>).</p>
+<p>We can evaluate one of the two risk scores, the one using only the principal components, in the POETIC trial data. The first question we can address is if there is difference in scores in the baseline tissue (<a href="#fig-poetic-risk-score" class="quarto-xref">Figure&nbsp;<span>5.6</span></a>).</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-poetic-risk-score" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-poetic-risk-score-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.6: Risk scores for responders and non-responders in the baseline tumor tissue.</figcaption>
+<div id="fig-poetic-risk-score" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-poetic-risk-score-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-poetic-risk-score-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-poetic-risk-score-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.6: Risk scores for responders and non-responders in the baseline tumor tissue.
+</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p>We see in the <a href="#fig-poetic-risk-score">Figure&nbsp;<span>5.6</span></a> that in average the non responders have higher risk scores. Now if we compare the risk scores between baseline and surgery, the slope of the line that fits for each group separately, responder and non responder, is different. The slope for the non responders is parallel to the identity line going through the origin with a slope of 1, meaning that there is not much change of risk upon the treatment. On other hand, for the responder group the slope is decreased and has a value lower than 1, meaning that the risk is decreased upon aromatase inhibition after two weeks (<a href="#fig-poetic-risk-base-surgery">Figure&nbsp;<span>5.7</span></a>).</p>
+<p>We see in the <a href="#fig-poetic-risk-score" class="quarto-xref">Figure&nbsp;<span>5.6</span></a> that in average the non responders have higher risk scores. Now if we compare the risk scores between baseline and surgery, the slope of the line that fits for each group separately, responder and non responder, is different. The slope for the non responders is parallel to the identity line going through the origin with a slope of 1, meaning that there is not much change of risk upon the treatment. On other hand, for the responder group the slope is decreased and has a value lower than 1, meaning that the risk is decreased upon aromatase inhibition after two weeks (<a href="#fig-poetic-risk-base-surgery" class="quarto-xref">Figure&nbsp;<span>5.7</span></a>).</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-poetic-risk-base-surgery" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-poetic-risk-base-surgery-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.7: Comparison of risk scores using the PCs only before and after two weeks of aromatase inhibitors in post-menopausal women. The colored lines correspond do the linear regression for each response status group separately.</figcaption>
+<div id="fig-poetic-risk-base-surgery" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-poetic-risk-base-surgery-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-poetic-risk-base-surgery-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-poetic-risk-base-surgery-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.7: Comparison of risk scores using the PCs only before and after two weeks of aromatase inhibitors in post-menopausal women. The colored lines correspond do the linear regression for each response status group separately.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -699,21 +773,29 @@ n= 1502, number of events= 71 </code></pre>
 <p>We now compare the risk score with pathways of interest as discussed in the previous sections. Again we only look at the patients that received only endocrine therapy in both SCANB and METABRIC.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-cor-risk-pathways" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-cor-risk-pathways-1.png" class="img-fluid figure-img" width="1152"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.8: Risk score versus pathways of interest. Each subplot corresponds to a different pathway.</figcaption>
+<div id="fig-cor-risk-pathways" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-cor-risk-pathways-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-cor-risk-pathways-1.png" class="img-fluid figure-img" width="1152">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-cor-risk-pathways-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.8: Risk score versus pathways of interest. Each subplot corresponds to a different pathway.
+</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p><a href="#fig-cor-risk-pathways">Figure&nbsp;<span>5.8</span></a> shows that in general the signatures are not strongly associated with one of the main pathways displayed here. On the other hand, <a href="#fig-cor-riskpcs-pathways">Figure&nbsp;<span>5.9</span></a> shows the association between the signatures and the risk scores derived only from the principal components.</p>
+<p><a href="#fig-cor-risk-pathways" class="quarto-xref">Figure&nbsp;<span>5.8</span></a> shows that in general the signatures are not strongly associated with one of the main pathways displayed here. On the other hand, <a href="#fig-cor-riskpcs-pathways" class="quarto-xref">Figure&nbsp;<span>5.9</span></a> shows the association between the signatures and the risk scores derived only from the principal components.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-cor-riskpcs-pathways" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-cor-riskpcs-pathways-1.png" class="img-fluid figure-img" width="1152"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.9: Risk score derived from the principal components only versus pathways of interest. Each subplot corresponds to a different pathway.</figcaption>
+<div id="fig-cor-riskpcs-pathways" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-cor-riskpcs-pathways-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-cor-riskpcs-pathways-1.png" class="img-fluid figure-img" width="1152">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-cor-riskpcs-pathways-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.9: Risk score derived from the principal components only versus pathways of interest. Each subplot corresponds to a different pathway.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -721,22 +803,30 @@ n= 1502, number of events= 71 </code></pre>
 <p>In this case we see some associations with G2M checkpoint in general and a bit with estrogen signaling. We now calculate the correlation plots for each one of these pathways with both risk scores.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-corr-risk-pathways" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-corr-risk-pathways-1.png" class="img-fluid figure-img" width="960"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.10: Correlation matrix for all pathways of interest and the two risk scores, both including the clinical factors and without the clinical factors.</figcaption>
+<div id="fig-corr-risk-pathways" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-corr-risk-pathways-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-corr-risk-pathways-1.png" class="img-fluid figure-img" width="960">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-corr-risk-pathways-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.10: Correlation matrix for all pathways of interest and the two risk scores, both including the clinical factors and without the clinical factors.
+</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p><a href="#fig-corr-risk-pathways">Figure&nbsp;<span>5.10</span></a> shows that G2M checkpoint is highly correlated with the risk score using only the principal components (<span class="math inline">\(\rho = 0.72\)</span>). When you include the clinical factors this value decreases. Moreover, DNA repair is highly associated with RS PC. Estrogen signaling was not so important here in the signatures surprisingly.</p>
+<p><a href="#fig-corr-risk-pathways" class="quarto-xref">Figure&nbsp;<span>5.10</span></a> shows that G2M checkpoint is highly correlated with the risk score using only the principal components (<span class="math inline">\(\rho = 0.72\)</span>). When you include the clinical factors this value decreases. Moreover, DNA repair is highly associated with RS PC. Estrogen signaling was not so important here in the signatures surprisingly.</p>
 <p>If we subselect only the SCANB samples we can recalculate those values and compare with the NCN ROR score.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-corr-risk-pathways-scanb" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-corr-risk-pathways-scanb-1.png" class="img-fluid figure-img" width="960"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.11: Correlation matrix for all pathways of interest and the two risk scores, both including the clinical factors and without the clinical factors.</figcaption>
+<div id="fig-corr-risk-pathways-scanb" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-corr-risk-pathways-scanb-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-corr-risk-pathways-scanb-1.png" class="img-fluid figure-img" width="960">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-corr-risk-pathways-scanb-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.11: Correlation matrix for all pathways of interest and the two risk scores, both including the clinical factors and without the clinical factors.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -752,24 +842,32 @@ Total number of genes: 1044
 Number of samples: 100</code></pre>
 </div>
 </div>
-<p><a href="#fig-pca-abim100-cohort">Figure&nbsp;<span>5.12</span></a> shows the embedding of the ABiM cohort, it matches perfectly the molecular landscape.</p>
+<p><a href="#fig-pca-abim100-cohort" class="quarto-xref">Figure&nbsp;<span>5.12</span></a> shows the embedding of the ABiM cohort, it matches perfectly the molecular landscape.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-pca-abim100-cohort" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-pca-abim100-cohort-1.png" class="img-fluid figure-img" width="864"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.12: Embedding of all samples from TCGA, SCNAB and METABRIC including the samples from ABiM 100 that have matched nCounter data.</figcaption>
+<div id="fig-pca-abim100-cohort" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pca-abim100-cohort-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-pca-abim100-cohort-1.png" class="img-fluid figure-img" width="864">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pca-abim100-cohort-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.12: Embedding of all samples from TCGA, SCNAB and METABRIC including the samples from ABiM 100 that have matched nCounter data.
+</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p><a href="#fig-abim100-cohort">Figure&nbsp;<span>5.13</span></a> shows how well the ABiM cohort actually overlays with the SCANB dataset, which makes sense as the processing pipeline is all similar.</p>
+<p><a href="#fig-abim100-cohort" class="quarto-xref">Figure&nbsp;<span>5.13</span></a> shows how well the ABiM cohort actually overlays with the SCANB dataset, which makes sense as the processing pipeline is all similar.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-abim100-cohort" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-abim100-cohort-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.13: Biplot of first two PCA components from ABiM 100, TCGA, SCANB and METABRIC. The normal cohort is highlighted in the plot and has bigger dot size.</figcaption>
+<div id="fig-abim100-cohort" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-abim100-cohort-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-abim100-cohort-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-abim100-cohort-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.13: Biplot of first two PCA components from ABiM 100, TCGA, SCANB and METABRIC. The normal cohort is highlighted in the plot and has bigger dot size.
+</figcaption>
 </figure>
 </div>
 </div>
@@ -777,20 +875,24 @@ Number of samples: 100</code></pre>
 <p>And now we move on and calculate the risk scores for the ABiM cohort.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="fig-rorft-riskscore-abim" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="risk_score_files/figure-html/fig-rorft-riskscore-abim-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;5.14: Correlation between risk score calculated based on the principal components and clinical factors versus the Prosigna ROR obtained from the nCounter data and evaluated by Prosigna. Cohort used is the ABiM 100 samples.</figcaption>
+<div id="fig-rorft-riskscore-abim" class="quarto-figure quarto-figure-center quarto-float anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-rorft-riskscore-abim-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="risk_score_files/figure-html/fig-rorft-riskscore-abim-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-rorft-riskscore-abim-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5.14: Correlation between risk score calculated based on the principal components and clinical factors versus the Prosigna ROR obtained from the nCounter data and evaluated by Prosigna. Cohort used is the ABiM 100 samples.
+</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p><a href="#fig-rorft-riskscore-abim">Figure&nbsp;<span>5.14</span></a> shows that there is a positive correlation between the risk score and ROR obtained from Prosigna. We see that some of the luminal A patients have higher ROR but lower ROR. Also, among luminal B patients there were some with the same ROR but different risk score, showing that the risk. Also some of the basal samples have smaller ROR than some of the luminal B and A samples, and the risk score captures these differences, i.e., all basal samples have risk scores higher than 0.75.</p>
+<p><a href="#fig-rorft-riskscore-abim" class="quarto-xref">Figure&nbsp;<span>5.14</span></a> shows that there is a positive correlation between the risk score and ROR obtained from Prosigna. We see that some of the luminal A patients have higher ROR but lower ROR. Also, among luminal B patients there were some with the same ROR but different risk score, showing that the risk. Also some of the basal samples have smaller ROR than some of the luminal B and A samples, and the risk score captures these differences, i.e., all basal samples have risk scores higher than 0.75.</p>
 
 
 <!-- -->
 
-<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list" style="display: none">
 <div id="ref-Buus2021" class="csl-entry" role="listitem">
 Buus, Richard, Ivana Sestak, Ralf Kronenwett, Sean Ferree, Catherine A. Schnabel, Frederick L. Baehner, Elizabeth A. Mallon, Jack Cuzick, and Mitch Dowsett. 2021. <span>“Molecular Drivers of Onco<span class="math inline">\(\less\)</span>i<span class="math inline">\(\greater\)</span>type<span class="math inline">\(\less\)</span>/i<span class="math inline">\(\greater\)</span> <span>DX</span>, Prosigna, <span>EndoPredict</span>, and the Breast Cancer Index: A <span>TransATAC</span> Study.”</span> <em>Journal of Clinical Oncology</em> 39 (2): 126–35. <a href="https://doi.org/10.1200/jco.20.00853">https://doi.org/10.1200/jco.20.00853</a>.
 </div>
@@ -934,10 +1036,27 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   if (showAllCode) {
     showAllCode.addEventListener("click", toggleCodeHandler(true));
   }
-  function tippyHover(el, contentFn) {
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
     const config = {
       allowHTML: true,
-      content: contentFn,
       maxWidth: 500,
       delay: 100,
       arrow: false,
@@ -947,8 +1066,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       interactive: true,
       interactiveBorder: 10,
       theme: 'quarto',
-      placement: 'bottom-start'
+      placement: 'bottom-start',
     };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
     window.tippy(el, config); 
   }
   const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
@@ -960,7 +1088,130 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       try { href = new URL(href).hash; } catch {}
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
-      return note.innerHTML;
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
     });
   }
       let selectedAnnoteEl;
@@ -1004,6 +1255,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
             }
             div.style.top = top - 2 + "px";
             div.style.height = height + 4 + "px";
+            div.style.left = 0;
             let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
             if (gutterDiv === null) {
               gutterDiv = window.document.createElement("div");
@@ -1029,6 +1281,32 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         });
         selectedAnnoteEl = undefined;
       };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
       // Attach click handler to the DT
       const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
       for (const annoteDlNode of annoteDls) {
@@ -1090,12 +1368,12 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
-      <a href="../chapters/scoring.html" class="pagination-link">
+      <a href="../chapters/scoring.html" class="pagination-link" aria-label="Pathway activity in a personalized context">
         <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Pathway activity in a personalized context</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../chapters/expanding_ember.html" class="pagination-link">
+      <a href="../chapters/expanding_ember.html" class="pagination-link" aria-label="Expanding embedding and removing batch effects">
         <span class="nav-page-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Expanding embedding and removing batch effects</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
@@ -1129,51 +1407,51 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>to some extent take conclusions based on the ROR signature.</span>
 <span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup}</span></span>
-<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>renv<span class="sc">::</span><span class="fu">restore</span>()</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a><span class="in">renv::restore()</span></span>
 <span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a><span class="in">library(tidyverse)</span></span>
 <span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(PCAtools)</span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a><span class="in">library(ggplot2)</span></span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a><span class="in">library(PCAtools)</span></span>
 <span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(singscore)</span>
-<span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(SummarizedExperiment)</span>
-<span id="cb18-39"><a href="#cb18-39" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(survival)</span>
-<span id="cb18-40"><a href="#cb18-40" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(flexsurv)</span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a><span class="in">library(singscore)</span></span>
+<span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a><span class="in">library(SummarizedExperiment)</span></span>
+<span id="cb18-39"><a href="#cb18-39" aria-hidden="true" tabindex="-1"></a><span class="in">library(survival)</span></span>
+<span id="cb18-40"><a href="#cb18-40" aria-hidden="true" tabindex="-1"></a><span class="in">library(flexsurv)</span></span>
 <span id="cb18-41"><a href="#cb18-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-42"><a href="#cb18-42" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"../R/utils.R"</span>)</span>
-<span id="cb18-43"><a href="#cb18-43" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"../R/first_run.R"</span>)</span>
+<span id="cb18-42"><a href="#cb18-42" aria-hidden="true" tabindex="-1"></a><span class="in">source("../R/utils.R")</span></span>
+<span id="cb18-43"><a href="#cb18-43" aria-hidden="true" tabindex="-1"></a><span class="in">source("../R/first_run.R")</span></span>
 <span id="cb18-44"><a href="#cb18-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-45"><a href="#cb18-45" aria-hidden="true" tabindex="-1"></a><span class="co"># the following script load all data necessary to run the chunks.</span></span>
-<span id="cb18-46"><a href="#cb18-46" aria-hidden="true" tabindex="-1"></a><span class="co"># the data is generated from this quarto document itself, therefore</span></span>
-<span id="cb18-47"><a href="#cb18-47" aria-hidden="true" tabindex="-1"></a><span class="co"># if you are running this documents the first time and don't have the</span></span>
-<span id="cb18-48"><a href="#cb18-48" aria-hidden="true" tabindex="-1"></a><span class="co"># files, comment the following lines. Moreover, if this is your first</span></span>
-<span id="cb18-49"><a href="#cb18-49" aria-hidden="true" tabindex="-1"></a><span class="co"># time running the document, you should run all chunks, to generate </span></span>
-<span id="cb18-50"><a href="#cb18-50" aria-hidden="true" tabindex="-1"></a><span class="co"># all the necessary files, if you don't have them. Once all files </span></span>
-<span id="cb18-51"><a href="#cb18-51" aria-hidden="true" tabindex="-1"></a><span class="co"># are saved and available in the respective folder, the following</span></span>
-<span id="cb18-52"><a href="#cb18-52" aria-hidden="true" tabindex="-1"></a><span class="co"># lines can be executed. </span></span>
-<span id="cb18-53"><a href="#cb18-53" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (first_run){</span>
-<span id="cb18-54"><a href="#cb18-54" aria-hidden="true" tabindex="-1"></a>    load_at_setup <span class="ot">&lt;-</span> <span class="cn">FALSE</span></span>
-<span id="cb18-55"><a href="#cb18-55" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
-<span id="cb18-56"><a href="#cb18-56" aria-hidden="true" tabindex="-1"></a>    load_at_setup <span class="ot">&lt;-</span> <span class="cn">TRUE</span></span>
-<span id="cb18-57"><a href="#cb18-57" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-45"><a href="#cb18-45" aria-hidden="true" tabindex="-1"></a><span class="in"># the following script load all data necessary to run the chunks.</span></span>
+<span id="cb18-46"><a href="#cb18-46" aria-hidden="true" tabindex="-1"></a><span class="in"># the data is generated from this quarto document itself, therefore</span></span>
+<span id="cb18-47"><a href="#cb18-47" aria-hidden="true" tabindex="-1"></a><span class="in"># if you are running this documents the first time and don't have the</span></span>
+<span id="cb18-48"><a href="#cb18-48" aria-hidden="true" tabindex="-1"></a><span class="in"># files, comment the following lines. Moreover, if this is your first</span></span>
+<span id="cb18-49"><a href="#cb18-49" aria-hidden="true" tabindex="-1"></a><span class="in"># time running the document, you should run all chunks, to generate </span></span>
+<span id="cb18-50"><a href="#cb18-50" aria-hidden="true" tabindex="-1"></a><span class="in"># all the necessary files, if you don't have them. Once all files </span></span>
+<span id="cb18-51"><a href="#cb18-51" aria-hidden="true" tabindex="-1"></a><span class="in"># are saved and available in the respective folder, the following</span></span>
+<span id="cb18-52"><a href="#cb18-52" aria-hidden="true" tabindex="-1"></a><span class="in"># lines can be executed. </span></span>
+<span id="cb18-53"><a href="#cb18-53" aria-hidden="true" tabindex="-1"></a><span class="in">if (first_run){</span></span>
+<span id="cb18-54"><a href="#cb18-54" aria-hidden="true" tabindex="-1"></a><span class="in">    load_at_setup &lt;- FALSE</span></span>
+<span id="cb18-55"><a href="#cb18-55" aria-hidden="true" tabindex="-1"></a><span class="in">} else {</span></span>
+<span id="cb18-56"><a href="#cb18-56" aria-hidden="true" tabindex="-1"></a><span class="in">    load_at_setup &lt;- TRUE</span></span>
+<span id="cb18-57"><a href="#cb18-57" aria-hidden="true" tabindex="-1"></a><span class="in">}</span></span>
 <span id="cb18-58"><a href="#cb18-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-59"><a href="#cb18-59" aria-hidden="true" tabindex="-1"></a>name_document <span class="ot">&lt;-</span> <span class="st">"risk_score"</span></span>
-<span id="cb18-60"><a href="#cb18-60" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(</span>
-<span id="cb18-61"><a href="#cb18-61" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(<span class="st">"../../results/"</span>, <span class="fu">c</span>(<span class="st">"plots"</span>, <span class="st">"rds_files"</span>, <span class="st">"tables"</span>), <span class="st">"/"</span>, name_document),</span>
-<span id="cb18-62"><a href="#cb18-62" aria-hidden="true" tabindex="-1"></a>    dir.create,</span>
-<span id="cb18-63"><a href="#cb18-63" aria-hidden="true" tabindex="-1"></a>    <span class="at">showWarnings =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb18-64"><a href="#cb18-64" aria-hidden="true" tabindex="-1"></a>    <span class="at">recursive =</span> <span class="cn">TRUE</span></span>
-<span id="cb18-65"><a href="#cb18-65" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb18-66"><a href="#cb18-66" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"../R/load_rds_files.R"</span>)</span>
+<span id="cb18-59"><a href="#cb18-59" aria-hidden="true" tabindex="-1"></a><span class="in">name_document &lt;- "risk_score"</span></span>
+<span id="cb18-60"><a href="#cb18-60" aria-hidden="true" tabindex="-1"></a><span class="in">sapply(</span></span>
+<span id="cb18-61"><a href="#cb18-61" aria-hidden="true" tabindex="-1"></a><span class="in">    paste0("../../results/", c("plots", "rds_files", "tables"), "/", name_document),</span></span>
+<span id="cb18-62"><a href="#cb18-62" aria-hidden="true" tabindex="-1"></a><span class="in">    dir.create,</span></span>
+<span id="cb18-63"><a href="#cb18-63" aria-hidden="true" tabindex="-1"></a><span class="in">    showWarnings = FALSE,</span></span>
+<span id="cb18-64"><a href="#cb18-64" aria-hidden="true" tabindex="-1"></a><span class="in">    recursive = TRUE</span></span>
+<span id="cb18-65"><a href="#cb18-65" aria-hidden="true" tabindex="-1"></a><span class="in">)</span></span>
+<span id="cb18-66"><a href="#cb18-66" aria-hidden="true" tabindex="-1"></a><span class="in">source("../R/load_rds_files.R")</span></span>
 <span id="cb18-67"><a href="#cb18-67" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-68"><a href="#cb18-68" aria-hidden="true" tabindex="-1"></a><span class="co"># by setting the dev to png and pdf, this saves the figures in a specific</span></span>
-<span id="cb18-69"><a href="#cb18-69" aria-hidden="true" tabindex="-1"></a><span class="co"># folder in both formats. moreover, since png is coming first, it shows</span></span>
-<span id="cb18-70"><a href="#cb18-70" aria-hidden="true" tabindex="-1"></a><span class="co"># this figure when rendering the html. What is nice about this is that it</span></span>
-<span id="cb18-71"><a href="#cb18-71" aria-hidden="true" tabindex="-1"></a><span class="co"># inherits the properties from the chunk to save the figure, so no need</span></span>
-<span id="cb18-72"><a href="#cb18-72" aria-hidden="true" tabindex="-1"></a><span class="co"># to use ggplot2::ggsave to save the plots. this also works </span></span>
-<span id="cb18-73"><a href="#cb18-73" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(<span class="at">dev =</span> <span class="fu">c</span>(<span class="st">'png'</span>, <span class="st">'pdf'</span>))</span>
-<span id="cb18-74"><a href="#cb18-74" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">bitmapType =</span> <span class="st">'cairo'</span>)</span>
+<span id="cb18-68"><a href="#cb18-68" aria-hidden="true" tabindex="-1"></a><span class="in"># by setting the dev to png and pdf, this saves the figures in a specific</span></span>
+<span id="cb18-69"><a href="#cb18-69" aria-hidden="true" tabindex="-1"></a><span class="in"># folder in both formats. moreover, since png is coming first, it shows</span></span>
+<span id="cb18-70"><a href="#cb18-70" aria-hidden="true" tabindex="-1"></a><span class="in"># this figure when rendering the html. What is nice about this is that it</span></span>
+<span id="cb18-71"><a href="#cb18-71" aria-hidden="true" tabindex="-1"></a><span class="in"># inherits the properties from the chunk to save the figure, so no need</span></span>
+<span id="cb18-72"><a href="#cb18-72" aria-hidden="true" tabindex="-1"></a><span class="in"># to use ggplot2::ggsave to save the plots. this also works </span></span>
+<span id="cb18-73"><a href="#cb18-73" aria-hidden="true" tabindex="-1"></a><span class="in">knitr::opts_chunk$set(dev = c('png', 'pdf'))</span></span>
+<span id="cb18-74"><a href="#cb18-74" aria-hidden="true" tabindex="-1"></a><span class="in">options(bitmapType = 'cairo')</span></span>
 <span id="cb18-75"><a href="#cb18-75" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-76"><a href="#cb18-76" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-77"><a href="#cb18-77" aria-hidden="true" tabindex="-1"></a></span>
@@ -1416,25 +1694,25 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-330"><a href="#cb18-330" aria-hidden="true" tabindex="-1"></a>of the molecular landscape. @fig-risk-endo-pam50</span>
 <span id="cb18-331"><a href="#cb18-331" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-332"><a href="#cb18-332" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=7, fig.height=5}</span></span>
-<span id="cb18-333"><a href="#cb18-333" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-risk-endo-pam50</span></span>
-<span id="cb18-334"><a href="#cb18-334" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: Molecular landscape of SCANB patients treated with only</span></span>
-<span id="cb18-335"><a href="#cb18-335" aria-hidden="true" tabindex="-1"></a><span class="co">#|     endocrine therapy and that have ER+ breast cancer. Only patients</span></span>
-<span id="cb18-336"><a href="#cb18-336" aria-hidden="true" tabindex="-1"></a><span class="co">#|     with risk score less than 2 are plotted here. There are only 26</span></span>
-<span id="cb18-337"><a href="#cb18-337" aria-hidden="true" tabindex="-1"></a><span class="co">#|     patients out of 2829 with risk score higher than 2 that would skew </span></span>
-<span id="cb18-338"><a href="#cb18-338" aria-hidden="true" tabindex="-1"></a><span class="co">#|     the color scale.</span></span>
-<span id="cb18-339"><a href="#cb18-339" aria-hidden="true" tabindex="-1"></a>endo_only_scanb <span class="sc">%&gt;%</span></span>
-<span id="cb18-340"><a href="#cb18-340" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(risk_score <span class="sc">&lt;=</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb18-341"><a href="#cb18-341" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> PC3, <span class="at">y =</span> PC4, <span class="at">z =</span> risk_score)) <span class="sc">+</span></span>
-<span id="cb18-342"><a href="#cb18-342" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">stat_summary_hex</span>(<span class="at">bins =</span> <span class="dv">25</span>) <span class="sc">+</span></span>
-<span id="cb18-343"><a href="#cb18-343" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">scale_fill_viridis_c</span>() <span class="sc">+</span></span>
-<span id="cb18-344"><a href="#cb18-344" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">15</span>) <span class="sc">+</span></span>
-<span id="cb18-345"><a href="#cb18-345" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
-<span id="cb18-346"><a href="#cb18-346" aria-hidden="true" tabindex="-1"></a>        <span class="at">fill =</span> <span class="st">"Risk score"</span>,</span>
-<span id="cb18-347"><a href="#cb18-347" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="fu">paste0</span>(</span>
-<span id="cb18-348"><a href="#cb18-348" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Clinical risk score for SCANB patients treated</span><span class="sc">\n</span><span class="st">with ET only"</span></span>
-<span id="cb18-349"><a href="#cb18-349" aria-hidden="true" tabindex="-1"></a>        )</span>
-<span id="cb18-350"><a href="#cb18-350" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
-<span id="cb18-351"><a href="#cb18-351" aria-hidden="true" tabindex="-1"></a>    <span class="fu">change_plot_aes_point</span>()</span>
+<span id="cb18-333"><a href="#cb18-333" aria-hidden="true" tabindex="-1"></a><span class="in">#| label: fig-risk-endo-pam50</span></span>
+<span id="cb18-334"><a href="#cb18-334" aria-hidden="true" tabindex="-1"></a><span class="in">#| fig-cap: Molecular landscape of SCANB patients treated with only</span></span>
+<span id="cb18-335"><a href="#cb18-335" aria-hidden="true" tabindex="-1"></a><span class="in">#|     endocrine therapy and that have ER+ breast cancer. Only patients</span></span>
+<span id="cb18-336"><a href="#cb18-336" aria-hidden="true" tabindex="-1"></a><span class="in">#|     with risk score less than 2 are plotted here. There are only 26</span></span>
+<span id="cb18-337"><a href="#cb18-337" aria-hidden="true" tabindex="-1"></a><span class="in">#|     patients out of 2829 with risk score higher than 2 that would skew </span></span>
+<span id="cb18-338"><a href="#cb18-338" aria-hidden="true" tabindex="-1"></a><span class="in">#|     the color scale.</span></span>
+<span id="cb18-339"><a href="#cb18-339" aria-hidden="true" tabindex="-1"></a><span class="in">endo_only_scanb %&gt;%</span></span>
+<span id="cb18-340"><a href="#cb18-340" aria-hidden="true" tabindex="-1"></a><span class="in">    dplyr::filter(risk_score &lt;= 2) %&gt;%</span></span>
+<span id="cb18-341"><a href="#cb18-341" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::ggplot(aes(x = PC3, y = PC4, z = risk_score)) +</span></span>
+<span id="cb18-342"><a href="#cb18-342" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::stat_summary_hex(bins = 25) +</span></span>
+<span id="cb18-343"><a href="#cb18-343" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::scale_fill_viridis_c() +</span></span>
+<span id="cb18-344"><a href="#cb18-344" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::theme_bw(base_size = 15) +</span></span>
+<span id="cb18-345"><a href="#cb18-345" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::labs(</span></span>
+<span id="cb18-346"><a href="#cb18-346" aria-hidden="true" tabindex="-1"></a><span class="in">        fill = "Risk score",</span></span>
+<span id="cb18-347"><a href="#cb18-347" aria-hidden="true" tabindex="-1"></a><span class="in">        title = paste0(</span></span>
+<span id="cb18-348"><a href="#cb18-348" aria-hidden="true" tabindex="-1"></a><span class="in">            "Clinical risk score for SCANB patients treated\nwith ET only"</span></span>
+<span id="cb18-349"><a href="#cb18-349" aria-hidden="true" tabindex="-1"></a><span class="in">        )</span></span>
+<span id="cb18-350"><a href="#cb18-350" aria-hidden="true" tabindex="-1"></a><span class="in">    ) +</span></span>
+<span id="cb18-351"><a href="#cb18-351" aria-hidden="true" tabindex="-1"></a><span class="in">    change_plot_aes_point()</span></span>
 <span id="cb18-352"><a href="#cb18-352" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-353"><a href="#cb18-353" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-354"><a href="#cb18-354" aria-hidden="true" tabindex="-1"></a>We now investigate the risk score among patients that have high ER IHC</span>
@@ -1469,36 +1747,36 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-385"><a href="#cb18-385" aria-hidden="true" tabindex="-1"></a>prosigna's own sequencing and showed good results <span class="co">[</span><span class="ot">@SCANB2022</span><span class="co">]</span>.</span>
 <span id="cb18-386"><a href="#cb18-386" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-387"><a href="#cb18-387" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=7, fig.height=6}</span></span>
-<span id="cb18-388"><a href="#cb18-388" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-risk-ror</span></span>
-<span id="cb18-389"><a href="#cb18-389" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: Risk score stratified by binary category risk as defined </span></span>
-<span id="cb18-390"><a href="#cb18-390" aria-hidden="true" tabindex="-1"></a><span class="co">#|     by the SCANB team at [@SCANB2022]. ER+ BC patients that received </span></span>
-<span id="cb18-391"><a href="#cb18-391" aria-hidden="true" tabindex="-1"></a><span class="co">#|     only ET were considered.</span></span>
-<span id="cb18-392"><a href="#cb18-392" aria-hidden="true" tabindex="-1"></a>endo_only_scanb <span class="sc">%&gt;%</span> </span>
-<span id="cb18-393"><a href="#cb18-393" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(</span>
-<span id="cb18-394"><a href="#cb18-394" aria-hidden="true" tabindex="-1"></a>        <span class="fu">aes</span>(<span class="at">x =</span> SSP.ROR.binary.risk.cat, <span class="at">y =</span> risk_score, <span class="at">color =</span> pam50)</span>
-<span id="cb18-395"><a href="#cb18-395" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
-<span id="cb18-396"><a href="#cb18-396" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_jitter</span>() <span class="sc">+</span> </span>
-<span id="cb18-397"><a href="#cb18-397" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_violin</span>(<span class="at">color =</span> <span class="st">"black"</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb18-398"><a href="#cb18-398" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_boxplot</span>(</span>
-<span id="cb18-399"><a href="#cb18-399" aria-hidden="true" tabindex="-1"></a>        <span class="at">width=</span><span class="fl">0.1</span>, </span>
-<span id="cb18-400"><a href="#cb18-400" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> <span class="st">"black"</span>, </span>
-<span id="cb18-401"><a href="#cb18-401" aria-hidden="true" tabindex="-1"></a>        <span class="at">alpha =</span> <span class="fl">0.3</span>,</span>
-<span id="cb18-402"><a href="#cb18-402" aria-hidden="true" tabindex="-1"></a>        <span class="at">outlier.shape =</span> <span class="cn">NA</span></span>
-<span id="cb18-403"><a href="#cb18-403" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
-<span id="cb18-404"><a href="#cb18-404" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">15</span>) <span class="sc">+</span></span>
-<span id="cb18-405"><a href="#cb18-405" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
-<span id="cb18-406"><a href="#cb18-406" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> <span class="st">"ROR binary risk category (SSP)"</span>,</span>
-<span id="cb18-407"><a href="#cb18-407" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="fu">paste0</span>(</span>
-<span id="cb18-408"><a href="#cb18-408" aria-hidden="true" tabindex="-1"></a>            <span class="st">"ER+ BC patients from SCANB treated with ET only"</span></span>
-<span id="cb18-409"><a href="#cb18-409" aria-hidden="true" tabindex="-1"></a>        ),</span>
-<span id="cb18-410"><a href="#cb18-410" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> <span class="st">"Risk score"</span>,</span>
-<span id="cb18-411"><a href="#cb18-411" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> <span class="st">"Molecular</span><span class="sc">\n</span><span class="st">subtype"</span></span>
-<span id="cb18-412"><a href="#cb18-412" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span> </span>
-<span id="cb18-413"><a href="#cb18-413" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">scale_color_manual</span>(</span>
-<span id="cb18-414"><a href="#cb18-414" aria-hidden="true" tabindex="-1"></a>       <span class="at">values =</span> <span class="fu">get_colors_pam50</span>(endo_only_scanb)</span>
-<span id="cb18-415"><a href="#cb18-415" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
-<span id="cb18-416"><a href="#cb18-416" aria-hidden="true" tabindex="-1"></a>    <span class="fu">change_plot_aes_point</span>() <span class="sc">+</span> </span>
-<span id="cb18-417"><a href="#cb18-417" aria-hidden="true" tabindex="-1"></a>    <span class="fu">change_guides_point</span>()</span>
+<span id="cb18-388"><a href="#cb18-388" aria-hidden="true" tabindex="-1"></a><span class="in">#| label: fig-risk-ror</span></span>
+<span id="cb18-389"><a href="#cb18-389" aria-hidden="true" tabindex="-1"></a><span class="in">#| fig-cap: Risk score stratified by binary category risk as defined </span></span>
+<span id="cb18-390"><a href="#cb18-390" aria-hidden="true" tabindex="-1"></a><span class="in">#|     by the SCANB team at [@SCANB2022]. ER+ BC patients that received </span></span>
+<span id="cb18-391"><a href="#cb18-391" aria-hidden="true" tabindex="-1"></a><span class="in">#|     only ET were considered.</span></span>
+<span id="cb18-392"><a href="#cb18-392" aria-hidden="true" tabindex="-1"></a><span class="in">endo_only_scanb %&gt;% </span></span>
+<span id="cb18-393"><a href="#cb18-393" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::ggplot(</span></span>
+<span id="cb18-394"><a href="#cb18-394" aria-hidden="true" tabindex="-1"></a><span class="in">        aes(x = SSP.ROR.binary.risk.cat, y = risk_score, color = pam50)</span></span>
+<span id="cb18-395"><a href="#cb18-395" aria-hidden="true" tabindex="-1"></a><span class="in">    ) +</span></span>
+<span id="cb18-396"><a href="#cb18-396" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::geom_jitter() + </span></span>
+<span id="cb18-397"><a href="#cb18-397" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::geom_violin(color = "black", alpha = 0.3) +</span></span>
+<span id="cb18-398"><a href="#cb18-398" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::geom_boxplot(</span></span>
+<span id="cb18-399"><a href="#cb18-399" aria-hidden="true" tabindex="-1"></a><span class="in">        width=0.1, </span></span>
+<span id="cb18-400"><a href="#cb18-400" aria-hidden="true" tabindex="-1"></a><span class="in">        color = "black", </span></span>
+<span id="cb18-401"><a href="#cb18-401" aria-hidden="true" tabindex="-1"></a><span class="in">        alpha = 0.3,</span></span>
+<span id="cb18-402"><a href="#cb18-402" aria-hidden="true" tabindex="-1"></a><span class="in">        outlier.shape = NA</span></span>
+<span id="cb18-403"><a href="#cb18-403" aria-hidden="true" tabindex="-1"></a><span class="in">    ) +</span></span>
+<span id="cb18-404"><a href="#cb18-404" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::theme_bw(base_size = 15) +</span></span>
+<span id="cb18-405"><a href="#cb18-405" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::labs(</span></span>
+<span id="cb18-406"><a href="#cb18-406" aria-hidden="true" tabindex="-1"></a><span class="in">        x = "ROR binary risk category (SSP)",</span></span>
+<span id="cb18-407"><a href="#cb18-407" aria-hidden="true" tabindex="-1"></a><span class="in">        title = paste0(</span></span>
+<span id="cb18-408"><a href="#cb18-408" aria-hidden="true" tabindex="-1"></a><span class="in">            "ER+ BC patients from SCANB treated with ET only"</span></span>
+<span id="cb18-409"><a href="#cb18-409" aria-hidden="true" tabindex="-1"></a><span class="in">        ),</span></span>
+<span id="cb18-410"><a href="#cb18-410" aria-hidden="true" tabindex="-1"></a><span class="in">        y = "Risk score",</span></span>
+<span id="cb18-411"><a href="#cb18-411" aria-hidden="true" tabindex="-1"></a><span class="in">        color = "Molecular\nsubtype"</span></span>
+<span id="cb18-412"><a href="#cb18-412" aria-hidden="true" tabindex="-1"></a><span class="in">    ) + </span></span>
+<span id="cb18-413"><a href="#cb18-413" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::scale_color_manual(</span></span>
+<span id="cb18-414"><a href="#cb18-414" aria-hidden="true" tabindex="-1"></a><span class="in">       values = get_colors_pam50(endo_only_scanb)</span></span>
+<span id="cb18-415"><a href="#cb18-415" aria-hidden="true" tabindex="-1"></a><span class="in">    ) +</span></span>
+<span id="cb18-416"><a href="#cb18-416" aria-hidden="true" tabindex="-1"></a><span class="in">    change_plot_aes_point() + </span></span>
+<span id="cb18-417"><a href="#cb18-417" aria-hidden="true" tabindex="-1"></a><span class="in">    change_guides_point()</span></span>
 <span id="cb18-418"><a href="#cb18-418" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-419"><a href="#cb18-419" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-420"><a href="#cb18-420" aria-hidden="true" tabindex="-1"></a>As expected most of the patients in the high risk group are luminal B.</span>
@@ -1725,12 +2003,12 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-661"><a href="#cb18-661" aria-hidden="true" tabindex="-1"></a>lower tumor stage. Let us compare by molecular subtype.</span>
 <span id="cb18-662"><a href="#cb18-662" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-663"><a href="#cb18-663" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=16, fig.height=4}</span></span>
-<span id="cb18-664"><a href="#cb18-664" aria-hidden="true" tabindex="-1"></a>risk_score_all <span class="sc">%&gt;%</span> </span>
-<span id="cb18-665"><a href="#cb18-665" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(pam50 <span class="sc">!=</span> <span class="st">"claudin-low"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb18-666"><a href="#cb18-666" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> risk_score, <span class="at">fill =</span> cohort)) <span class="sc">+</span></span>
-<span id="cb18-667"><a href="#cb18-667" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_density</span>(<span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
-<span id="cb18-668"><a href="#cb18-668" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>pam50, <span class="at">nrow =</span> <span class="dv">1</span>, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span> </span>
-<span id="cb18-669"><a href="#cb18-669" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">20</span>)</span>
+<span id="cb18-664"><a href="#cb18-664" aria-hidden="true" tabindex="-1"></a><span class="in">risk_score_all %&gt;% </span></span>
+<span id="cb18-665"><a href="#cb18-665" aria-hidden="true" tabindex="-1"></a><span class="in">    dplyr::filter(pam50 != "claudin-low") %&gt;%</span></span>
+<span id="cb18-666"><a href="#cb18-666" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::ggplot(aes(x = risk_score, fill = cohort)) +</span></span>
+<span id="cb18-667"><a href="#cb18-667" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::geom_density(alpha = 0.5) +</span></span>
+<span id="cb18-668"><a href="#cb18-668" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::facet_wrap(~pam50, nrow = 1, scales = "free_y") + </span></span>
+<span id="cb18-669"><a href="#cb18-669" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::theme_bw(base_size = 20)</span></span>
 <span id="cb18-670"><a href="#cb18-670" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-671"><a href="#cb18-671" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-672"><a href="#cb18-672" aria-hidden="true" tabindex="-1"></a>In general they agree a bit more when looking by subtype. </span>
@@ -2032,31 +2310,31 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-986"><a href="#cb18-986" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-987"><a href="#cb18-987" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-988"><a href="#cb18-988" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=12, fig.height=10}</span></span>
-<span id="cb18-989"><a href="#cb18-989" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-cor-risk-pathways</span></span>
-<span id="cb18-990"><a href="#cb18-990" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: Risk score versus pathways of interest. Each subplot corresponds</span></span>
-<span id="cb18-991"><a href="#cb18-991" aria-hidden="true" tabindex="-1"></a><span class="co">#|     to a different pathway. </span></span>
-<span id="cb18-992"><a href="#cb18-992" aria-hidden="true" tabindex="-1"></a>endo_only_sm <span class="sc">%&gt;%</span></span>
-<span id="cb18-993"><a href="#cb18-993" aria-hidden="true" tabindex="-1"></a>    tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(</span>
-<span id="cb18-994"><a href="#cb18-994" aria-hidden="true" tabindex="-1"></a>        <span class="at">cols =</span> <span class="fu">names</span>(pathways_of_interest),</span>
-<span id="cb18-995"><a href="#cb18-995" aria-hidden="true" tabindex="-1"></a>        <span class="at">names_to =</span> <span class="st">"pathway"</span>,</span>
-<span id="cb18-996"><a href="#cb18-996" aria-hidden="true" tabindex="-1"></a>        <span class="at">values_to =</span> <span class="st">"score"</span></span>
-<span id="cb18-997"><a href="#cb18-997" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
-<span id="cb18-998"><a href="#cb18-998" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> risk_score, <span class="at">y =</span> score)) <span class="sc">+</span></span>
-<span id="cb18-999"><a href="#cb18-999" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb18-1000"><a href="#cb18-1000" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">scale_color_manual</span>(</span>
-<span id="cb18-1001"><a href="#cb18-1001" aria-hidden="true" tabindex="-1"></a>        <span class="at">values =</span> <span class="fu">get_colors_pam50</span>(endo_only_sm)</span>
-<span id="cb18-1002"><a href="#cb18-1002" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
-<span id="cb18-1003"><a href="#cb18-1003" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(</span>
-<span id="cb18-1004"><a href="#cb18-1004" aria-hidden="true" tabindex="-1"></a>        <span class="sc">~</span>pathway,</span>
-<span id="cb18-1005"><a href="#cb18-1005" aria-hidden="true" tabindex="-1"></a>        <span class="at">labeller =</span> <span class="fu">as_labeller</span>(pathways_of_interest),</span>
-<span id="cb18-1006"><a href="#cb18-1006" aria-hidden="true" tabindex="-1"></a>        <span class="at">scales =</span> <span class="st">"free_y"</span></span>
-<span id="cb18-1007"><a href="#cb18-1007" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span> </span>
-<span id="cb18-1008"><a href="#cb18-1008" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
-<span id="cb18-1009"><a href="#cb18-1009" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> <span class="st">"Risk score"</span>,</span>
-<span id="cb18-1010"><a href="#cb18-1010" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> <span class="st">"Pathway score"</span></span>
-<span id="cb18-1011"><a href="#cb18-1011" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
-<span id="cb18-1012"><a href="#cb18-1012" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">20</span>) <span class="sc">+</span></span>
-<span id="cb18-1013"><a href="#cb18-1013" aria-hidden="true" tabindex="-1"></a>    <span class="fu">change_plot_aes_point</span>()</span>
+<span id="cb18-989"><a href="#cb18-989" aria-hidden="true" tabindex="-1"></a><span class="in">#| label: fig-cor-risk-pathways</span></span>
+<span id="cb18-990"><a href="#cb18-990" aria-hidden="true" tabindex="-1"></a><span class="in">#| fig-cap: Risk score versus pathways of interest. Each subplot corresponds</span></span>
+<span id="cb18-991"><a href="#cb18-991" aria-hidden="true" tabindex="-1"></a><span class="in">#|     to a different pathway. </span></span>
+<span id="cb18-992"><a href="#cb18-992" aria-hidden="true" tabindex="-1"></a><span class="in">endo_only_sm %&gt;%</span></span>
+<span id="cb18-993"><a href="#cb18-993" aria-hidden="true" tabindex="-1"></a><span class="in">    tidyr::pivot_longer(</span></span>
+<span id="cb18-994"><a href="#cb18-994" aria-hidden="true" tabindex="-1"></a><span class="in">        cols = names(pathways_of_interest),</span></span>
+<span id="cb18-995"><a href="#cb18-995" aria-hidden="true" tabindex="-1"></a><span class="in">        names_to = "pathway",</span></span>
+<span id="cb18-996"><a href="#cb18-996" aria-hidden="true" tabindex="-1"></a><span class="in">        values_to = "score"</span></span>
+<span id="cb18-997"><a href="#cb18-997" aria-hidden="true" tabindex="-1"></a><span class="in">    ) %&gt;%</span></span>
+<span id="cb18-998"><a href="#cb18-998" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::ggplot(aes(x = risk_score, y = score)) +</span></span>
+<span id="cb18-999"><a href="#cb18-999" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::geom_point() +</span></span>
+<span id="cb18-1000"><a href="#cb18-1000" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::scale_color_manual(</span></span>
+<span id="cb18-1001"><a href="#cb18-1001" aria-hidden="true" tabindex="-1"></a><span class="in">        values = get_colors_pam50(endo_only_sm)</span></span>
+<span id="cb18-1002"><a href="#cb18-1002" aria-hidden="true" tabindex="-1"></a><span class="in">    ) +</span></span>
+<span id="cb18-1003"><a href="#cb18-1003" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::facet_wrap(</span></span>
+<span id="cb18-1004"><a href="#cb18-1004" aria-hidden="true" tabindex="-1"></a><span class="in">        ~pathway,</span></span>
+<span id="cb18-1005"><a href="#cb18-1005" aria-hidden="true" tabindex="-1"></a><span class="in">        labeller = as_labeller(pathways_of_interest),</span></span>
+<span id="cb18-1006"><a href="#cb18-1006" aria-hidden="true" tabindex="-1"></a><span class="in">        scales = "free_y"</span></span>
+<span id="cb18-1007"><a href="#cb18-1007" aria-hidden="true" tabindex="-1"></a><span class="in">    ) + </span></span>
+<span id="cb18-1008"><a href="#cb18-1008" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::labs(</span></span>
+<span id="cb18-1009"><a href="#cb18-1009" aria-hidden="true" tabindex="-1"></a><span class="in">        x = "Risk score",</span></span>
+<span id="cb18-1010"><a href="#cb18-1010" aria-hidden="true" tabindex="-1"></a><span class="in">        y = "Pathway score"</span></span>
+<span id="cb18-1011"><a href="#cb18-1011" aria-hidden="true" tabindex="-1"></a><span class="in">    ) +</span></span>
+<span id="cb18-1012"><a href="#cb18-1012" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::theme_bw(base_size = 20) +</span></span>
+<span id="cb18-1013"><a href="#cb18-1013" aria-hidden="true" tabindex="-1"></a><span class="in">    change_plot_aes_point()</span></span>
 <span id="cb18-1014"><a href="#cb18-1014" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-1015"><a href="#cb18-1015" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1016"><a href="#cb18-1016" aria-hidden="true" tabindex="-1"></a>@fig-cor-risk-pathways shows that in general the signatures are not </span>
@@ -2065,32 +2343,32 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-1019"><a href="#cb18-1019" aria-hidden="true" tabindex="-1"></a>the signatures and the risk scores derived only from the principal components.</span>
 <span id="cb18-1020"><a href="#cb18-1020" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1021"><a href="#cb18-1021" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=12, fig.height=10}</span></span>
-<span id="cb18-1022"><a href="#cb18-1022" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-cor-riskpcs-pathways</span></span>
-<span id="cb18-1023"><a href="#cb18-1023" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: Risk score derived from the principal components only</span></span>
-<span id="cb18-1024"><a href="#cb18-1024" aria-hidden="true" tabindex="-1"></a><span class="co">#|     versus pathways of interest. Each subplot corresponds</span></span>
-<span id="cb18-1025"><a href="#cb18-1025" aria-hidden="true" tabindex="-1"></a><span class="co">#|     to a different pathway. </span></span>
-<span id="cb18-1026"><a href="#cb18-1026" aria-hidden="true" tabindex="-1"></a>endo_only_sm <span class="sc">%&gt;%</span></span>
-<span id="cb18-1027"><a href="#cb18-1027" aria-hidden="true" tabindex="-1"></a>    tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(</span>
-<span id="cb18-1028"><a href="#cb18-1028" aria-hidden="true" tabindex="-1"></a>        <span class="at">cols =</span> <span class="fu">c</span>(<span class="fu">names</span>(pathways_of_interest)),</span>
-<span id="cb18-1029"><a href="#cb18-1029" aria-hidden="true" tabindex="-1"></a>        <span class="at">names_to =</span> <span class="st">"pathway"</span>,</span>
-<span id="cb18-1030"><a href="#cb18-1030" aria-hidden="true" tabindex="-1"></a>        <span class="at">values_to =</span> <span class="st">"score"</span></span>
-<span id="cb18-1031"><a href="#cb18-1031" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
-<span id="cb18-1032"><a href="#cb18-1032" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> risk_score_pcs, <span class="at">y =</span> score)) <span class="sc">+</span></span>
-<span id="cb18-1033"><a href="#cb18-1033" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb18-1034"><a href="#cb18-1034" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">scale_color_manual</span>(</span>
-<span id="cb18-1035"><a href="#cb18-1035" aria-hidden="true" tabindex="-1"></a>        <span class="at">values =</span> <span class="fu">get_colors_pam50</span>(endo_only_sm)</span>
-<span id="cb18-1036"><a href="#cb18-1036" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
-<span id="cb18-1037"><a href="#cb18-1037" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(</span>
-<span id="cb18-1038"><a href="#cb18-1038" aria-hidden="true" tabindex="-1"></a>        <span class="sc">~</span>pathway,</span>
-<span id="cb18-1039"><a href="#cb18-1039" aria-hidden="true" tabindex="-1"></a>        <span class="at">labeller =</span> <span class="fu">as_labeller</span>(pathways_of_interest),</span>
-<span id="cb18-1040"><a href="#cb18-1040" aria-hidden="true" tabindex="-1"></a>        <span class="at">scales =</span> <span class="st">"free_y"</span></span>
-<span id="cb18-1041"><a href="#cb18-1041" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span> </span>
-<span id="cb18-1042"><a href="#cb18-1042" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
-<span id="cb18-1043"><a href="#cb18-1043" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> <span class="st">"Risk score (principal components only)"</span>,</span>
-<span id="cb18-1044"><a href="#cb18-1044" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> <span class="st">"Pathway score"</span></span>
-<span id="cb18-1045"><a href="#cb18-1045" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
-<span id="cb18-1046"><a href="#cb18-1046" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">20</span>) <span class="sc">+</span></span>
-<span id="cb18-1047"><a href="#cb18-1047" aria-hidden="true" tabindex="-1"></a>    <span class="fu">change_plot_aes_point</span>()</span>
+<span id="cb18-1022"><a href="#cb18-1022" aria-hidden="true" tabindex="-1"></a><span class="in">#| label: fig-cor-riskpcs-pathways</span></span>
+<span id="cb18-1023"><a href="#cb18-1023" aria-hidden="true" tabindex="-1"></a><span class="in">#| fig-cap: Risk score derived from the principal components only</span></span>
+<span id="cb18-1024"><a href="#cb18-1024" aria-hidden="true" tabindex="-1"></a><span class="in">#|     versus pathways of interest. Each subplot corresponds</span></span>
+<span id="cb18-1025"><a href="#cb18-1025" aria-hidden="true" tabindex="-1"></a><span class="in">#|     to a different pathway. </span></span>
+<span id="cb18-1026"><a href="#cb18-1026" aria-hidden="true" tabindex="-1"></a><span class="in">endo_only_sm %&gt;%</span></span>
+<span id="cb18-1027"><a href="#cb18-1027" aria-hidden="true" tabindex="-1"></a><span class="in">    tidyr::pivot_longer(</span></span>
+<span id="cb18-1028"><a href="#cb18-1028" aria-hidden="true" tabindex="-1"></a><span class="in">        cols = c(names(pathways_of_interest)),</span></span>
+<span id="cb18-1029"><a href="#cb18-1029" aria-hidden="true" tabindex="-1"></a><span class="in">        names_to = "pathway",</span></span>
+<span id="cb18-1030"><a href="#cb18-1030" aria-hidden="true" tabindex="-1"></a><span class="in">        values_to = "score"</span></span>
+<span id="cb18-1031"><a href="#cb18-1031" aria-hidden="true" tabindex="-1"></a><span class="in">    ) %&gt;%</span></span>
+<span id="cb18-1032"><a href="#cb18-1032" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::ggplot(aes(x = risk_score_pcs, y = score)) +</span></span>
+<span id="cb18-1033"><a href="#cb18-1033" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::geom_point() +</span></span>
+<span id="cb18-1034"><a href="#cb18-1034" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::scale_color_manual(</span></span>
+<span id="cb18-1035"><a href="#cb18-1035" aria-hidden="true" tabindex="-1"></a><span class="in">        values = get_colors_pam50(endo_only_sm)</span></span>
+<span id="cb18-1036"><a href="#cb18-1036" aria-hidden="true" tabindex="-1"></a><span class="in">    ) +</span></span>
+<span id="cb18-1037"><a href="#cb18-1037" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::facet_wrap(</span></span>
+<span id="cb18-1038"><a href="#cb18-1038" aria-hidden="true" tabindex="-1"></a><span class="in">        ~pathway,</span></span>
+<span id="cb18-1039"><a href="#cb18-1039" aria-hidden="true" tabindex="-1"></a><span class="in">        labeller = as_labeller(pathways_of_interest),</span></span>
+<span id="cb18-1040"><a href="#cb18-1040" aria-hidden="true" tabindex="-1"></a><span class="in">        scales = "free_y"</span></span>
+<span id="cb18-1041"><a href="#cb18-1041" aria-hidden="true" tabindex="-1"></a><span class="in">    ) + </span></span>
+<span id="cb18-1042"><a href="#cb18-1042" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::labs(</span></span>
+<span id="cb18-1043"><a href="#cb18-1043" aria-hidden="true" tabindex="-1"></a><span class="in">        x = "Risk score (principal components only)",</span></span>
+<span id="cb18-1044"><a href="#cb18-1044" aria-hidden="true" tabindex="-1"></a><span class="in">        y = "Pathway score"</span></span>
+<span id="cb18-1045"><a href="#cb18-1045" aria-hidden="true" tabindex="-1"></a><span class="in">    ) +</span></span>
+<span id="cb18-1046"><a href="#cb18-1046" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::theme_bw(base_size = 20) +</span></span>
+<span id="cb18-1047"><a href="#cb18-1047" aria-hidden="true" tabindex="-1"></a><span class="in">    change_plot_aes_point()</span></span>
 <span id="cb18-1048"><a href="#cb18-1048" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-1049"><a href="#cb18-1049" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1050"><a href="#cb18-1050" aria-hidden="true" tabindex="-1"></a>In this case we see some associations with G2M checkpoint in general and a bit</span>
@@ -2111,21 +2389,21 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-1067"><a href="#cb18-1067" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-1068"><a href="#cb18-1068" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1069"><a href="#cb18-1069" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=10, fig.height=8}</span></span>
-<span id="cb18-1070"><a href="#cb18-1070" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-corr-risk-pathways</span></span>
-<span id="cb18-1071"><a href="#cb18-1071" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: Correlation matrix for all pathways of interest and the two </span></span>
-<span id="cb18-1072"><a href="#cb18-1072" aria-hidden="true" tabindex="-1"></a><span class="co">#|     risk scores, both including the clinical factors and without the </span></span>
-<span id="cb18-1073"><a href="#cb18-1073" aria-hidden="true" tabindex="-1"></a><span class="co">#|     clinical factors.</span></span>
-<span id="cb18-1074"><a href="#cb18-1074" aria-hidden="true" tabindex="-1"></a>ggcorrplot<span class="sc">::</span><span class="fu">ggcorrplot</span>(</span>
-<span id="cb18-1075"><a href="#cb18-1075" aria-hidden="true" tabindex="-1"></a>    corr_values,</span>
-<span id="cb18-1076"><a href="#cb18-1076" aria-hidden="true" tabindex="-1"></a>    <span class="co">#hc.order = TRUE, </span></span>
-<span id="cb18-1077"><a href="#cb18-1077" aria-hidden="true" tabindex="-1"></a>    <span class="at">type =</span> <span class="st">"lower"</span>,</span>
-<span id="cb18-1078"><a href="#cb18-1078" aria-hidden="true" tabindex="-1"></a>    <span class="at">lab =</span> <span class="cn">TRUE</span>, </span>
-<span id="cb18-1079"><a href="#cb18-1079" aria-hidden="true" tabindex="-1"></a>    <span class="at">lab_size =</span> <span class="dv">6</span>, </span>
-<span id="cb18-1080"><a href="#cb18-1080" aria-hidden="true" tabindex="-1"></a>    <span class="at">ggtheme =</span> ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">15</span>), </span>
-<span id="cb18-1081"><a href="#cb18-1081" aria-hidden="true" tabindex="-1"></a>    <span class="at">tl.cex =</span> <span class="dv">20</span></span>
-<span id="cb18-1082"><a href="#cb18-1082" aria-hidden="true" tabindex="-1"></a>) <span class="sc">+</span> </span>
-<span id="cb18-1083"><a href="#cb18-1083" aria-hidden="true" tabindex="-1"></a>    <span class="fu">change_plot_aes_point</span>() <span class="sc">+</span> </span>
-<span id="cb18-1084"><a href="#cb18-1084" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">labs</span>(<span class="at">x =</span> <span class="st">""</span>, <span class="at">y =</span> <span class="st">""</span>)</span>
+<span id="cb18-1070"><a href="#cb18-1070" aria-hidden="true" tabindex="-1"></a><span class="in">#| label: fig-corr-risk-pathways</span></span>
+<span id="cb18-1071"><a href="#cb18-1071" aria-hidden="true" tabindex="-1"></a><span class="in">#| fig-cap: Correlation matrix for all pathways of interest and the two </span></span>
+<span id="cb18-1072"><a href="#cb18-1072" aria-hidden="true" tabindex="-1"></a><span class="in">#|     risk scores, both including the clinical factors and without the </span></span>
+<span id="cb18-1073"><a href="#cb18-1073" aria-hidden="true" tabindex="-1"></a><span class="in">#|     clinical factors.</span></span>
+<span id="cb18-1074"><a href="#cb18-1074" aria-hidden="true" tabindex="-1"></a><span class="in">ggcorrplot::ggcorrplot(</span></span>
+<span id="cb18-1075"><a href="#cb18-1075" aria-hidden="true" tabindex="-1"></a><span class="in">    corr_values,</span></span>
+<span id="cb18-1076"><a href="#cb18-1076" aria-hidden="true" tabindex="-1"></a><span class="in">    #hc.order = TRUE, </span></span>
+<span id="cb18-1077"><a href="#cb18-1077" aria-hidden="true" tabindex="-1"></a><span class="in">    type = "lower",</span></span>
+<span id="cb18-1078"><a href="#cb18-1078" aria-hidden="true" tabindex="-1"></a><span class="in">    lab = TRUE, </span></span>
+<span id="cb18-1079"><a href="#cb18-1079" aria-hidden="true" tabindex="-1"></a><span class="in">    lab_size = 6, </span></span>
+<span id="cb18-1080"><a href="#cb18-1080" aria-hidden="true" tabindex="-1"></a><span class="in">    ggtheme = ggplot2::theme_bw(base_size = 15), </span></span>
+<span id="cb18-1081"><a href="#cb18-1081" aria-hidden="true" tabindex="-1"></a><span class="in">    tl.cex = 20</span></span>
+<span id="cb18-1082"><a href="#cb18-1082" aria-hidden="true" tabindex="-1"></a><span class="in">) + </span></span>
+<span id="cb18-1083"><a href="#cb18-1083" aria-hidden="true" tabindex="-1"></a><span class="in">    change_plot_aes_point() + </span></span>
+<span id="cb18-1084"><a href="#cb18-1084" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::labs(x = "", y = "")</span></span>
 <span id="cb18-1085"><a href="#cb18-1085" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-1086"><a href="#cb18-1086" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1087"><a href="#cb18-1087" aria-hidden="true" tabindex="-1"></a>@fig-corr-risk-pathways shows that G2M checkpoint is highly correlated</span>
@@ -2155,21 +2433,21 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-1113"><a href="#cb18-1113" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-1114"><a href="#cb18-1114" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1115"><a href="#cb18-1115" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=10, fig.height=8}</span></span>
-<span id="cb18-1116"><a href="#cb18-1116" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-corr-risk-pathways-scanb</span></span>
-<span id="cb18-1117"><a href="#cb18-1117" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: Correlation matrix for all pathways of interest and the two </span></span>
-<span id="cb18-1118"><a href="#cb18-1118" aria-hidden="true" tabindex="-1"></a><span class="co">#|     risk scores, both including the clinical factors and without the </span></span>
-<span id="cb18-1119"><a href="#cb18-1119" aria-hidden="true" tabindex="-1"></a><span class="co">#|     clinical factors.</span></span>
-<span id="cb18-1120"><a href="#cb18-1120" aria-hidden="true" tabindex="-1"></a>ggcorrplot<span class="sc">::</span><span class="fu">ggcorrplot</span>(</span>
-<span id="cb18-1121"><a href="#cb18-1121" aria-hidden="true" tabindex="-1"></a>    corr_values,</span>
-<span id="cb18-1122"><a href="#cb18-1122" aria-hidden="true" tabindex="-1"></a>    <span class="co">#hc.order = TRUE, </span></span>
-<span id="cb18-1123"><a href="#cb18-1123" aria-hidden="true" tabindex="-1"></a>    <span class="at">type =</span> <span class="st">"lower"</span>,</span>
-<span id="cb18-1124"><a href="#cb18-1124" aria-hidden="true" tabindex="-1"></a>    <span class="at">lab =</span> <span class="cn">TRUE</span>, </span>
-<span id="cb18-1125"><a href="#cb18-1125" aria-hidden="true" tabindex="-1"></a>    <span class="at">lab_size =</span> <span class="dv">6</span>, </span>
-<span id="cb18-1126"><a href="#cb18-1126" aria-hidden="true" tabindex="-1"></a>    <span class="at">ggtheme =</span> ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">15</span>), </span>
-<span id="cb18-1127"><a href="#cb18-1127" aria-hidden="true" tabindex="-1"></a>    <span class="at">tl.cex =</span> <span class="dv">20</span></span>
-<span id="cb18-1128"><a href="#cb18-1128" aria-hidden="true" tabindex="-1"></a>) <span class="sc">+</span> </span>
-<span id="cb18-1129"><a href="#cb18-1129" aria-hidden="true" tabindex="-1"></a>    <span class="fu">change_plot_aes_point</span>() <span class="sc">+</span> </span>
-<span id="cb18-1130"><a href="#cb18-1130" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">labs</span>(<span class="at">x =</span> <span class="st">""</span>, <span class="at">y =</span> <span class="st">""</span>)</span>
+<span id="cb18-1116"><a href="#cb18-1116" aria-hidden="true" tabindex="-1"></a><span class="in">#| label: fig-corr-risk-pathways-scanb</span></span>
+<span id="cb18-1117"><a href="#cb18-1117" aria-hidden="true" tabindex="-1"></a><span class="in">#| fig-cap: Correlation matrix for all pathways of interest and the two </span></span>
+<span id="cb18-1118"><a href="#cb18-1118" aria-hidden="true" tabindex="-1"></a><span class="in">#|     risk scores, both including the clinical factors and without the </span></span>
+<span id="cb18-1119"><a href="#cb18-1119" aria-hidden="true" tabindex="-1"></a><span class="in">#|     clinical factors.</span></span>
+<span id="cb18-1120"><a href="#cb18-1120" aria-hidden="true" tabindex="-1"></a><span class="in">ggcorrplot::ggcorrplot(</span></span>
+<span id="cb18-1121"><a href="#cb18-1121" aria-hidden="true" tabindex="-1"></a><span class="in">    corr_values,</span></span>
+<span id="cb18-1122"><a href="#cb18-1122" aria-hidden="true" tabindex="-1"></a><span class="in">    #hc.order = TRUE, </span></span>
+<span id="cb18-1123"><a href="#cb18-1123" aria-hidden="true" tabindex="-1"></a><span class="in">    type = "lower",</span></span>
+<span id="cb18-1124"><a href="#cb18-1124" aria-hidden="true" tabindex="-1"></a><span class="in">    lab = TRUE, </span></span>
+<span id="cb18-1125"><a href="#cb18-1125" aria-hidden="true" tabindex="-1"></a><span class="in">    lab_size = 6, </span></span>
+<span id="cb18-1126"><a href="#cb18-1126" aria-hidden="true" tabindex="-1"></a><span class="in">    ggtheme = ggplot2::theme_bw(base_size = 15), </span></span>
+<span id="cb18-1127"><a href="#cb18-1127" aria-hidden="true" tabindex="-1"></a><span class="in">    tl.cex = 20</span></span>
+<span id="cb18-1128"><a href="#cb18-1128" aria-hidden="true" tabindex="-1"></a><span class="in">) + </span></span>
+<span id="cb18-1129"><a href="#cb18-1129" aria-hidden="true" tabindex="-1"></a><span class="in">    change_plot_aes_point() + </span></span>
+<span id="cb18-1130"><a href="#cb18-1130" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::labs(x = "", y = "")</span></span>
 <span id="cb18-1131"><a href="#cb18-1131" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-1132"><a href="#cb18-1132" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1133"><a href="#cb18-1133" aria-hidden="true" tabindex="-1"></a><span class="fu">## ABiM and nCounter data</span></span>
@@ -2261,38 +2539,38 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb18-1221"><a href="#cb18-1221" aria-hidden="true" tabindex="-1"></a>matches perfectly the molecular landscape.</span>
 <span id="cb18-1222"><a href="#cb18-1222" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1223"><a href="#cb18-1223" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, fig.width=9, fig.height=6}</span></span>
-<span id="cb18-1224"><a href="#cb18-1224" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-pca-abim100-cohort</span></span>
-<span id="cb18-1225"><a href="#cb18-1225" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: Embedding of all samples from TCGA, SCNAB and METABRIC including</span></span>
-<span id="cb18-1226"><a href="#cb18-1226" aria-hidden="true" tabindex="-1"></a><span class="co">#|     the samples from ABiM 100 that have matched nCounter data. </span></span>
-<span id="cb18-1227"><a href="#cb18-1227" aria-hidden="true" tabindex="-1"></a>abim_100_df_pca <span class="sc">%&gt;%</span></span>
-<span id="cb18-1228"><a href="#cb18-1228" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(</span>
-<span id="cb18-1229"><a href="#cb18-1229" aria-hidden="true" tabindex="-1"></a>        <span class="fu">aes</span>(<span class="at">x =</span> PC3, <span class="at">y =</span> PC4, <span class="at">color =</span> cohort)</span>
-<span id="cb18-1230"><a href="#cb18-1230" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
-<span id="cb18-1231"><a href="#cb18-1231" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">alpha =</span> cohort, <span class="at">size =</span> cohort)) <span class="sc">+</span></span>
-<span id="cb18-1232"><a href="#cb18-1232" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">scale_size_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(</span>
-<span id="cb18-1233"><a href="#cb18-1233" aria-hidden="true" tabindex="-1"></a>        <span class="st">"abim_100"</span> <span class="ot">=</span> <span class="dv">3</span>, </span>
-<span id="cb18-1234"><a href="#cb18-1234" aria-hidden="true" tabindex="-1"></a>        <span class="st">"tcga"</span> <span class="ot">=</span> <span class="dv">1</span>,</span>
-<span id="cb18-1235"><a href="#cb18-1235" aria-hidden="true" tabindex="-1"></a>        <span class="st">"scanb"</span> <span class="ot">=</span> <span class="dv">1</span>,</span>
-<span id="cb18-1236"><a href="#cb18-1236" aria-hidden="true" tabindex="-1"></a>        <span class="st">"metabric"</span> <span class="ot">=</span> <span class="dv">1</span></span>
-<span id="cb18-1237"><a href="#cb18-1237" aria-hidden="true" tabindex="-1"></a>    ), <span class="at">guide =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
-<span id="cb18-1238"><a href="#cb18-1238" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">scale_alpha_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(</span>
-<span id="cb18-1239"><a href="#cb18-1239" aria-hidden="true" tabindex="-1"></a>        <span class="st">"abim_100"</span> <span class="ot">=</span> <span class="dv">1</span>, </span>
-<span id="cb18-1240"><a href="#cb18-1240" aria-hidden="true" tabindex="-1"></a>        <span class="st">"tcga"</span> <span class="ot">=</span> <span class="fl">0.1</span>,</span>
-<span id="cb18-1241"><a href="#cb18-1241" aria-hidden="true" tabindex="-1"></a>        <span class="st">"scanb"</span> <span class="ot">=</span> <span class="fl">0.1</span>,</span>
-<span id="cb18-1242"><a href="#cb18-1242" aria-hidden="true" tabindex="-1"></a>        <span class="st">"metabric"</span> <span class="ot">=</span> <span class="fl">0.1</span></span>
-<span id="cb18-1243"><a href="#cb18-1243" aria-hidden="true" tabindex="-1"></a>    ), <span class="at">guide =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
-<span id="cb18-1244"><a href="#cb18-1244" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
-<span id="cb18-1245"><a href="#cb18-1245" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> <span class="st">"Cohort"</span>,</span>
-<span id="cb18-1246"><a href="#cb18-1246" aria-hidden="true" tabindex="-1"></a>        <span class="at">alpha =</span> <span class="st">"Cohort"</span>,</span>
-<span id="cb18-1247"><a href="#cb18-1247" aria-hidden="true" tabindex="-1"></a>        <span class="at">size =</span> <span class="st">"Cohort"</span>,</span>
-<span id="cb18-1248"><a href="#cb18-1248" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="fu">paste0</span>(</span>
-<span id="cb18-1249"><a href="#cb18-1249" aria-hidden="true" tabindex="-1"></a>            <span class="st">"ABiM 100 cohort embedding"</span></span>
-<span id="cb18-1250"><a href="#cb18-1250" aria-hidden="true" tabindex="-1"></a>        ),</span>
-<span id="cb18-1251"><a href="#cb18-1251" aria-hidden="true" tabindex="-1"></a>        <span class="at">subtitle =</span> <span class="st">"All samples from TCGA, SCANB and METABRIC are plotted"</span></span>
-<span id="cb18-1252"><a href="#cb18-1252" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span> </span>
-<span id="cb18-1253"><a href="#cb18-1253" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">18</span>) <span class="sc">+</span></span>
-<span id="cb18-1254"><a href="#cb18-1254" aria-hidden="true" tabindex="-1"></a>    <span class="fu">change_plot_aes_point</span>() <span class="sc">+</span></span>
-<span id="cb18-1255"><a href="#cb18-1255" aria-hidden="true" tabindex="-1"></a>    <span class="fu">change_guides_point</span>()</span>
+<span id="cb18-1224"><a href="#cb18-1224" aria-hidden="true" tabindex="-1"></a><span class="in">#| label: fig-pca-abim100-cohort</span></span>
+<span id="cb18-1225"><a href="#cb18-1225" aria-hidden="true" tabindex="-1"></a><span class="in">#| fig-cap: Embedding of all samples from TCGA, SCNAB and METABRIC including</span></span>
+<span id="cb18-1226"><a href="#cb18-1226" aria-hidden="true" tabindex="-1"></a><span class="in">#|     the samples from ABiM 100 that have matched nCounter data. </span></span>
+<span id="cb18-1227"><a href="#cb18-1227" aria-hidden="true" tabindex="-1"></a><span class="in">abim_100_df_pca %&gt;%</span></span>
+<span id="cb18-1228"><a href="#cb18-1228" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::ggplot(</span></span>
+<span id="cb18-1229"><a href="#cb18-1229" aria-hidden="true" tabindex="-1"></a><span class="in">        aes(x = PC3, y = PC4, color = cohort)</span></span>
+<span id="cb18-1230"><a href="#cb18-1230" aria-hidden="true" tabindex="-1"></a><span class="in">    ) +</span></span>
+<span id="cb18-1231"><a href="#cb18-1231" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::geom_point(aes(alpha = cohort, size = cohort)) +</span></span>
+<span id="cb18-1232"><a href="#cb18-1232" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::scale_size_manual(values = c(</span></span>
+<span id="cb18-1233"><a href="#cb18-1233" aria-hidden="true" tabindex="-1"></a><span class="in">        "abim_100" = 3, </span></span>
+<span id="cb18-1234"><a href="#cb18-1234" aria-hidden="true" tabindex="-1"></a><span class="in">        "tcga" = 1,</span></span>
+<span id="cb18-1235"><a href="#cb18-1235" aria-hidden="true" tabindex="-1"></a><span class="in">        "scanb" = 1,</span></span>
+<span id="cb18-1236"><a href="#cb18-1236" aria-hidden="true" tabindex="-1"></a><span class="in">        "metabric" = 1</span></span>
+<span id="cb18-1237"><a href="#cb18-1237" aria-hidden="true" tabindex="-1"></a><span class="in">    ), guide = "none") +</span></span>
+<span id="cb18-1238"><a href="#cb18-1238" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::scale_alpha_manual(values = c(</span></span>
+<span id="cb18-1239"><a href="#cb18-1239" aria-hidden="true" tabindex="-1"></a><span class="in">        "abim_100" = 1, </span></span>
+<span id="cb18-1240"><a href="#cb18-1240" aria-hidden="true" tabindex="-1"></a><span class="in">        "tcga" = 0.1,</span></span>
+<span id="cb18-1241"><a href="#cb18-1241" aria-hidden="true" tabindex="-1"></a><span class="in">        "scanb" = 0.1,</span></span>
+<span id="cb18-1242"><a href="#cb18-1242" aria-hidden="true" tabindex="-1"></a><span class="in">        "metabric" = 0.1</span></span>
+<span id="cb18-1243"><a href="#cb18-1243" aria-hidden="true" tabindex="-1"></a><span class="in">    ), guide = "none") +</span></span>
+<span id="cb18-1244"><a href="#cb18-1244" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::labs(</span></span>
+<span id="cb18-1245"><a href="#cb18-1245" aria-hidden="true" tabindex="-1"></a><span class="in">        color = "Cohort",</span></span>
+<span id="cb18-1246"><a href="#cb18-1246" aria-hidden="true" tabindex="-1"></a><span class="in">        alpha = "Cohort",</span></span>
+<span id="cb18-1247"><a href="#cb18-1247" aria-hidden="true" tabindex="-1"></a><span class="in">        size = "Cohort",</span></span>
+<span id="cb18-1248"><a href="#cb18-1248" aria-hidden="true" tabindex="-1"></a><span class="in">        title = paste0(</span></span>
+<span id="cb18-1249"><a href="#cb18-1249" aria-hidden="true" tabindex="-1"></a><span class="in">            "ABiM 100 cohort embedding"</span></span>
+<span id="cb18-1250"><a href="#cb18-1250" aria-hidden="true" tabindex="-1"></a><span class="in">        ),</span></span>
+<span id="cb18-1251"><a href="#cb18-1251" aria-hidden="true" tabindex="-1"></a><span class="in">        subtitle = "All samples from TCGA, SCANB and METABRIC are plotted"</span></span>
+<span id="cb18-1252"><a href="#cb18-1252" aria-hidden="true" tabindex="-1"></a><span class="in">    ) + </span></span>
+<span id="cb18-1253"><a href="#cb18-1253" aria-hidden="true" tabindex="-1"></a><span class="in">    ggplot2::theme_bw(base_size = 18) +</span></span>
+<span id="cb18-1254"><a href="#cb18-1254" aria-hidden="true" tabindex="-1"></a><span class="in">    change_plot_aes_point() +</span></span>
+<span id="cb18-1255"><a href="#cb18-1255" aria-hidden="true" tabindex="-1"></a><span class="in">    change_guides_point()</span></span>
 <span id="cb18-1256"><a href="#cb18-1256" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb18-1257"><a href="#cb18-1257" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-1258"><a href="#cb18-1258" aria-hidden="true" tabindex="-1"></a>@fig-abim100-cohort shows how well the ABiM cohort actually overlays </span>
@@ -2405,7 +2683,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     </div>   
     <div class="nav-footer-center">
       &nbsp;
-    </div>
+    <div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/chronchi/molecular_landscape/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div>
     <div class="nav-footer-right">
       <ul class="footer-items list-unstyled">
     <li class="nav-item compact">
@@ -2424,6 +2702,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     </div>
   </div>
 </footer>
+
 
 
 

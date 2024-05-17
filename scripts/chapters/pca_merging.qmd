@@ -669,7 +669,7 @@ correlation_df %>%
     ggplot2::coord_cartesian(ylim = c(0, 1)) + 
     ggplot2::labs(
         x = "Quantiles (%)", 
-        y = "Correlation",
+        y = "Spearman correlation",
         color = "Number of\ngenes"
     ) + 
     ggplot2::theme_bw(base_size = 20) +

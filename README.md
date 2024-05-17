@@ -38,52 +38,33 @@ before pushing to the main branch of github I check if there is any difference
 in the `renv.lock` file. If there is, a new image is automatically generated
 and submitted to docker hub to provide images for running the analysis. 
 
+One step that was crucial when creating the image was to first 
+isolate the cache from the package directly into the
+private library (`renv::isolate()`). This way we ensure that all
+the packages are copied to the docker image.
+
 After the image is run another Dockerfile is used to generate the report
 that will be used in the github pages. The report is saved in the 
 docs folder. So if you would like to run the analysis locally the only
 thing that you will need to do is run the command below at the root
-of this repository. Make sure to change the absolute path to the 
-volume so it fetches the scripts as well. 
+of this repository. You will need sudo access to run it.
 
 ```bash
 # clone the repo to have the latest script available
 git clone git@github.com:chronchi/molecular_landscape.git
 
-# remove the _freeze folder and current docs folder as well
-# to ensure that everything will be rerun again
-rm -r docs/ scripts/_freeze
-
-# change the flag that specified if everything should be run 
-# again, i.e., generating all the rds files from scratch (see below
-# for more details). By default it is FALSE.
-echo "first_run <- TRUE" > scripts/R/first_run.R
-
-# build the image that depends on chronchi/ember:latest 
-# available on docker hub
-sudo docker build \
-    --cpuset-cpus=0-30 \
-    -f Dockerfile.report \
-    -t run_analysis \
-    .
-
-# Run docker with previously built image to fetch the docs and store 
-# in the docs folder of the cloned repo
-sudo docker run --rm \
-    --name generate_docs \
-    -v .:/home/rstudio/ember:rw \
-    run_analysis
-
-# after the analysis is finished you can delete the image created
-# to generate the docs
-sudo docker rmi run_analysis
+bash generate_docs.sh
 ```
 
 After this you should be able to access the report on `docs/index.html`. 
 
+The docker image does not contain all the intermediate files necessary
+to run the analysis. They are generated when creating the docs.
+
 Moreover, if you want to play with the data and the code, you can access
 the RStudio server available from the docker image directly using the 
 commands below. The username is `rstudio` and the password is 
-`password`. The scripts in the docker image are the latest available upon
+`ember`. The scripts in the docker image are the latest available upon
 the creation of the image. Moreover, the rds files associated with
 each chapter are also available. 
 
@@ -91,7 +72,7 @@ each chapter are also available.
 docker run \
     -p 8000:8787 \
     --name ember \
-    -e PASSWORD=password \
+    -e PASSWORD=ember \
     chronchi/ember:latest
 ```
 

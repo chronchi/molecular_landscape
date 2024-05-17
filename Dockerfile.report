@@ -3,15 +3,27 @@
 # https://rap4mads.eu/09-docker.html
 # https://rap4mads.eu/10-github_actions.html
 
-
-# Here we use the chronchi/ember image to run the pipeline. Note that if 
+# Here we use the chronchi/ember image to run the pipeline. Note that if
 # we start adding more packages the ember image needs to be updated to account
 # for that. This Dockerfile here is created for the paper version
+#
+# we will use the suggested pipeline found here to get the documents:
+# https://stackoverflow.com/questions/22049212/copying-files-from-docker-container-to-host
+# one builds the image creating the docs, then creates a container just
+# to fetch the docs and after that deletes the container
 
 FROM chronchi/ember:latest
 
-COPY scripts/ /home/rstudio/ember/scripts/
+COPY scripts /home/rstudio/ember/scripts
 
+# remove previous docs and _freeze so everything is forced to be rerun
+RUN rm -r docs scripts/_freeze
+
+# set the working directory as this is where the _quarto.yml file is
 WORKDIR /home/rstudio/ember/scripts
 
-CMD ["bash", "quarto_render.sh"]
+# modify this so all chunks will be evaluated and a fresh docs
+# is generated
+RUN echo "first_run <- TRUE" > R/first_run.R
+
+RUN quarto render --to=html

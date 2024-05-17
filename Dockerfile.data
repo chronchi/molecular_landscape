@@ -31,15 +31,16 @@ RUN apt-get clean all && \
         liblzma-dev \
         libglpk40 \
         libgit2-28 \
-        vim \
+        vim \	
+	default-jre-headless \
     && apt-get clean all && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # install quarto so we can compile the book
-RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.0.37/quarto-1.0.37-linux-amd64.deb
-RUN dpkg -i quarto-1.0.37-linux-amd64.deb
-RUN rm quarto-1.0.37-linux-amd64.deb
+RUN wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.4.554/quarto-1.4.554-linux-amd64.deb
+RUN dpkg -i quarto-1.4.554-linux-amd64.deb
+RUN rm quarto-1.4.554-linux-amd64.deb
 
 WORKDIR /home/rstudio/ember
 
@@ -63,5 +64,8 @@ RUN chown -R rstudio docs/
 # create new folders
 RUN chown -R rstudio /home/rstudio/ember
 
-# initialize the renv repo
-# RUN R -q -e 'renv::restore()'
+# initialize the renv repo. This is necessary as it will 
+# renv will download and install the requisite packages as appropriate when the image is created
+# according to the documentation
+# (https://rstudio.github.io/renv/articles/docker.html)
+RUN R -q -e 'renv::restore()'

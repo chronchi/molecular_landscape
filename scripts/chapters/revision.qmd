@@ -324,6 +324,14 @@ p3 <- df_ae2_codings %>%
 p3
 ```
 
+```{r, fig.width=14, fig.height=5}
+cowplot::plot_grid(
+    p2, p3,
+    nrow = 1
+)
+```
+
+
 ```{r, fig.width=20, fig.height=4}
 #| label: fig-ae-4-units-ae
 cowplot::plot_grid(
@@ -1427,7 +1435,7 @@ or by distant metastasis.
 
 ```{r, fig.width=12, fig.height=5}
 #| label: fig-mets-local-distant
-sum_exp_df_pca %>%
+p_dist_local <- sum_exp_df_pca %>%
     dplyr::filter(cohort == "mets_project") %>%
     ggplot2::ggplot(aes(
         x = PC3, y = PC4, group = PATIENT_ID
@@ -1460,7 +1468,31 @@ sum_exp_df_pca %>%
         )
     ) + 
     change_plot_aes_point()
+
+p_dist_local
 ```
+
+Both combined for the response to reviewers:
+
+```{r, fig.width=20, fig.height=5}
+cowplot::plot_grid(
+    plots_ffpe$er_status + 
+        ggplot2::labs(
+            subtitle = NULL,
+            color = "ER IHC"
+        ) + 
+        ggplot2::scale_color_manual(
+            values = viridis::viridis(n=3),
+            labels = c("Negative", "Not available", "Positive")
+        ) + 
+        change_plot_aes_point() + 
+        change_guides_point(),
+    p_dist_local,
+    nrow = 1,
+    rel_widths = c(0.7, 1)
+)
+```
+
 
 ## TNBC and ER+ 
 
@@ -1661,7 +1693,7 @@ library protocol, namely: dUTP, NeoPrep and TruSeq.
 Here we show that EMBER is capable of fully removing any
 effects associated to library protocol.
 
-```{r, fig.width=5, fig.height=13}
+```{r, fig.width=9, fig.height=6}
 #| label: fig-scanb-libprep
 
 sub_scanb <- df_pca %>% 
@@ -1683,7 +1715,7 @@ ilisi_coefficient <- 1/(
 
 expected_ilisi_vals <- c(round(ilisi_coefficient, digits = 2))
 
-df_pca %>% 
+df_pca %>%
     dplyr::filter(cohort == "scanb") %>%
     ggplot2::ggplot(aes(
         x = PC3,
@@ -1691,7 +1723,7 @@ df_pca %>%
         color = LibraryProtocol
     )) + 
     ggplot2::geom_point() + 
-    ggplot2::facet_wrap(~LibraryProtocol, ncol = 1) +
+    #ggplot2::facet_wrap(~LibraryProtocol, ncol = 1) +
     ggplot2::labs(
         title = paste0(
             "LISI score: ", 
@@ -1700,8 +1732,9 @@ df_pca %>%
             "Expected maximum LISI score: ", unname(expected_ilisi_vals)
         )
     ) + 
-    ggplot2::theme_bw(base_size = 19) + 
-    ggplot2::theme(legend.position = "none")
+    ggplot2::theme_bw(base_size = 20) + 
+    change_plot_aes_point() +
+    change_guides_point()
 ```
 
 ## Scaling before doing PCA
