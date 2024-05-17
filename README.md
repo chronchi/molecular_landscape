@@ -65,8 +65,7 @@ Moreover, if you want to play with the data and the code, you can access
 the RStudio server available from the docker image directly using the 
 commands below. The username is `rstudio` and the password is 
 `ember`. The scripts in the docker image are the latest available upon
-the creation of the image. Moreover, the rds files associated with
-each chapter are also available. 
+the creation of the image. RStudio can be run from `localhost:8000` after that.
 
 ```bash
 docker run \
@@ -76,4 +75,19 @@ docker run \
     chronchi/ember:latest
 ```
 
-RStudio can be run from `localhost:8000` after that.
+At the beginning of each chapter 
+(with exception of the first one `surv_analysis_estrogen.qmd`), files
+that were created in the previous chapters are loaded. Therefore it is 
+important to run everything in order according to the `_quarto.yml` file.
+
+My suggestion is to run docker, open the container/rstudio, then go
+to the scripts folder and run the following: 
+
+```bash
+echo "first_run <- TRUE" > R/first_run.R
+
+bash quarto render --to=html
+```
+
+This will generate the docs and all the associated RDS files. This way
+you can go to any script and run the analysis there.
