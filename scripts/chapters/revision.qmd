@@ -1371,8 +1371,12 @@ sum_exp_df_pca <- get_pca_coordinates(sum_exp_normalized, pca_fit) %>%
                 ),
                 is_distant_mets = ifelse(
                     BX_TIME_DAYS > 0 & BX_LOCATION != "BREAST",
-                    "Distant Metastasis",
-                    "Primary or local Mets"
+                    "Distant Metastases",
+                    ifelse(
+                        BX_LOCATION == "BREAST",
+                        "Primary",
+                        "Distant Metastases"
+                    )
                 )
             )
     ) %>% 
@@ -1489,7 +1493,8 @@ cowplot::plot_grid(
         change_guides_point(),
     p_dist_local,
     nrow = 1,
-    rel_widths = c(0.7, 1)
+    rel_widths = c(0.7, 1),
+    labels = c("5d", "2h")
 )
 ```
 
