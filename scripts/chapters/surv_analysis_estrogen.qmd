@@ -1905,6 +1905,9 @@ tables_survival %>%
     ggplot2::theme(plot.caption = ggplot2::element_text(size = 15))
 ```
 
+Below we show the correlation between estrogen response early and
+SET ER/PR using the ER+ HER2- BC samples.
+
 ```{r}
 cor.test(
     colData(datasets$scanb)[
@@ -1932,6 +1935,7 @@ cor.test(
 )
 ```
 
+In general they are positively correlated but not to the extreme.
 
 ## Comparison of ER IHC and molecular ER signaling
 
@@ -2558,7 +2562,7 @@ tidy_results_hr <-
     broom::tidy(exponentiate = TRUE)
 
 plot_fit_km$plot <- plot_fit_km$plot +
-    ggplot2::labs(title = "Estrogen early\nER+ BC, Endo only") + 
+    ggplot2::labs(title = "Estrogen early, ER+ BC, Endo only") + 
     ggplot2::scale_color_hue(labels = names(labels_er_ihc)) + 
     ggplot2::scale_linetype_discrete(guide = "none") +
     ggplot2::annotate(
@@ -2591,9 +2595,29 @@ plot_fit_km$plot <- plot_fit_km$plot +
         x = "Time (in months)"
     ) + 
     ggplot2::guides(color = ggplot2::guide_legend(nrow=2,byrow=TRUE)) + 
-    ggplot2::theme(legend.position = "top")
+    ggplot2::theme(
+        legend.position = "top",
+        legend.justification = "left",
+        legend.direction = "horizontal"
+    )
+
+strata_levels <- levels(plot_fit_km$table$data$strata)
+
+plot_fit_km$table <- plot_fit_km$table +
+    ggplot2::scale_y_discrete(
+        breaks = names(labels_er_ihc) %>%
+            `names<-`(strata_levels)
+    ) +
+    ggplot2::scale_color_hue(labels = names(labels_er_ihc)) +
+    ggplot2::theme(legend.position = "none")
 
 plot_fit_km$plot
+```
+
+And including the number of events.
+
+```{r, fig.width=8, fig.height=10}
+plot_fit_km
 ```
 
 In both cases there is a good distinction between low ER sig/High ER IHC and

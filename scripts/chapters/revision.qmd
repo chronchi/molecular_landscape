@@ -1346,6 +1346,11 @@ assay(sum_exp, "logcpm") <- edgeR::cpm(
     log = TRUE
 )
 
+saveRDS(
+    sum_exp,
+    "../../results/rds_files/revision/sum_exp_mets.rds"
+)
+
 sum_exp_normalized <- get_final_ranking_values(
     sum_exp = sum_exp,
     assay_to_use = "logcpm",
@@ -1381,6 +1386,11 @@ sum_exp_df_pca <- get_pca_coordinates(sum_exp_normalized, pca_fit) %>%
             )
     ) %>% 
     dplyr::bind_rows(., df_pca)
+
+saveRDS(
+    sum_exp_df_pca,
+    "../../results/rds_files/revision/sum_exp_df_pca_mets.rds"
+)
 ```
 
 ```{r}

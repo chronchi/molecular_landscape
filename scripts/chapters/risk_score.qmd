@@ -72,6 +72,15 @@ source("../R/load_rds_files.R")
 # to use ggplot2::ggsave to save the plots. this also works 
 knitr::opts_chunk$set(dev = c('png', 'pdf'))
 options(bitmapType = 'cairo')
+
+mol_subs <- c(
+    "basal" = "Basal-like", 
+    "her2"= "HER2-enriched", 
+    "lumb" = "LumB", 
+    "luma" = "LumA", 
+    "normal" = "Normal-like",
+    "claudin-low" = "Claudin-low"
+)
 ```
 
 
@@ -1080,7 +1089,7 @@ They have matched RNA-seq data as well. Here we will use the
 ROR obtained from the nCounter data and use the RNA-seq to 
 calculate the risk score here developed. 
 
-```{r}
+```{r, eval = first_run}
 # load the data and perform the normalization + embedding
 load("../../data/scanb_2022/ABiM.100.mymatrix.Rdata")
 load("../../data/scanb_2022/Gene.ID.ann.Rdata")
@@ -1256,18 +1265,28 @@ abim_100$risk_score <- calculate_risk_score(
 #|     the principal components and clinical factors versus the Prosigna
 #|     ROR obtained from the nCounter data and evaluated by Prosigna. Cohort
 #|     used is the ABiM 100 samples. 
-df_abim_100 <- colData(abim_100) %>%
-    data.frame
+df_abim_100_erp <- colData(abim_100) %>%
+    data.frame %>%
+    dplyr::filter(!is.na(risk_score) & ER == "Positive")
 
-df_abim_100 %>%
-    dplyr::filter(!is.na(risk_score)) %>%
+correlation_val <- cor.test(
+    df_abim_100_erp$ProsignaFT.ROR,
+    df_abim_100_erp$risk_score, 
+    method = "spearman"
+) %>% 
+    broom::tidy() %>%
+    dplyr::mutate(dplyr::across(
+        c(estimate, p.value), 
+        \(x) format(x, digits = 2)
+    ))
+
+df_abim_100_erp %>%
     ggplot2::ggplot(aes(
         x = risk_score,
         y = ProsignaFT.ROR,
-        color = pam50
+        color = tolower(ProsignaFT.Subtype)
     )) + 
     ggplot2::geom_point() + 
-    ggplot2::scale_color_manual(values = get_colors_pam50(df_abim_100)) +
     ggplot2::geom_smooth(
         color = "black",
         method = "gam",
@@ -1277,9 +1296,21 @@ df_abim_100 %>%
     ggplot2::labs(
         x = "Risk score",
         y = "ROR Prosigna FT", 
-        color = "PAM50",
-        title = "ABiM 100 samples and risk scores",
-        caption = "FT: fresh-frozen tissue"
+        color = "Prosigna\nmolecular\nsubtype",
+        title = "ER+ BC samples from the ABiM cohort",
+        caption = "FT: fresh-frozen tissue\nROR: Risk of recurrence"
+    ) +
+    ggplot2::geom_label(
+        label = paste0("Rho: ", correlation_val$estimate),
+        x = -0.15,
+        y = 100,
+        inherit.aes = FALSE,
+        size = 5,
+        color = "black"
+    ) + 
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(df_abim_100_erp),
+        labels = mol_subs
     ) +
     change_guides_point() + 
     change_plot_aes_point()
@@ -1293,3 +1324,46 @@ ROR but different risk score, showing that the risk. Also some
 of the basal samples have smaller ROR than some of the luminal
 B and A samples, and the risk score captures these differences, i.e.,
 all basal samples have risk scores higher than 0.75.
+
+And below including all samples.
+
+```{r}
+colData(abim_100) %>%
+    data.frame %>%
+    dplyr::filter(!is.na(risk_score)) %>%
+    ggplot2::ggplot(aes(
+        x = risk_score,
+        y = ProsignaFT.ROR,
+        color = tolower(ProsignaFT.Subtype)
+    )) + 
+    ggplot2::geom_point() + 
+    ggplot2::geom_smooth(
+        color = "black",
+        method = "gam",
+        formula = y ~ s(x, bs = "cs")
+    ) +
+    ggplot2::theme_bw(base_size = 15) +
+    ggplot2::labs(
+        x = "Risk score",
+        y = "ROR Prosigna FT", 
+        color = "Prosigna\nmolecular\nsubtype",
+        title = "All BC samples from the ABiM cohort",
+        caption = "FT: fresh-frozen tissue\nROR: Risk of recurrence"
+    ) +
+    ggplot2::geom_label(
+        label = paste0("Rho: ", correlation_val$estimate),
+        x = -0.15,
+        y = 100,
+        inherit.aes = FALSE,
+        size = 5,
+        color = "black"
+    ) + 
+    ggplot2::scale_color_manual(
+        values = get_colors_pam50(df_abim_100_erp),
+        labels = mol_subs
+    ) +
+    change_guides_point() + 
+    change_plot_aes_point()
+```
+
+

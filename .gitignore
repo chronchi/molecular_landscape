@@ -13,3 +13,4 @@ results/*
 !results/tables/risk_score/risk_score_model.csv
 corrections/
 manuscript/
+scripts/chapters/scheme.qmd

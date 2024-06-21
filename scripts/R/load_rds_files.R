@@ -65,7 +65,9 @@ db_files <- list(
         poetic_normalized = "poetic_normalized",
         risk_score_model = "risk_score_model",
         coefs_risk_model = "coefs_risk_model",
-        coefs_risk_model_pcs = "coefs_risk_model_pcs"
+        coefs_risk_model_pcs = "coefs_risk_model_pcs",
+        abim_100_df_pca = "abim_100_df_pca",
+        abim_100 = "abim_100"
     ),
     expanding_ember = c(
         datasets = "datasets_with_poetic",
